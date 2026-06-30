@@ -66,14 +66,14 @@ backend/sql/001_init.sql
 ```http
 GET /health
 GET /api/exhibits
+POST /api/exhibits
 GET /api/exhibits/{id}
+PUT /api/exhibits/{id}
+DELETE /api/exhibits/{id}
 GET /api/exhibits/{id}/graph
 ```
 
 ## 下一步
 
 - 增加 PostgreSQL 数据访问层
-- 增加 `POST /api/exhibits`
-- 增加 `PUT /api/exhibits/{id}`
-- 增加软删除 `DELETE /api/exhibits/{id}`
 - 前端从 localStorage 切换为调用后端 API

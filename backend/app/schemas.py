@@ -45,6 +45,32 @@ class ExhibitResponse(BaseModel):
     related_exhibit_ids: list[str] = Field(default_factory=list)
 
 
+class ExhibitWriteRequest(BaseModel):
+    id: str
+    name: str
+    category: str
+    theme: EntityRef
+    venue_type: str
+    budget_min: int = Field(ge=0)
+    budget_max: int = Field(ge=0)
+    materials: list[EntityRef]
+    dimensions: str
+    interactions: list[EntityRef]
+    supplier: EntityRef
+    project: EntityRef
+    owner: EntityRef
+    project_year: int
+    status: str
+    description: str
+    tags: list[str] = Field(default_factory=list)
+    media_assets: list[MediaAsset] = Field(default_factory=list)
+    documents: list[DocumentAsset] = Field(default_factory=list)
+    related_exhibit_ids: list[str] = Field(default_factory=list)
+
+    def to_response(self) -> ExhibitResponse:
+        return ExhibitResponse(**self.model_dump())
+
+
 class ExhibitListResponse(BaseModel):
     total: int
     items: list[ExhibitResponse]

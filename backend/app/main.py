@@ -1,8 +1,8 @@
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from .repository import ExhibitRepository
-from .schemas import ExhibitListResponse, ExhibitResponse, GraphResponse
+from .schemas import ExhibitListResponse, ExhibitResponse, ExhibitWriteRequest, GraphResponse
 from .services.graph import build_exhibit_graph
 
 app = FastAPI(
@@ -28,6 +28,17 @@ def not_found(exhibit_id: str) -> HTTPException:
         detail={
             "error": "NotFound",
             "message": "Exhibit not found",
+            "details": {"id": exhibit_id},
+        },
+    )
+
+
+def conflict(exhibit_id: str) -> HTTPException:
+    return HTTPException(
+        status_code=409,
+        detail={
+            "error": "Conflict",
+            "message": "Exhibit id already exists",
             "details": {"id": exhibit_id},
         },
     )
@@ -70,6 +81,30 @@ def get_exhibit(exhibit_id: str) -> ExhibitResponse:
     if exhibit is None:
         raise not_found(exhibit_id)
     return exhibit
+
+
+@app.post("/api/exhibits", response_model=ExhibitResponse, status_code=status.HTTP_201_CREATED)
+def create_exhibit(payload: ExhibitWriteRequest) -> ExhibitResponse:
+    try:
+        return repository.create_exhibit(payload.to_response())
+    except ValueError:
+        raise conflict(payload.id)
+
+
+@app.put("/api/exhibits/{exhibit_id}", response_model=ExhibitResponse)
+def update_exhibit(exhibit_id: str, payload: ExhibitWriteRequest) -> ExhibitResponse:
+    updated = repository.update_exhibit(exhibit_id, payload.to_response())
+    if updated is None:
+        raise not_found(exhibit_id)
+    return updated
+
+
+@app.delete("/api/exhibits/{exhibit_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_exhibit(exhibit_id: str) -> Response:
+    deleted = repository.delete_exhibit(exhibit_id)
+    if not deleted:
+        raise not_found(exhibit_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @app.get("/api/exhibits/{exhibit_id}/graph", response_model=GraphResponse)

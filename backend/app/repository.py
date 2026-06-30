@@ -126,10 +126,36 @@ seed_exhibits = [
 
 class ExhibitRepository:
     def __init__(self, exhibits: list[ExhibitResponse] | None = None):
-        self._exhibits = exhibits or seed_exhibits
+        self._exhibits = list(exhibits or seed_exhibits)
+        self._deleted_ids: set[str] = set()
 
     def get_exhibit(self, exhibit_id: str) -> ExhibitResponse | None:
+        if exhibit_id in self._deleted_ids:
+            return None
         return next((item for item in self._exhibits if item.id == exhibit_id), None)
+
+    def create_exhibit(self, exhibit: ExhibitResponse) -> ExhibitResponse:
+        if self.get_exhibit(exhibit.id) is not None:
+            raise ValueError("duplicate_exhibit_id")
+        self._deleted_ids.discard(exhibit.id)
+        self._exhibits.append(exhibit)
+        return exhibit
+
+    def update_exhibit(self, exhibit_id: str, exhibit: ExhibitResponse) -> ExhibitResponse | None:
+        if exhibit_id in self._deleted_ids:
+            return None
+        for index, current in enumerate(self._exhibits):
+            if current.id == exhibit_id:
+                updated = exhibit.model_copy(update={"id": exhibit_id})
+                self._exhibits[index] = updated
+                return updated
+        return None
+
+    def delete_exhibit(self, exhibit_id: str) -> bool:
+        if self.get_exhibit(exhibit_id) is None:
+            return False
+        self._deleted_ids.add(exhibit_id)
+        return True
 
     def list_exhibits(
         self,
@@ -146,6 +172,7 @@ class ExhibitRepository:
         return [
             item
             for item in self._exhibits
+            if item.id not in self._deleted_ids
             if self._matches(
                 item,
                 keyword=keyword,

@@ -66,3 +66,78 @@ def test_unknown_exhibit_returns_404():
 
     assert response.status_code == 404
     assert response.json()["detail"]["error"] == "NotFound"
+
+
+def test_create_exhibit_persists_record_and_relationships():
+    payload = {
+        "id": "magnet-maze",
+        "name": "磁力迷宫",
+        "category": "基础科学",
+        "theme": {"id": "electromagnetism", "name": "电磁学"},
+        "venue_type": "儿童科技馆",
+        "budget_min": 180000,
+        "budget_max": 320000,
+        "materials": [{"id": "acrylic", "name": "亚克力"}],
+        "dimensions": "3600x1800x1800mm",
+        "interactions": [{"id": "hands-on", "name": "动手实验"}],
+        "supplier": {"id": "qisi", "name": "启思互动工坊"},
+        "project": {"id": "qinghe-2024", "name": "青禾儿童科技馆更新项目"},
+        "owner": {"id": "qinghe-owner", "name": "青禾儿童科技馆"},
+        "project_year": 2024,
+        "status": "概念方案",
+        "description": "通过磁铁和轨道迷宫演示磁力吸引与排斥。",
+        "tags": ["低龄儿童", "电磁学"],
+        "media_assets": [],
+        "documents": [],
+        "related_exhibit_ids": ["lever-play"],
+    }
+
+    create_response = client.post("/api/exhibits", json=payload)
+    assert create_response.status_code == 201
+    assert create_response.json()["id"] == "magnet-maze"
+
+    detail_response = client.get("/api/exhibits/magnet-maze")
+    assert detail_response.status_code == 200
+    assert detail_response.json()["name"] == "磁力迷宫"
+
+    graph_response = client.get("/api/exhibits/magnet-maze/graph")
+    edge_types = {edge["type"] for edge in graph_response.json()["edges"]}
+    assert "has_theme" in edge_types
+    assert "similar_to" in edge_types
+
+
+def test_create_exhibit_rejects_duplicate_id():
+    payload = client.get("/api/exhibits/lever-play").json()
+
+    response = client.post("/api/exhibits", json=payload)
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["error"] == "Conflict"
+
+
+def test_update_exhibit_replaces_existing_record():
+    payload = client.get("/api/exhibits/lever-play").json()
+    payload["name"] = "杠杆乐园 Pro"
+    payload["materials"] = [{"id": "steel", "name": "钢结构"}]
+
+    response = client.put("/api/exhibits/lever-play", json=payload)
+
+    assert response.status_code == 200
+    assert response.json()["name"] == "杠杆乐园 Pro"
+    assert response.json()["materials"] == [{"id": "steel", "name": "钢结构"}]
+
+
+def test_delete_exhibit_soft_removes_from_list_and_detail():
+    create_payload = client.get("/api/exhibits/pulley-wall").json()
+    create_payload["id"] = "delete-me"
+    client.post("/api/exhibits", json=create_payload)
+
+    delete_response = client.delete("/api/exhibits/delete-me")
+    assert delete_response.status_code == 204
+
+    detail_response = client.get("/api/exhibits/delete-me")
+    assert detail_response.status_code == 404
+
+    list_response = client.get("/api/exhibits")
+    ids = {item["id"] for item in list_response.json()["items"]}
+    assert "delete-me" not in ids
