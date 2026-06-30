@@ -62,6 +62,23 @@ afterEach(() => {
 });
 
 describe('App exhibit management', () => {
+  it('shows a lightweight placeholder while the Neo4j graph renderer is lazy loaded', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.endsWith('/api/exhibits/magnet-maze/graph')) {
+        return okJson({
+          nodes: [{ id: 'exhibit:magnet-maze', label: 'Current Exhibit', type: 'exhibit' }],
+          edges: []
+        });
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText('加载 Neo4j 图谱...')).toBeTruthy();
+  });
+
   it('renders graph nodes from the backend graph API', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
       const url = String(input);

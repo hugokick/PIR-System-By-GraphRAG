@@ -1,6 +1,4 @@
-import { FormEvent, SyntheticEvent, useEffect, useMemo, useRef, useState } from 'react';
-import type { Layout, Node as NvlNode, Relationship as NvlRelationship } from '@neo4j-nvl/base';
-import { InteractiveNvlWrapper } from '@neo4j-nvl/react';
+import { FormEvent, Suspense, SyntheticEvent, lazy, useEffect, useMemo, useState } from 'react';
 import {
   BarChart3,
   Database,
@@ -92,56 +90,7 @@ const graphNodeColors: Record<string, string> = {
   document: '#50677d'
 };
 
-const nvlForceDirectedLayout = 'forceDirected' as Layout;
-
-function nvlCanUseDomRenderer() {
-  if (typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('jsdom')) return false;
-  if (typeof document === 'undefined') return false;
-  return true;
-}
-
-function collectGraphNeighborIds(graph: { nodes: GraphNode[]; edges: GraphEdge[] }, selectedNodeId: string | null) {
-  const ids = new Set<string>();
-  if (!selectedNodeId) return ids;
-  ids.add(selectedNodeId);
-  graph.edges.forEach((edge) => {
-    if (edge.source === selectedNodeId) ids.add(edge.target);
-    if (edge.target === selectedNodeId) ids.add(edge.source);
-  });
-  return ids;
-}
-
-function buildNvlGraphData(graph: { nodes: GraphNode[]; edges: GraphEdge[] }, selectedNodeId: string | null) {
-  const neighborIds = collectGraphNeighborIds(graph, selectedNodeId);
-  const nodes: NvlNode[] = graph.nodes.map((node) => ({
-    id: node.id,
-    caption: node.label,
-    color: graphNodeColors[node.kind] ?? '#607d75',
-    size: node.id === selectedNodeId ? 44 : 34,
-    selected: node.id === selectedNodeId,
-    disabled: Boolean(selectedNodeId) && !neighborIds.has(node.id),
-    captions: [
-      {
-        value: node.label,
-        styles: ['bold']
-      },
-      {
-        value: node.kind
-      }
-    ]
-  }));
-  const rels: NvlRelationship[] = graph.edges.map((edge) => ({
-    id: `${edge.source}->${edge.target}:${edge.type ?? edge.label}`,
-    from: edge.source,
-    to: edge.target,
-    type: edge.type ?? edge.label,
-    caption: edge.type ?? edge.label,
-    color: Boolean(selectedNodeId) && (edge.source === selectedNodeId || edge.target === selectedNodeId) ? '#4361a8' : '#9aaba5',
-    width: Boolean(selectedNodeId) && (edge.source === selectedNodeId || edge.target === selectedNodeId) ? 3 : 2,
-    disabled: Boolean(selectedNodeId) && edge.source !== selectedNodeId && edge.target !== selectedNodeId
-  }));
-  return { nodes, rels };
-}
+const LazyNvlGraphView = lazy(() => import('./NvlGraphView'));
 
 const fallbackImage =
   'data:image/svg+xml;utf8,' +
@@ -208,7 +157,6 @@ function makeExhibitFromForm(form: HTMLFormElement, existingItem?: Exhibit): Exh
 }
 
 export function App() {
-  const graphRef = useRef<any>(null);
   const [items, setItems] = useState<Exhibit[]>(() => loadExhibits());
   const [role, setRole] = useState<UserRole>(() => {
     const initialRole = readInitialRole();
@@ -302,7 +250,6 @@ export function App() {
         ? remoteGraph
         : fallbackGraph;
   const graphSourceLabel = graphMode === 'demo' || isRemoteGraph ? 'Neo4j 图数据库' : '本地轻量图谱';
-  const graphData = useMemo(() => buildNvlGraphData(graph, selectedGraphNodeId), [graph, selectedGraphNodeId]);
   const selectedGraphNode = graph.nodes.find((node) => node.id === selectedGraphNodeId) ?? graph.nodes[0] ?? null;
   const stats = useMemo(() => graphStats(items), [items]);
   const canWrite = role !== 'viewer';
@@ -395,14 +342,6 @@ export function App() {
       setSelectedGraphNodeId(graph.nodes[0].id);
     }
   }, [graph.nodes, selectedGraphNodeId]);
-
-  useEffect(() => {
-    if (!nvlCanUseDomRenderer()) return;
-    const timer = window.setTimeout(() => {
-      graphRef.current?.fit?.(graph.nodes.map((node) => node.id));
-    }, 120);
-    return () => window.clearTimeout(timer);
-  }, [graphMode, graph.nodes.length, graph.edges.length, graphLayoutVersion]);
 
   const updateFilter = (key: keyof ExhibitFilters, value: string) => {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -613,9 +552,6 @@ export function App() {
   };
 
   const relayoutGraph = () => {
-    graphRef.current?.setLayout?.(nvlForceDirectedLayout);
-    graphRef.current?.restart?.();
-    graphRef.current?.fit?.(graph.nodes.map((node) => node.id));
     setGraphLayoutVersion((value) => value + 1);
   };
 
@@ -1010,34 +946,15 @@ export function App() {
                 {graphError && <div className="graph-error">{graphError}</div>}
                 <div className="graph-enhanced">
                   <div className="nvl-canvas" role="img" aria-label="Neo4j 交互式知识图谱">
-                    {nvlCanUseDomRenderer() ? (
-                      <InteractiveNvlWrapper
-                        key={`${graphMode}-${graphLayoutVersion}`}
-                        ref={graphRef}
-                        nodes={graphData.nodes}
-                        rels={graphData.rels}
-                        layout={nvlForceDirectedLayout}
-                        nvlOptions={{
-                          disableTelemetry: true,
-                          renderer: 'canvas',
-                          minZoom: 0.2,
-                          maxZoom: 4
-                        }}
-                        mouseEventCallbacks={{
-                          onNodeClick: (node) => setSelectedGraphNodeId(node.id),
-                          onNodeDoubleClick: (node) => {
-                            setSelectedGraphNodeId(node.id);
-                            graphRef.current?.fit?.([node.id]);
-                          },
-                          onDrag: true,
-                          onPan: true,
-                          onZoom: true
-                        }}
-                        interactionOptions={{ selectOnClick: true }}
+                    <Suspense fallback={<div className="nvl-test-fallback">加载 Neo4j 图谱...</div>}>
+                      <LazyNvlGraphView
+                        graph={graph}
+                        selectedNodeId={selectedGraphNodeId}
+                        layoutVersion={graphLayoutVersion}
+                        nodeColors={graphNodeColors}
+                        onNodeSelect={setSelectedGraphNodeId}
                       />
-                    ) : (
-                      <div className="nvl-test-fallback">NVL 图谱将在浏览器中渲染</div>
-                    )}
+                    </Suspense>
                   </div>
                   <aside className="graph-inspector">
                     {selectedGraphNode && (
