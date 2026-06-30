@@ -39,6 +39,7 @@ seed_exhibits = [
         owner=EntityRef(id="qinghe-owner", name="青禾儿童科技馆"),
         project_year=2024,
         status="已落地",
+        review_status="已审核",
         description="通过推拉、配重和跷跷板结构帮助低龄儿童理解杠杆原理，适合亲子共同操作。",
         tags=["低龄儿童", "力学", "预算适中", "高互动"],
         media_assets=[
@@ -84,6 +85,7 @@ seed_exhibits = [
         owner=EntityRef(id="qinghe-owner", name="青禾儿童科技馆"),
         project_year=2024,
         status="制作中",
+        review_status="待审核",
         description="观众通过不同滑轮组提升同一重物，比较省力效果和路径差异。",
         tags=["低龄儿童", "力学", "低预算", "多人协作"],
         media_assets=[
@@ -121,6 +123,7 @@ seed_exhibits = [
         owner=EntityRef(id="jiangbei-owner", name="江北科技馆"),
         project_year=2022,
         status="维护中",
+        review_status="已退回",
         description="用实体沙盘、循环水路和投影叠加展示城市降雨、排水、净化和再利用过程。",
         tags=["生态", "水循环", "模型沙盘"],
         media_assets=[
@@ -205,6 +208,7 @@ class ExhibitRepository:
         material: str | None = None,
         interaction: str | None = None,
         status: str | None = None,
+        review_status: str | None = None,
         budget_min: int | None = None,
         budget_max: int | None = None,
     ) -> list[ExhibitResponse]:
@@ -222,6 +226,7 @@ class ExhibitRepository:
                 material=material,
                 interaction=interaction,
                 status=status,
+                review_status=review_status,
                 budget_min=budget_min,
                 budget_max=budget_max,
             )
@@ -238,6 +243,7 @@ class ExhibitRepository:
         material: str | None,
         interaction: str | None,
         status: str | None,
+        review_status: str | None,
         budget_min: int | None,
         budget_max: int | None,
     ) -> bool:
@@ -271,6 +277,8 @@ class ExhibitRepository:
         if interaction and interaction not in [entity.name for entity in item.interactions]:
             return False
         if status and item.status != status:
+            return False
+        if review_status and item.review_status != review_status:
             return False
         if budget_min is not None and item.budget_max < budget_min:
             return False
@@ -515,6 +523,7 @@ class PostgresExhibitRepository:
         material: str | None = None,
         interaction: str | None = None,
         status: str | None = None,
+        review_status: str | None = None,
         budget_min: int | None = None,
         budget_max: int | None = None,
     ) -> list[ExhibitResponse]:
@@ -545,6 +554,7 @@ class PostgresExhibitRepository:
                 material=material,
                 interaction=interaction,
                 status=status,
+                review_status=review_status,
                 budget_min=budget_min,
                 budget_max=budget_max,
             )

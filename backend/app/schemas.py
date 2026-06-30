@@ -45,6 +45,7 @@ class ExhibitResponse(BaseModel):
     owner: EntityRef
     project_year: int
     status: str
+    review_status: str = "待审核"
     description: str
     tags: list[str]
     media_assets: list[MediaAsset]
@@ -68,6 +69,7 @@ class ExhibitWriteRequest(BaseModel):
     owner: EntityRef
     project_year: int
     status: str
+    review_status: str = "待审核"
     description: str
     tags: list[str] = Field(default_factory=list)
     media_assets: list[MediaAsset] = Field(default_factory=list)
@@ -160,6 +162,7 @@ class HybridSearchFilters(BaseModel):
     interaction: str | None = None
     venue_type: str | None = None
     status: str | None = None
+    review_status: str | None = None
     budget_min: int | None = Field(default=None, ge=0)
     budget_max: int | None = Field(default=None, ge=0)
 

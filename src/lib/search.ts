@@ -39,6 +39,7 @@ export function filterExhibits(items: Exhibit[], filters: ExhibitFilters) {
       (!filters.projectId || item.relatedProjectIds.includes(filters.projectId)) &&
       (!filters.venueType || item.venueType === filters.venueType) &&
       (!filters.status || item.status === filters.status) &&
+      (!filters.reviewStatus || item.reviewStatus === filters.reviewStatus) &&
       overlapsBudget(item, filters.budgetRange) &&
       (!filters.material || item.materials.includes(filters.material)) &&
       (!filters.interaction || item.interactions.includes(filters.interaction))

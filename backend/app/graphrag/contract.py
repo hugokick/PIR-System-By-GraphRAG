@@ -175,6 +175,7 @@ def _apply_contract_filters(
             material=filters.material,
             interaction=filters.interaction,
             status=filters.status,
+            review_status=None,
             budget_min=filters.budget_min,
             budget_max=filters.budget_max,
         )

@@ -48,11 +48,13 @@ import type {
   GraphNode,
   GraphRagAnswer,
   MediaAsset,
+  ReviewStatus,
   SearchResult,
   UserSession
 } from '../types';
 
 const statuses: ExhibitStatus[] = ['概念方案', '深化设计', '制作中', '已落地', '维护中'];
+const reviewStatuses: ReviewStatus[] = ['草稿', '待审核', '已审核', '已退回'];
 const emptyFilters: ExhibitFilters = {
   keyword: '',
   category: '',
@@ -61,7 +63,8 @@ const emptyFilters: ExhibitFilters = {
   venueType: '',
   material: '',
   interaction: '',
-  status: ''
+  status: '',
+  reviewStatus: ''
 };
 
 const documentExtensions = new Set(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'ppt', 'pptx']);
@@ -153,6 +156,7 @@ function makeExhibitFromForm(form: HTMLFormElement, existingItem?: Exhibit): Exh
     projectYear: Number(data.get('projectYear') ?? new Date().getFullYear()),
     owner: String(data.get('owner') ?? '').trim(),
     status: String(data.get('status') ?? '概念方案') as ExhibitStatus,
+    reviewStatus: String(data.get('reviewStatus') ?? '待审核') as ReviewStatus,
     description: String(data.get('description') ?? '').trim(),
     tags: list('tags'),
     media: existingItem?.media ?? [],
@@ -679,6 +683,7 @@ export function App() {
           <Select label="材料" value={filters.material} values={options.materials} onChange={(value) => updateFilter('material', value)} />
           <Select label="交互方式" value={filters.interaction} values={options.interactions} onChange={(value) => updateFilter('interaction', value)} />
           <Select label="状态" value={filters.status} values={statuses} onChange={(value) => updateFilter('status', value)} />
+          <Select label="审核状态" value={filters.reviewStatus} values={reviewStatuses} onChange={(value) => updateFilter('reviewStatus', value)} />
           <div className="budget-range">
             <label>
               最低造价
@@ -901,6 +906,14 @@ export function App() {
                 <option key={status}>{status}</option>
               ))}
             </select>
+            <label className="form-field">
+              档案审核状态
+              <select name="reviewStatus" defaultValue={editingItem?.reviewStatus ?? reviewStatuses[1]}>
+                {reviewStatuses.map((status) => (
+                  <option key={status}>{status}</option>
+                ))}
+              </select>
+            </label>
             <input name="tags" placeholder="标签，用逗号分隔" defaultValue={editingItem?.tags.join(',') ?? ''} />
             <input name="relatedProjectIds" placeholder="项目编号，用逗号分隔" defaultValue={editingItem?.relatedProjectIds.join(',') ?? ''} />
             <input
@@ -990,7 +1003,7 @@ export function App() {
                   <strong>{item.name}</strong>
                   <small>{item.category} / {item.theme} / {formatBudget(item)}</small>
                 </span>
-                <em>{item.status}</em>
+                <em>{item.status} / {item.reviewStatus}</em>
               </button>
             ))}
           </section>
@@ -1013,6 +1026,7 @@ export function App() {
                 <Fact label="供应商" value={selected.supplier} />
                 <Fact label="尺寸" value={selected.dimensions} />
                 <Fact label="状态" value={selected.status} />
+                <Fact label="审核状态" value={selected.reviewStatus} />
               </div>
 
               <div className="chips">

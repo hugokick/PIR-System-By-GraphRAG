@@ -182,6 +182,7 @@ def list_exhibits(
     material: str | None = None,
     interaction: str | None = None,
     status: str | None = None,
+    review_status: str | None = None,
     budget_min: int | None = Query(default=None, ge=0),
     budget_max: int | None = Query(default=None, ge=0),
 ) -> ExhibitListResponse:
@@ -194,6 +195,7 @@ def list_exhibits(
         material=material,
         interaction=interaction,
         status=status,
+        review_status=review_status,
         budget_min=budget_min,
         budget_max=budget_max,
     )

@@ -68,6 +68,7 @@ def _apply_filters(
             material=filters.material,
             interaction=filters.interaction,
             status=filters.status,
+            review_status=filters.review_status,
             budget_min=filters.budget_min,
             budget_max=filters.budget_max,
         )
@@ -147,6 +148,8 @@ def _filter_reasons(
         reasons.append(f"筛选互动：{filters.interaction}")
     if filters.status:
         reasons.append(f"筛选状态：{filters.status}")
+    if filters.review_status:
+        reasons.append(f"筛选审核：{filters.review_status}")
     if filters.budget_min is not None or filters.budget_max is not None:
         reasons.append(
             f"预算符合：{_format_budget(exhibit.budget_min)}-{_format_budget(exhibit.budget_max)}"

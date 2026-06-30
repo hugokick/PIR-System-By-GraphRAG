@@ -49,6 +49,22 @@ def test_list_exhibits_supports_project_case_filter():
     assert jiangbei_payload["items"][0]["id"] == "water-cycle"
 
 
+def test_list_exhibits_supports_review_status_filter():
+    pending_response = client.get("/api/exhibits", params={"review_status": "待审核"})
+    approved_response = client.get("/api/exhibits", params={"review_status": "已审核"})
+
+    assert pending_response.status_code == 200
+    pending_payload = pending_response.json()
+    assert pending_payload["total"] == 1
+    assert pending_payload["items"][0]["id"] == "pulley-wall"
+    assert pending_payload["items"][0]["review_status"] == "待审核"
+
+    assert approved_response.status_code == 200
+    approved_payload = approved_response.json()
+    assert approved_payload["total"] == 1
+    assert approved_payload["items"][0]["id"] == "lever-play"
+
+
 def test_get_exhibit_detail_includes_documents_and_media():
     response = client.get("/api/exhibits/lever-play")
 

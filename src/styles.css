@@ -406,6 +406,10 @@ textarea:focus {
   resize: vertical;
 }
 
+.create-form .form-field {
+  margin-bottom: 0;
+}
+
 .semantic-panel {
   background: #fff;
   border: 1px solid #d9e1dc;

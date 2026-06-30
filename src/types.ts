@@ -1,4 +1,5 @@
 export type ExhibitStatus = '概念方案' | '深化设计' | '制作中' | '已落地' | '维护中';
+export type ReviewStatus = '草稿' | '待审核' | '已审核' | '已退回';
 
 export type MediaAsset = {
   id: string;
@@ -36,6 +37,7 @@ export type Exhibit = {
   projectYear: number;
   owner: string;
   status: ExhibitStatus;
+  reviewStatus: ReviewStatus;
   description: string;
   tags: string[];
   media: MediaAsset[];
@@ -54,6 +56,7 @@ export type ExhibitFilters = {
   material?: string;
   interaction?: string;
   status?: ExhibitStatus | '';
+  reviewStatus?: ReviewStatus | '';
 };
 
 export type SearchResult = {

@@ -38,6 +38,7 @@ const frontendExhibit: Exhibit = {
   projectYear: 2024,
   owner: '青禾儿童科技馆',
   status: '概念方案',
+  reviewStatus: '待审核',
   description: '通过磁铁和轨道迷宫演示磁力吸引与排斥。',
   tags: ['低龄儿童', '电磁学'],
   media: [],
@@ -230,6 +231,7 @@ describe('App exhibit management', () => {
     await screen.findByRole('heading', { name: '磁力迷宫' });
     fireEvent.click(screen.getByRole('button', { name: /编辑档案/ }));
     fireEvent.change(screen.getByPlaceholderText('展项名称'), { target: { value: '磁力迷宫 Pro' } });
+    fireEvent.change(screen.getByLabelText('档案审核状态'), { target: { value: '已审核' } });
     fireEvent.change(screen.getByPlaceholderText('相似展项 ID，用逗号分隔'), { target: { value: 'lever-play,water-cycle' } });
     fireEvent.click(screen.getByRole('button', { name: '保存修改' }));
 
@@ -243,6 +245,7 @@ describe('App exhibit management', () => {
       );
     });
     expect(updatedPayload?.related_exhibit_ids).toEqual(['lever-play', 'water-cycle']);
+    expect(updatedPayload?.review_status).toBe('已审核');
   });
 
   it('deletes the selected exhibit through the backend API', async () => {
@@ -296,6 +299,24 @@ describe('App exhibit management', () => {
       expect(
         fetchMock.mock.calls.some(([input]) =>
           String(input).includes('/api/exhibits?project_id=qinghe-2024')
+        )
+      ).toBe(true);
+    });
+  });
+
+  it('renders and filters exhibits by review status through backend query parameters', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [apiExhibit()] }));
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: '磁力迷宫' });
+    expect(screen.getAllByText('待审核').length).toBeGreaterThan(0);
+    fireEvent.change(screen.getByLabelText('审核状态'), { target: { value: '待审核' } });
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([input]) =>
+          String(input).includes('/api/exhibits?review_status=%E5%BE%85%E5%AE%A1%E6%A0%B8')
         )
       ).toBe(true);
     });

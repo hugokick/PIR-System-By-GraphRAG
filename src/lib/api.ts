@@ -61,6 +61,7 @@ export type ApiExhibit = {
   owner: ApiEntityRef;
   project_year: number;
   status: Exhibit['status'];
+  review_status?: Exhibit['reviewStatus'];
   description: string;
   tags: string[];
   media_assets: ApiMediaAsset[];
@@ -222,6 +223,7 @@ export function mapApiExhibit(item: ApiExhibit): Exhibit {
     projectYear: item.project_year,
     owner: item.owner.name,
     status: item.status,
+    reviewStatus: item.review_status ?? '待审核',
     description: item.description,
     tags: item.tags,
     media: item.media_assets.map((asset) => ({
@@ -276,6 +278,7 @@ export function mapExhibitToApiPayload(item: Exhibit): ApiExhibit {
     owner: entityRef(item.owner),
     project_year: item.projectYear,
     status: item.status,
+    review_status: item.reviewStatus,
     description: item.description,
     tags: item.tags,
     media_assets: item.media.map((asset) => ({
@@ -304,6 +307,7 @@ export function buildExhibitQuery(filters: ExhibitFilters) {
   if (filters.category) query.set('category', filters.category);
   if (filters.theme) query.set('theme', filters.theme);
   if (filters.projectId) query.set('project_id', filters.projectId);
+  if (filters.reviewStatus) query.set('review_status', filters.reviewStatus);
   if (filters.material) query.set('material', filters.material);
   if (filters.interaction) query.set('interaction', filters.interaction);
   if (filters.status) query.set('status', filters.status);
@@ -561,6 +565,7 @@ function mapHybridSearchFilters(filters: ExhibitFilters) {
   if (filters.category) payload.category = filters.category;
   if (filters.theme) payload.theme = filters.theme;
   if (filters.projectId) payload.project_id = filters.projectId;
+  if (filters.reviewStatus) payload.review_status = filters.reviewStatus;
   if (filters.material) payload.material = filters.material;
   if (filters.interaction) payload.interaction = filters.interaction;
   if (filters.venueType) payload.venue_type = filters.venueType;

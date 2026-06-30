@@ -16,6 +16,7 @@ export const seedExhibits: Exhibit[] = [
     projectYear: 2024,
     owner: '青禾儿童科技馆',
     status: '已落地',
+    reviewStatus: '已审核',
     description: '通过推拉、配重和跷跷板结构帮助低龄儿童理解杠杆原理，适合亲子共同操作。',
     tags: ['低龄儿童', '力学', '预算适中', '高互动'],
     media: [
@@ -46,6 +47,7 @@ export const seedExhibits: Exhibit[] = [
     projectYear: 2024,
     owner: '青禾儿童科技馆',
     status: '制作中',
+    reviewStatus: '待审核',
     description: '观众通过不同滑轮组提升同一重物，比较省力效果和路径差异。',
     tags: ['低龄儿童', '力学', '低预算', '多人协作'],
     media: [
@@ -75,6 +77,7 @@ export const seedExhibits: Exhibit[] = [
     projectYear: 2022,
     owner: '江北科技馆',
     status: '维护中',
+    reviewStatus: '已退回',
     description: '用实体沙盘、循环水路和投影叠加展示城市降雨、排水、净化和再利用过程。',
     tags: ['生态', '水循环', '模型沙盘'],
     media: [
@@ -104,6 +107,7 @@ export const seedExhibits: Exhibit[] = [
     projectYear: 2023,
     owner: '江北科技馆',
     status: '已落地',
+    reviewStatus: '已审核',
     description: '沉浸式球幕内容播放空间，服务天文课程、科普影片和主题活动。',
     tags: ['沉浸式', '天文', '高预算'],
     media: [

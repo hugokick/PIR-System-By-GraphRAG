@@ -39,6 +39,7 @@ const apiExhibit: ApiExhibit = {
   owner: { id: 'qinghe-owner', name: '青禾儿童科技馆' },
   project_year: 2024,
   status: '已落地',
+  review_status: '已审核',
   description: '通过推拉、配重和跷跷板结构帮助低龄儿童理解杠杆原理。',
   tags: ['低龄儿童', '力学'],
   media_assets: [
@@ -77,6 +78,7 @@ const frontendExhibit: Exhibit = {
   projectYear: 2024,
   owner: '青禾儿童科技馆',
   status: '概念方案',
+  reviewStatus: '待审核',
   description: '通过磁铁和轨道迷宫演示磁力吸引与排斥。',
   tags: ['低龄儿童', '电磁学'],
   media: [],
@@ -105,6 +107,7 @@ describe('mapApiExhibit', () => {
       supplier: '启思互动工坊',
       projectYear: 2024,
       owner: '青禾儿童科技馆',
+      reviewStatus: '已审核',
       relatedProjectIds: ['qinghe-2024'],
       relatedExhibitIds: ['pulley-wall']
     });
@@ -169,6 +172,7 @@ describe('mapExhibitToApiPayload', () => {
       project: { id: 'qinghe-2024', name: 'qinghe-2024' },
       owner: { id: 'qinghe-ertong-kejiguan', name: '青禾儿童科技馆' },
       project_year: 2024,
+      review_status: '待审核',
       related_exhibit_ids: ['lever-play']
     });
     expect(payload.materials).toEqual([{ id: 'yake-li', name: '亚克力' }]);
@@ -192,6 +196,7 @@ describe('buildExhibitQuery', () => {
       keyword: '力学',
       venueType: '儿童科技馆',
       projectId: 'qinghe-2024',
+      reviewStatus: '待审核',
       material: '金属',
       interaction: '机械互动',
       budgetRange: [200000, 500000],
@@ -199,7 +204,7 @@ describe('buildExhibitQuery', () => {
     });
 
     expect(query.toString()).toBe(
-      'keyword=%E5%8A%9B%E5%AD%A6&venue_type=%E5%84%BF%E7%AB%A5%E7%A7%91%E6%8A%80%E9%A6%86&project_id=qinghe-2024&material=%E9%87%91%E5%B1%9E&interaction=%E6%9C%BA%E6%A2%B0%E4%BA%92%E5%8A%A8&status=%E5%B7%B2%E8%90%BD%E5%9C%B0&budget_min=200000&budget_max=500000'
+      'keyword=%E5%8A%9B%E5%AD%A6&venue_type=%E5%84%BF%E7%AB%A5%E7%A7%91%E6%8A%80%E9%A6%86&project_id=qinghe-2024&review_status=%E5%BE%85%E5%AE%A1%E6%A0%B8&material=%E9%87%91%E5%B1%9E&interaction=%E6%9C%BA%E6%A2%B0%E4%BA%92%E5%8A%A8&status=%E5%B7%B2%E8%90%BD%E5%9C%B0&budget_min=200000&budget_max=500000'
     );
   });
 });
@@ -509,6 +514,7 @@ describe('hybridSearchExhibits', () => {
       theme: '力学',
       material: '金属',
       interaction: '机械互动',
+      reviewStatus: '待审核',
       budgetRange: [0, 350000]
     });
 
@@ -527,6 +533,7 @@ describe('hybridSearchExhibits', () => {
         theme: '力学',
         material: '金属',
         interaction: '机械互动',
+        review_status: '待审核',
         budget_min: 0,
         budget_max: 350000
       }
