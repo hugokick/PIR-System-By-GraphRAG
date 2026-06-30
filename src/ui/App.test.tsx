@@ -126,4 +126,53 @@ describe('App exhibit management', () => {
       });
     });
   });
+
+  it('submits GraphRAG questions and renders answers with citations', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/api/graphrag/answer')) {
+        expect(init?.method).toBe('POST');
+        expect(init?.body).toBe(JSON.stringify({ query: 'lever-play', top_k: 3 }));
+        return okJson({
+          query: 'lever-play',
+          answer: 'Based on exhibit records and graph context.',
+          citations: [
+            {
+              source_id: 'magnet-maze',
+              source_type: 'exhibit',
+              title: '磁力迷宫',
+              snippet: '通过磁铁和轨道迷宫演示磁力吸引与排斥。'
+            }
+          ],
+          items: [
+            {
+              exhibit: apiExhibit(),
+              score: 8,
+              reasons: ['matched identity'],
+              citations: [],
+              graph: {
+                nodes: [{ id: 'exhibit:magnet-maze', label: '磁力迷宫', type: 'exhibit' }],
+                edges: []
+              }
+            }
+          ]
+        });
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: '磁力迷宫' });
+    fireEvent.change(screen.getByLabelText(/GraphRAG/), { target: { value: 'lever-play' } });
+    fireEvent.click(screen.getByRole('button', { name: '生成答案' }));
+
+    expect(await screen.findByText('Based on exhibit records and graph context.')).toBeTruthy();
+    expect(screen.getAllByText('磁力迷宫').length).toBeGreaterThan(0);
+    expect(screen.getByText(/matched identity/)).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/graphrag/answer',
+      expect.objectContaining({ method: 'POST' })
+    );
+  });
 });

@@ -58,3 +58,28 @@ export type GraphEdge = {
   target: string;
   label: string;
 };
+
+export type GraphRagCitation = {
+  sourceId: string;
+  sourceType: string;
+  title: string;
+  snippet: string;
+};
+
+export type GraphRagHit = {
+  exhibit: Exhibit;
+  score: number;
+  reasons: string[];
+  citations: GraphRagCitation[];
+  graph: {
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+  };
+};
+
+export type GraphRagAnswer = {
+  query: string;
+  answer: string;
+  citations: GraphRagCitation[];
+  items: GraphRagHit[];
+};

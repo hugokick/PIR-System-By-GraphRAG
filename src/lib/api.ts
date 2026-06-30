@@ -1,4 +1,4 @@
-import type { Exhibit, ExhibitFilters, GraphEdge, GraphNode, MediaAsset } from '../types';
+import type { Exhibit, ExhibitFilters, GraphEdge, GraphNode, GraphRagAnswer, MediaAsset } from '../types';
 
 export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
 
@@ -67,6 +67,28 @@ type ApiGraphEdge = {
 export type ApiGraphResponse = {
   nodes: ApiGraphNode[];
   edges: ApiGraphEdge[];
+};
+
+type ApiGraphRagCitation = {
+  source_id: string;
+  source_type: string;
+  title: string;
+  snippet: string;
+};
+
+type ApiGraphRagHit = {
+  exhibit: ApiExhibit;
+  score: number;
+  reasons: string[];
+  citations: ApiGraphRagCitation[];
+  graph: ApiGraphResponse;
+};
+
+type ApiGraphRagAnswerResponse = {
+  query: string;
+  answer: string;
+  citations: ApiGraphRagCitation[];
+  items: ApiGraphRagHit[];
 };
 
 const slugMap: Record<string, string> = {
@@ -193,6 +215,30 @@ export function mapApiGraph(payload: ApiGraphResponse): { nodes: GraphNode[]; ed
   };
 }
 
+function mapApiGraphRagCitation(citation: ApiGraphRagCitation) {
+  return {
+    sourceId: citation.source_id,
+    sourceType: citation.source_type,
+    title: citation.title,
+    snippet: citation.snippet
+  };
+}
+
+function mapApiGraphRagAnswer(payload: ApiGraphRagAnswerResponse): GraphRagAnswer {
+  return {
+    query: payload.query,
+    answer: payload.answer,
+    citations: payload.citations.map(mapApiGraphRagCitation),
+    items: payload.items.map((item) => ({
+      exhibit: mapApiExhibit(item.exhibit),
+      score: item.score,
+      reasons: item.reasons,
+      citations: item.citations.map(mapApiGraphRagCitation),
+      graph: mapApiGraph(item.graph)
+    }))
+  };
+}
+
 async function requestJson<T>(path: string): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`);
   if (!response.ok) {
@@ -250,4 +296,12 @@ export async function deleteExhibit(exhibitId: string): Promise<void> {
 export async function fetchExhibitGraph(exhibitId: string) {
   const payload = await requestJson<ApiGraphResponse>(`/api/exhibits/${encodeURIComponent(exhibitId)}/graph`);
   return mapApiGraph(payload);
+}
+
+export async function askGraphRag(query: string, topK = 3): Promise<GraphRagAnswer> {
+  const payload = await sendJson<ApiGraphRagAnswerResponse>('/api/graphrag/answer', {
+    method: 'POST',
+    body: JSON.stringify({ query, top_k: topK })
+  });
+  return mapApiGraphRagAnswer(payload);
 }

@@ -6,6 +6,7 @@ import {
   Filter,
   GitBranch,
   ImageIcon,
+  MessageSquareText,
   Pencil,
   RotateCcw,
   Search,
@@ -13,10 +14,10 @@ import {
   Trash2
 } from 'lucide-react';
 import { buildGraph, graphStats } from '../lib/graph';
-import { createExhibit, deleteExhibit, fetchExhibitGraph, fetchExhibits, updateExhibit } from '../lib/api';
+import { askGraphRag, createExhibit, deleteExhibit, fetchExhibitGraph, fetchExhibits, updateExhibit } from '../lib/api';
 import { filterExhibits, formatBudget, semanticSearch } from '../lib/search';
 import { loadExhibits, resetExhibits, saveExhibits } from '../lib/storage';
-import type { Exhibit, ExhibitFilters, ExhibitStatus, GraphEdge, GraphNode, MediaAsset } from '../types';
+import type { Exhibit, ExhibitFilters, ExhibitStatus, GraphEdge, GraphNode, GraphRagAnswer, MediaAsset } from '../types';
 
 const statuses: ExhibitStatus[] = ['概念方案', '深化设计', '制作中', '已落地', '维护中'];
 const emptyFilters: ExhibitFilters = {
@@ -87,6 +88,10 @@ export function App() {
   const [items, setItems] = useState<Exhibit[]>(() => loadExhibits());
   const [filters, setFilters] = useState<ExhibitFilters>(emptyFilters);
   const [semanticQuery, setSemanticQuery] = useState('找几个适合低龄儿童、预算不高、互动性强的力学展项');
+  const [graphRagQuery, setGraphRagQuery] = useState('pulley-wall');
+  const [graphRagAnswer, setGraphRagAnswer] = useState<GraphRagAnswer | null>(null);
+  const [graphRagError, setGraphRagError] = useState<string | null>(null);
+  const [isAskingGraphRag, setIsAskingGraphRag] = useState(false);
   const [selectedId, setSelectedId] = useState(items[0]?.id ?? '');
   const [showForm, setShowForm] = useState(false);
   const [dataSource, setDataSource] = useState<'loading' | 'api' | 'local'>('loading');
@@ -259,6 +264,26 @@ export function App() {
     }
   };
 
+  const submitGraphRagQuestion = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const query = graphRagQuery.trim();
+    if (!query || isAskingGraphRag) return;
+
+    setIsAskingGraphRag(true);
+    setGraphRagError(null);
+    try {
+      const answer = await askGraphRag(query, 3);
+      setGraphRagAnswer(answer);
+      if (answer.items[0]) {
+        setSelectedId(answer.items[0].exhibit.id);
+      }
+    } catch {
+      setGraphRagError('GraphRAG 问答接口暂不可用，请稍后重试');
+    } finally {
+      setIsAskingGraphRag(false);
+    }
+  };
+
   const restoreSeed = () => {
     const restored = resetExhibits();
     setItems(restored);
@@ -401,6 +426,51 @@ export function App() {
               </button>
             ))}
           </div>
+        </section>
+
+        <section className="graphrag-panel">
+          <form className="graphrag-form" onSubmit={submitGraphRagQuestion}>
+            <label>
+              GraphRAG 问答
+              <div className="graphrag-input">
+                <MessageSquareText size={20} />
+                <input
+                  value={graphRagQuery}
+                  onChange={(event) => setGraphRagQuery(event.target.value)}
+                  placeholder="例如：找适合低龄儿童、预算不高、互动性强的力学展项"
+                />
+                <button type="submit" disabled={isAskingGraphRag}>
+                  {isAskingGraphRag ? '生成中' : '生成答案'}
+                </button>
+              </div>
+            </label>
+          </form>
+          {graphRagError && <p className="graphrag-error">{graphRagError}</p>}
+          {graphRagAnswer && (
+            <div className="graphrag-answer">
+              <p>{graphRagAnswer.answer}</p>
+              {graphRagAnswer.items.length > 0 && (
+                <div className="graphrag-hits">
+                  {graphRagAnswer.items.map((hit) => (
+                    <button type="button" key={hit.exhibit.id} onClick={() => setSelectedId(hit.exhibit.id)}>
+                      <strong>{hit.exhibit.name}</strong>
+                      <span>{hit.reasons.join(' / ') || `score ${hit.score}`}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {graphRagAnswer.citations.length > 0 && (
+                <div className="graphrag-citations">
+                  {graphRagAnswer.citations.map((citation) => (
+                    <span key={`${citation.sourceType}-${citation.sourceId}`}>
+                      <strong>{citation.title}</strong>
+                      {citation.snippet}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </section>
 
         <div className="workspace">

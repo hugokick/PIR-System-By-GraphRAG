@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  askGraphRag,
   buildExhibitQuery,
   createExhibit,
   deleteExhibit,
@@ -240,5 +241,51 @@ describe('deleteExhibit', () => {
     expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8000/api/exhibits/magnet-maze', {
       method: 'DELETE'
     });
+  });
+});
+
+describe('askGraphRag', () => {
+  it('posts GraphRAG answer requests and maps the exhibit hits', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        query: 'lever-play',
+        answer: 'Based on exhibit records and graph context.',
+        citations: [
+          {
+            source_id: 'lever-play',
+            source_type: 'exhibit',
+            title: '杠杆乐园',
+            snippet: '通过推拉、配重理解杠杆原理。'
+          }
+        ],
+        items: [
+          {
+            exhibit: apiExhibit,
+            score: 9,
+            reasons: ['matched identity'],
+            citations: [],
+            graph: {
+              nodes: [{ id: 'exhibit:lever-play', label: '杠杆乐园', type: 'exhibit' }],
+              edges: []
+            }
+          }
+        ]
+      })
+    } as Response);
+
+    const result = await askGraphRag('lever-play', 2);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/graphrag/answer',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: 'lever-play', top_k: 2 })
+      })
+    );
+    expect(result.answer).toBe('Based on exhibit records and graph context.');
+    expect(result.items[0].exhibit.id).toBe('lever-play');
+    expect(result.citations[0].sourceId).toBe('lever-play');
   });
 });
