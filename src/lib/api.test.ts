@@ -1,5 +1,13 @@
-import { describe, expect, it } from 'vitest';
-import { buildExhibitQuery, mapApiExhibit, mapApiGraph, type ApiExhibit } from './api';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  buildExhibitQuery,
+  createExhibit,
+  mapApiExhibit,
+  mapApiGraph,
+  mapExhibitToApiPayload,
+  type ApiExhibit
+} from './api';
+import type { Exhibit } from '../types';
 
 const apiExhibit: ApiExhibit = {
   id: 'lever-play',
@@ -43,6 +51,32 @@ const apiExhibit: ApiExhibit = {
   related_exhibit_ids: ['pulley-wall']
 };
 
+const frontendExhibit: Exhibit = {
+  id: 'magnet-maze',
+  name: '磁力迷宫',
+  category: '基础科学',
+  theme: '电磁学',
+  venueType: '儿童科技馆',
+  budgetMin: 180000,
+  budgetMax: 320000,
+  materials: ['亚克力'],
+  dimensions: '3600x1800x1800mm',
+  interactions: ['动手实验'],
+  supplier: '启思互动工坊',
+  projectYear: 2024,
+  owner: '青禾儿童科技馆',
+  status: '概念方案',
+  description: '通过磁铁和轨道迷宫演示磁力吸引与排斥。',
+  tags: ['低龄儿童', '电磁学'],
+  media: [],
+  relatedProjectIds: ['qinghe-2024'],
+  relatedExhibitIds: ['lever-play']
+};
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe('mapApiExhibit', () => {
   it('converts backend snake_case exhibit payloads into frontend exhibit records', () => {
     const mapped = mapApiExhibit(apiExhibit);
@@ -69,6 +103,28 @@ describe('mapApiExhibit', () => {
       url: 'https://picsum.photos/seed/exhibit-lever/900/600',
       note: '示意图'
     });
+  });
+});
+
+describe('mapExhibitToApiPayload', () => {
+  it('converts frontend exhibit records into backend write payloads', () => {
+    const payload = mapExhibitToApiPayload(frontendExhibit);
+
+    expect(payload).toMatchObject({
+      id: 'magnet-maze',
+      name: '磁力迷宫',
+      theme: { id: 'dianci-xue', name: '电磁学' },
+      venue_type: '儿童科技馆',
+      budget_min: 180000,
+      budget_max: 320000,
+      supplier: { id: 'qisi-hudong-gongfang', name: '启思互动工坊' },
+      project: { id: 'qinghe-2024', name: 'qinghe-2024' },
+      owner: { id: 'qinghe-ertong-kejiguan', name: '青禾儿童科技馆' },
+      project_year: 2024,
+      related_exhibit_ids: ['lever-play']
+    });
+    expect(payload.materials).toEqual([{ id: 'yake-li', name: '亚克力' }]);
+    expect(payload.interactions).toEqual([{ id: 'dongshou-shiyan', name: '动手实验' }]);
   });
 });
 
@@ -111,5 +167,31 @@ describe('mapApiGraph', () => {
         label: '使用材料'
       }
     ]);
+  });
+});
+
+describe('createExhibit', () => {
+  it('posts backend write payloads and maps the response back to frontend records', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => mapExhibitToApiPayload(frontendExhibit)
+    } as Response);
+
+    const result = await createExhibit(frontendExhibit);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/exhibits',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mapExhibitToApiPayload(frontendExhibit))
+      })
+    );
+    expect(result).toMatchObject({
+      id: 'magnet-maze',
+      name: '磁力迷宫',
+      theme: '电磁学',
+      venueType: '儿童科技馆'
+    });
   });
 });

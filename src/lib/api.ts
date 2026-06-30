@@ -69,6 +69,33 @@ export type ApiGraphResponse = {
   edges: ApiGraphEdge[];
 };
 
+const slugMap: Record<string, string> = {
+  电磁学: 'dianci-xue',
+  亚克力: 'yake-li',
+  动手实验: 'dongshou-shiyan',
+  启思互动工坊: 'qisi-hudong-gongfang',
+  青禾儿童科技馆: 'qinghe-ertong-kejiguan'
+};
+
+function slugify(value: string) {
+  return (
+    slugMap[value] ??
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-')
+      .replace(/^-+|-+$/g, '') ??
+    `entity-${Date.now()}`
+  );
+}
+
+function entityRef(name: string): ApiEntityRef {
+  return {
+    id: slugify(name),
+    name
+  };
+}
+
 export function mapApiExhibit(item: ApiExhibit): Exhibit {
   return {
     id: item.id,
@@ -96,6 +123,42 @@ export function mapApiExhibit(item: ApiExhibit): Exhibit {
     })),
     relatedProjectIds: [item.project.id],
     relatedExhibitIds: item.related_exhibit_ids
+  };
+}
+
+export function mapExhibitToApiPayload(item: Exhibit): ApiExhibit {
+  const projectId = item.relatedProjectIds[0] || `${item.id}-project`;
+
+  return {
+    id: item.id,
+    name: item.name,
+    category: item.category,
+    theme: entityRef(item.theme),
+    venue_type: item.venueType,
+    budget_min: item.budgetMin,
+    budget_max: item.budgetMax,
+    materials: item.materials.map(entityRef),
+    dimensions: item.dimensions,
+    interactions: item.interactions.map(entityRef),
+    supplier: entityRef(item.supplier),
+    project: {
+      id: projectId,
+      name: projectId
+    },
+    owner: entityRef(item.owner),
+    project_year: item.projectYear,
+    status: item.status,
+    description: item.description,
+    tags: item.tags,
+    media_assets: item.media.map((asset) => ({
+      id: asset.id,
+      type: asset.type,
+      name: asset.name,
+      url: asset.url,
+      note: asset.note ?? null
+    })),
+    documents: [],
+    related_exhibit_ids: item.relatedExhibitIds
   };
 }
 
@@ -138,11 +201,33 @@ async function requestJson<T>(path: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+async function sendJson<T>(path: string, init: RequestInit): Promise<T> {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init.headers ?? {})
+    }
+  });
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+  }
+  return response.json() as Promise<T>;
+}
+
 export async function fetchExhibits(filters: ExhibitFilters = {}): Promise<Exhibit[]> {
   const query = buildExhibitQuery(filters);
   const suffix = query.size > 0 ? `?${query.toString()}` : '';
   const payload = await requestJson<ApiExhibitListResponse>(`/api/exhibits${suffix}`);
   return payload.items.map(mapApiExhibit);
+}
+
+export async function createExhibit(item: Exhibit): Promise<Exhibit> {
+  const payload = await sendJson<ApiExhibit>('/api/exhibits', {
+    method: 'POST',
+    body: JSON.stringify(mapExhibitToApiPayload(item))
+  });
+  return mapApiExhibit(payload);
 }
 
 export async function fetchExhibitGraph(exhibitId: string) {

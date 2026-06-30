@@ -11,7 +11,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { buildGraph, graphStats } from '../lib/graph';
-import { fetchExhibits } from '../lib/api';
+import { createExhibit, fetchExhibits } from '../lib/api';
 import { filterExhibits, formatBudget, semanticSearch } from '../lib/search';
 import { loadExhibits, resetExhibits, saveExhibits } from '../lib/storage';
 import type { Exhibit, ExhibitFilters, ExhibitStatus, MediaAsset } from '../types';
@@ -89,6 +89,7 @@ export function App() {
   const [showForm, setShowForm] = useState(false);
   const [dataSource, setDataSource] = useState<'loading' | 'api' | 'local'>('loading');
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -141,18 +142,32 @@ export function App() {
     setFilters((current) => ({ ...current, [key]: value }));
   };
 
-  const addExhibit = (event: FormEvent<HTMLFormElement>) => {
+  const addExhibit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const form = event.currentTarget;
     const next = makeExhibitFromForm(event.currentTarget);
     if (!next.name || !next.category || !next.theme) return;
-    const updated = [next, ...items];
-    setItems(updated);
-    saveExhibits(updated);
-    setSelectedId(next.id);
-    setDataSource('local');
-    setLoadError('新增档案暂存于本地，后端写入接口将在下一阶段接入');
-    setShowForm(false);
-    event.currentTarget.reset();
+    setIsSaving(true);
+
+    try {
+      const saved = await createExhibit(next);
+      const updated = [saved, ...items.filter((item) => item.id !== saved.id)];
+      setItems(updated);
+      setSelectedId(saved.id);
+      setDataSource('api');
+      setLoadError(null);
+    } catch {
+      const updated = [next, ...items];
+      setItems(updated);
+      saveExhibits(updated);
+      setSelectedId(next.id);
+      setDataSource('local');
+      setLoadError('后端写入失败，新增档案已暂存于本地');
+    } finally {
+      setIsSaving(false);
+      setShowForm(false);
+      form.reset();
+    }
   };
 
   const attachMedia = (event: FormEvent<HTMLInputElement>) => {
@@ -290,7 +305,7 @@ export function App() {
             <input name="tags" placeholder="标签，用逗号分隔" />
             <input name="relatedProjectIds" placeholder="项目编号，用逗号分隔" />
             <textarea name="description" placeholder="展项说明" required />
-            <button type="submit">保存档案</button>
+            <button type="submit" disabled={isSaving}>{isSaving ? '保存中' : '保存档案'}</button>
           </form>
         )}
 
