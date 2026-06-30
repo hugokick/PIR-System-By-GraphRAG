@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Query, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 
-from .repository import ExhibitRepository
+from .repository import create_repository
 from .schemas import ExhibitListResponse, ExhibitResponse, ExhibitWriteRequest, GraphResponse
 from .services.graph import build_exhibit_graph
 
@@ -19,7 +19,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-repository = ExhibitRepository()
+repository = create_repository()
 
 
 def not_found(exhibit_id: str) -> HTTPException:

@@ -1,3 +1,8 @@
+import json
+import os
+from collections.abc import Mapping
+from typing import Any
+
 from .schemas import DocumentAsset, EntityRef, ExhibitResponse, MediaAsset
 
 
@@ -234,3 +239,174 @@ class ExhibitRepository:
         if budget_max is not None and item.budget_min > budget_max:
             return False
         return True
+
+
+class PostgresExhibitRepository:
+    def __init__(self, database_url: str, initialize: bool = True):
+        self.database_url = database_url
+        if initialize:
+            self.initialize()
+
+    @staticmethod
+    def schema_sql() -> str:
+        return """
+        CREATE TABLE IF NOT EXISTS exhibit_records (
+          id TEXT PRIMARY KEY,
+          payload JSONB NOT NULL,
+          deleted_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_exhibit_records_payload
+          ON exhibit_records USING GIN (payload);
+        """
+
+    def initialize(self) -> None:
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(self.schema_sql())
+                cursor.execute("SELECT COUNT(*) AS count FROM exhibit_records")
+                row = cursor.fetchone()
+                count = row["count"] if isinstance(row, Mapping) else row[0]
+                if count == 0:
+                    for exhibit in seed_exhibits:
+                        self._insert_or_restore(cursor, exhibit)
+
+    def _connect(self):
+        import psycopg
+        from psycopg.rows import dict_row
+
+        return psycopg.connect(self.database_url, row_factory=dict_row)
+
+    def _insert_or_restore(self, cursor: Any, exhibit: ExhibitResponse) -> None:
+        cursor.execute(
+            """
+            INSERT INTO exhibit_records (id, payload, deleted_at, updated_at)
+            VALUES (%s, %s::jsonb, NULL, now())
+            ON CONFLICT (id) DO UPDATE
+            SET payload = EXCLUDED.payload,
+                deleted_at = NULL,
+                updated_at = now()
+            """,
+            (exhibit.id, exhibit.model_dump_json()),
+        )
+
+    def exhibit_from_row(self, row: Mapping[str, Any] | tuple[Any, ...]) -> ExhibitResponse:
+        payload = row["payload"] if isinstance(row, Mapping) else row[0]
+        if isinstance(payload, str):
+            payload = json.loads(payload)
+        return ExhibitResponse.model_validate(payload)
+
+    def get_exhibit(self, exhibit_id: str) -> ExhibitResponse | None:
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT payload
+                    FROM exhibit_records
+                    WHERE id = %s AND deleted_at IS NULL
+                    """,
+                    (exhibit_id,),
+                )
+                row = cursor.fetchone()
+        return self.exhibit_from_row(row) if row else None
+
+    def create_exhibit(self, exhibit: ExhibitResponse) -> ExhibitResponse:
+        if self.get_exhibit(exhibit.id) is not None:
+            raise ValueError("duplicate_exhibit_id")
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                self._insert_or_restore(cursor, exhibit)
+        return exhibit
+
+    def update_exhibit(self, exhibit_id: str, exhibit: ExhibitResponse) -> ExhibitResponse | None:
+        if self.get_exhibit(exhibit_id) is None:
+            return None
+        updated = exhibit.model_copy(update={"id": exhibit_id})
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    UPDATE exhibit_records
+                    SET payload = %s::jsonb,
+                        updated_at = now()
+                    WHERE id = %s AND deleted_at IS NULL
+                    """,
+                    (updated.model_dump_json(), exhibit_id),
+                )
+        return updated
+
+    def delete_exhibit(self, exhibit_id: str) -> bool:
+        if self.get_exhibit(exhibit_id) is None:
+            return False
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    UPDATE exhibit_records
+                    SET deleted_at = now(),
+                        updated_at = now()
+                    WHERE id = %s AND deleted_at IS NULL
+                    """,
+                    (exhibit_id,),
+                )
+        return True
+
+    def list_exhibits(
+        self,
+        keyword: str | None = None,
+        venue_type: str | None = None,
+        category: str | None = None,
+        theme: str | None = None,
+        material: str | None = None,
+        interaction: str | None = None,
+        status: str | None = None,
+        budget_min: int | None = None,
+        budget_max: int | None = None,
+    ) -> list[ExhibitResponse]:
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT payload
+                    FROM exhibit_records
+                    WHERE deleted_at IS NULL
+                    ORDER BY created_at ASC
+                    """
+                )
+                rows = cursor.fetchall()
+
+        items = [self.exhibit_from_row(row) for row in rows]
+        matcher = ExhibitRepository([])
+        return [
+            item
+            for item in items
+            if matcher._matches(
+                item,
+                keyword=keyword,
+                venue_type=venue_type,
+                category=category,
+                theme=theme,
+                material=material,
+                interaction=interaction,
+                status=status,
+                budget_min=budget_min,
+                budget_max=budget_max,
+            )
+        ]
+
+
+def create_repository_from_env(
+    env: Mapping[str, str] | None = None,
+    postgres_repository_cls: type[PostgresExhibitRepository] = PostgresExhibitRepository,
+):
+    source = env if env is not None else os.environ
+    database_url = source.get("DATABASE_URL")
+    if database_url:
+        return postgres_repository_cls(database_url)
+    return ExhibitRepository()
+
+
+def create_repository():
+    return create_repository_from_env()
