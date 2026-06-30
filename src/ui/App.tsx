@@ -724,8 +724,20 @@ export function App() {
             <Metric label="已落地" value={stats.landed} />
             <Metric label="均价" value={`${stats.avgBudget}万`} />
           </div>
+          <div className="review-summary" aria-label="审核状态概览">
+            <span>待审 {stats.pendingReview}</span>
+            <span>退回 {stats.rejectedReview}</span>
+          </div>
           <div className="mini-bars">
             {stats.categories.map(([label, count]) => (
+              <span key={label}>
+                <i style={{ width: `${Math.max(count * 34, 18)}px` }} />
+                {label} {count}
+              </span>
+            ))}
+          </div>
+          <div className="mini-bars review-bars">
+            {stats.reviewStatuses.map(([label, count]) => (
               <span key={label}>
                 <i style={{ width: `${Math.max(count * 34, 18)}px` }} />
                 {label} {count}

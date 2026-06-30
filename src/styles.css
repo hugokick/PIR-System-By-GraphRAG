@@ -285,6 +285,30 @@ textarea:focus {
   background: #f2b84b;
 }
 
+.review-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.review-summary span {
+  border: 1px solid #d9e1dc;
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: #31413d;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.review-bars {
+  margin-top: 10px;
+}
+
+.review-bars i {
+  background: #0f8b78;
+}
+
 .audit-list {
   display: grid;
   gap: 9px;

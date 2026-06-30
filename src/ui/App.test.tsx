@@ -322,6 +322,26 @@ describe('App exhibit management', () => {
     });
   });
 
+  it('shows review workload metrics in the dashboard', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
+      okJson({
+        total: 2,
+        items: [
+          apiExhibit({ ...frontendExhibit, id: 'pending-demo', name: '待审展项', reviewStatus: '待审核' }),
+          apiExhibit({ ...frontendExhibit, id: 'rejected-demo', name: '退回展项', reviewStatus: '已退回' })
+        ]
+      })
+    );
+
+    render(<App />);
+
+    expect((await screen.findAllByText('待审展项')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('待审核').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('已退回').length).toBeGreaterThan(0);
+    expect(screen.getByText('待审 1')).toBeTruthy();
+    expect(screen.getByText('退回 1')).toBeTruthy();
+  });
+
   it('disables write controls after switching to viewer role', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [apiExhibit()] }));
 

@@ -42,19 +42,24 @@ export function buildGraph(exhibit: Exhibit, allExhibits: Exhibit[]) {
 export function graphStats(items: Exhibit[]) {
   const categories = new Map<string, number>();
   const themes = new Map<string, number>();
+  const reviewStatuses = new Map<string, number>();
 
   items.forEach((item) => {
     categories.set(item.category, (categories.get(item.category) ?? 0) + 1);
     themes.set(item.theme, (themes.get(item.theme) ?? 0) + 1);
+    reviewStatuses.set(item.reviewStatus, (reviewStatuses.get(item.reviewStatus) ?? 0) + 1);
   });
 
   return {
     total: items.length,
     landed: items.filter((item) => item.status === '已落地').length,
+    pendingReview: reviewStatuses.get('待审核') ?? 0,
+    rejectedReview: reviewStatuses.get('已退回') ?? 0,
     avgBudget: Math.round(
       items.reduce((sum, item) => sum + (item.budgetMin + item.budgetMax) / 2, 0) / Math.max(items.length, 1) / 10000
     ),
     categories: [...categories.entries()],
-    themes: [...themes.entries()].sort((a, b) => b[1] - a[1])
+    themes: [...themes.entries()].sort((a, b) => b[1] - a[1]),
+    reviewStatuses: [...reviewStatuses.entries()]
   };
 }
