@@ -732,6 +732,78 @@ textarea:focus {
   color: #35514b;
 }
 
+.similar-relations {
+  border: 1px solid #dce6e1;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfcfa;
+  display: grid;
+  gap: 10px;
+}
+
+.similar-relations .panel-title {
+  margin-bottom: 0;
+}
+
+.similar-relation-list,
+.similar-relation-editor,
+.similar-relation-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.similar-relation-item {
+  border: 1px solid #d7e4de;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 8px 10px;
+}
+
+.similar-relation-item span {
+  font-weight: 700;
+  color: #203b39;
+}
+
+.similar-relation-item small,
+.empty-relations {
+  color: #60766f;
+}
+
+.similar-relation-item button,
+.similar-relation-editor button {
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.similar-relation-item button {
+  background: #ffe4df;
+  color: #8f2d1e;
+}
+
+.similar-relation-editor {
+  align-items: end;
+}
+
+.similar-relation-editor label {
+  min-width: min(260px, 100%);
+  margin-bottom: 0;
+}
+
+.similar-relation-editor button {
+  background: #0f8b78;
+  color: #ffffff;
+}
+
+.similar-relation-item button:disabled,
+.similar-relation-editor button:disabled,
+.similar-relation-editor select:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 .media-row {
   gap: 10px;
   flex-wrap: wrap;

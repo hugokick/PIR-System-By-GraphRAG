@@ -286,6 +286,34 @@ def test_update_exhibit_relationships_refreshes_graph_edges():
     ]
 
 
+def test_patch_related_exhibits_updates_curated_similarity_graph_edges():
+    create_payload = client.get("/api/exhibits/pulley-wall").json()
+    create_payload["id"] = "relation-editor-demo"
+    create_payload["related_exhibit_ids"] = []
+    create_response = client.post("/api/exhibits", json=create_payload, headers=EDITOR_HEADERS)
+    assert create_response.status_code == 201
+
+    try:
+        response = client.patch(
+            "/api/exhibits/relation-editor-demo/related-exhibits",
+            json={"related_exhibit_ids": ["lever-play", "water-cycle"]},
+            headers=EDITOR_HEADERS,
+        )
+
+        assert response.status_code == 200
+        assert response.json()["related_exhibit_ids"] == ["lever-play", "water-cycle"]
+
+        graph_response = client.get("/api/exhibits/relation-editor-demo/graph")
+        similar_targets = [
+            edge["target"]
+            for edge in graph_response.json()["edges"]
+            if edge["type"] == "similar_to"
+        ]
+        assert similar_targets == ["exhibit:lever-play", "exhibit:water-cycle"]
+    finally:
+        client.delete("/api/exhibits/relation-editor-demo", headers=ADMIN_HEADERS)
+
+
 def test_delete_exhibit_soft_removes_from_list_and_detail():
     create_payload = client.get("/api/exhibits/pulley-wall").json()
     create_payload["id"] = "delete-me"

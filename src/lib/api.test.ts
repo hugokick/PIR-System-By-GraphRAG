@@ -15,6 +15,7 @@ import {
   setApiRole,
   setApiSession,
   updateExhibit,
+  updateExhibitRelatedExhibits,
   updateExhibitReviewStatus,
   uploadExhibitAsset,
   type ApiExhibit
@@ -414,6 +415,30 @@ describe('updateExhibitReviewStatus', () => {
       })
     );
     expect(result.reviewStatus).toBe('已审核');
+  });
+});
+
+describe('updateExhibitRelatedExhibits', () => {
+  it('patches only curated similar exhibit relationships and maps the updated record', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ...apiExhibit,
+        related_exhibit_ids: ['pulley-wall', 'water-cycle']
+      })
+    } as Response);
+
+    const result = await updateExhibitRelatedExhibits('lever-play', ['pulley-wall', 'water-cycle']);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/exhibits/lever-play/related-exhibits',
+      expect.objectContaining({
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-User-Role': 'admin' },
+        body: JSON.stringify({ related_exhibit_ids: ['pulley-wall', 'water-cycle'] })
+      })
+    );
+    expect(result.relatedExhibitIds).toEqual(['pulley-wall', 'water-cycle']);
   });
 });
 

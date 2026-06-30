@@ -24,6 +24,7 @@ from .schemas import (
     HybridSearchRequest,
     HybridSearchResponse,
     MediaAsset,
+    RelatedExhibitsUpdateRequest,
     ReviewStatusUpdateRequest,
 )
 from .services.assets import file_extension, file_path, media_type_from_upload, save_upload_file
@@ -106,6 +107,17 @@ def invalid_token() -> HTTPException:
             "error": "InvalidToken",
             "message": "Authorization token is invalid",
             "details": {},
+        },
+    )
+
+
+def invalid_related_exhibits(exhibit_id: str, invalid_ids: list[str]) -> HTTPException:
+    return HTTPException(
+        status_code=400,
+        detail={
+            "error": "InvalidRelatedExhibits",
+            "message": "Related exhibit ids must reference existing exhibits and cannot reference the current exhibit",
+            "details": {"id": exhibit_id, "invalid_ids": invalid_ids},
         },
     )
 
@@ -294,6 +306,36 @@ def update_exhibit_review_status(
         "update_review_status",
         exhibit_id,
         f"Updated review status for {exhibit_id} to {payload.review_status}",
+    )
+    return saved
+
+
+@app.patch("/api/exhibits/{exhibit_id}/related-exhibits", response_model=ExhibitResponse)
+def update_exhibit_related_exhibits(
+    exhibit_id: str,
+    payload: RelatedExhibitsUpdateRequest,
+    role: str = Depends(require_roles("admin", "editor")),
+) -> ExhibitResponse:
+    exhibit = repository.get_exhibit(exhibit_id)
+    if exhibit is None:
+        raise not_found(exhibit_id)
+
+    related_ids = list(
+        dict.fromkeys([item.strip() for item in payload.related_exhibit_ids if item.strip()])
+    )
+    invalid_ids = [
+        item for item in related_ids if item == exhibit_id or repository.get_exhibit(item) is None
+    ]
+    if invalid_ids:
+        raise invalid_related_exhibits(exhibit_id, invalid_ids)
+
+    updated = exhibit.model_copy(update={"related_exhibit_ids": related_ids})
+    saved = repository.update_exhibit(exhibit_id, updated) or updated
+    write_audit(
+        role,
+        "update_exhibit_relations",
+        exhibit_id,
+        f"Updated related exhibits for {exhibit_id}: {', '.join(related_ids) if related_ids else 'none'}",
     )
     return saved
 

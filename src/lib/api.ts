@@ -474,6 +474,14 @@ export async function updateExhibitReviewStatus(exhibitId: string, reviewStatus:
   return mapApiExhibit(payload);
 }
 
+export async function updateExhibitRelatedExhibits(exhibitId: string, relatedExhibitIds: string[]): Promise<Exhibit> {
+  const payload = await sendJson<ApiExhibit>(`/api/exhibits/${encodeURIComponent(exhibitId)}/related-exhibits`, {
+    method: 'PATCH',
+    body: JSON.stringify({ related_exhibit_ids: relatedExhibitIds })
+  });
+  return mapApiExhibit(payload);
+}
+
 export async function deleteExhibit(exhibitId: string): Promise<void> {
   const response = await fetch(`${apiBaseUrl}/api/exhibits/${encodeURIComponent(exhibitId)}`, {
     method: 'DELETE',

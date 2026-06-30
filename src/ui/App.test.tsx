@@ -369,6 +369,47 @@ describe('App exhibit management', () => {
     expect(screen.getAllByText('已审核').length).toBeGreaterThan(0);
   });
 
+  it('lets users add a curated similar exhibit relation from the detail panel', async () => {
+    const primary = { ...frontendExhibit, relatedExhibitIds: [] };
+    const related = {
+      ...frontendExhibit,
+      id: 'lever-play',
+      name: '杠杆乐园',
+      relatedExhibitIds: []
+    };
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/api/exhibits/magnet-maze/related-exhibits') && init?.method === 'PATCH') {
+        expect(init.body).toBe(JSON.stringify({ related_exhibit_ids: ['lever-play'] }));
+        return okJson(apiExhibit({ ...primary, relatedExhibitIds: ['lever-play'] }));
+      }
+      if (url.endsWith('/api/exhibits/magnet-maze/graph')) {
+        return okJson({
+          nodes: [{ id: 'exhibit:magnet-maze', label: '磁力迷宫', type: 'exhibit' }],
+          edges: []
+        });
+      }
+      return okJson({ total: 2, items: [apiExhibit(primary), apiExhibit(related)] });
+    });
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: '磁力迷宫' });
+    fireEvent.change(screen.getByLabelText('添加相似展项'), { target: { value: 'lever-play' } });
+    fireEvent.click(screen.getByRole('button', { name: '添加关系' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://127.0.0.1:8000/api/exhibits/magnet-maze/related-exhibits',
+        expect.objectContaining({
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'X-User-Role': 'admin' }
+        })
+      );
+    });
+    expect(within(screen.getByLabelText('相似展项关系')).getByText('杠杆乐园')).toBeTruthy();
+  });
+
   it('shows budget bands and hot themes in the dashboard', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
       okJson({

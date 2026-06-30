@@ -89,6 +89,10 @@ class ReviewStatusUpdateRequest(BaseModel):
     review_status: ReviewStatusValue
 
 
+class RelatedExhibitsUpdateRequest(BaseModel):
+    related_exhibit_ids: list[str] = Field(default_factory=list)
+
+
 class ExhibitListResponse(BaseModel):
     total: int
     items: list[ExhibitResponse]

@@ -33,6 +33,7 @@ import {
   setApiRole,
   setApiSession,
   updateExhibit,
+  updateExhibitRelatedExhibits,
   updateExhibitReviewStatus,
   uploadExhibitAsset,
   type ExhibitImportResult,
@@ -196,6 +197,8 @@ export function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isReviewing, setIsReviewing] = useState(false);
+  const [isUpdatingRelations, setIsUpdatingRelations] = useState(false);
+  const [selectedRelatedId, setSelectedRelatedId] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [importPreview, setImportPreview] = useState<{ file: File; result: ExhibitImportResult } | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
@@ -276,6 +279,22 @@ export function App() {
   const canWrite = role !== 'viewer';
   const canDelete = role === 'admin';
   const canReview = role === 'admin';
+  const relatedExhibits = useMemo(
+    () =>
+      selected
+        ? selected.relatedExhibitIds
+            .map((id) => items.find((item) => item.id === id))
+            .filter((item): item is Exhibit => Boolean(item))
+        : [],
+    [items, selected]
+  );
+  const relationCandidates = useMemo(
+    () =>
+      selected
+        ? items.filter((item) => item.id !== selected.id && !selected.relatedExhibitIds.includes(item.id))
+        : [],
+    [items, selected]
+  );
 
   useEffect(() => {
     if (session) {
@@ -396,6 +415,10 @@ export function App() {
       setSelectedGraphNodeId(graph.nodes[0].id);
     }
   }, [graph.nodes, selectedGraphNodeId]);
+
+  useEffect(() => {
+    setSelectedRelatedId('');
+  }, [selected?.id]);
 
   const updateFilter = (key: keyof ExhibitFilters, value: string) => {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -586,6 +609,48 @@ export function App() {
     } finally {
       setIsReviewing(false);
     }
+  };
+
+  const refreshSelectedGraph = (exhibitId: string) => {
+    setRemoteGraph(null);
+    setGraphLayoutVersion((version) => version + 1);
+    fetchExhibitGraph(exhibitId)
+      .then((nextGraph) => {
+        setRemoteGraph({ exhibitId, ...nextGraph });
+      })
+      .catch(() => {
+        setRemoteGraph(null);
+      });
+  };
+
+  const changeRelatedExhibits = async (relatedExhibitIds: string[]) => {
+    if (!canWrite || !selected || isUpdatingRelations) return;
+    setIsUpdatingRelations(true);
+
+    try {
+      const updatedExhibit = await updateExhibitRelatedExhibits(selected.id, relatedExhibitIds);
+      const updated = items.map((item) => (item.id === updatedExhibit.id ? updatedExhibit : item));
+      setItems(updated);
+      setSelectedId(updatedExhibit.id);
+      setSelectedRelatedId('');
+      setDataSource('api');
+      setLoadError(null);
+      refreshSelectedGraph(updatedExhibit.id);
+    } catch {
+      setLoadError('相似展项关系更新失败，请检查目标展项或网络连接');
+    } finally {
+      setIsUpdatingRelations(false);
+    }
+  };
+
+  const addRelatedExhibit = () => {
+    if (!selected || !selectedRelatedId) return;
+    changeRelatedExhibits([...selected.relatedExhibitIds, selectedRelatedId]);
+  };
+
+  const removeRelatedExhibit = (relatedId: string) => {
+    if (!selected) return;
+    changeRelatedExhibits(selected.relatedExhibitIds.filter((id) => id !== relatedId));
   };
 
   const submitGraphRagQuestion = async (event: FormEvent<HTMLFormElement>) => {
@@ -1063,6 +1128,57 @@ export function App() {
                   <span key={tag}>{tag}</span>
                 ))}
               </div>
+
+              <section className="similar-relations" aria-label="相似展项关系">
+                <div className="panel-title">
+                  <GitBranch size={18} />
+                  <span>相似展项关系</span>
+                </div>
+                <div className="similar-relation-list">
+                  {relatedExhibits.length > 0 ? (
+                    relatedExhibits.map((item) => (
+                      <div key={item.id} className="similar-relation-item">
+                        <span>{item.name}</span>
+                        <small>{item.category} / {item.theme}</small>
+                        <button
+                          type="button"
+                          onClick={() => removeRelatedExhibit(item.id)}
+                          disabled={!canWrite || isUpdatingRelations}
+                          aria-label={`移除${item.name}`}
+                        >
+                          移除
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <span className="empty-relations">暂无相似展项</span>
+                  )}
+                </div>
+                <div className="similar-relation-editor">
+                  <label>
+                    添加相似展项
+                    <select
+                      value={selectedRelatedId}
+                      onChange={(event) => setSelectedRelatedId(event.target.value)}
+                      disabled={!canWrite || isUpdatingRelations || relationCandidates.length === 0}
+                    >
+                      <option value="">选择展项</option>
+                      {relationCandidates.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={addRelatedExhibit}
+                    disabled={!canWrite || isUpdatingRelations || !selectedRelatedId}
+                  >
+                    添加关系
+                  </button>
+                </div>
+              </section>
 
               <div className="media-row">
                 <button type="button" className="secondary-action" onClick={() => startEdit(selected)} disabled={!canWrite}>
