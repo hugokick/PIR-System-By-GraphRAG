@@ -120,7 +120,8 @@ textarea:focus {
 .secondary-action,
 .danger-action,
 .upload,
-.import-upload {
+.import-upload,
+.template-download {
   border: 0;
   border-radius: 6px;
   background: #0f8b78;
@@ -198,6 +199,18 @@ textarea:focus {
 .import-upload {
   cursor: pointer;
   margin-bottom: 0;
+}
+
+.template-download {
+  background: #e7eeeb;
+  color: #24514b;
+  text-decoration: none;
+}
+
+.template-download small {
+  color: #60766f;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .danger-action {

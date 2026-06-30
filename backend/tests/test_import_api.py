@@ -234,3 +234,30 @@ def test_import_accepts_basic_xlsx_files():
     assert payload["total_rows"] == 1
     assert payload["valid_rows"] == 1
     assert payload["items"][0]["id"] == "xlsx-import-demo"
+
+
+def test_import_template_downloads_xlsx_with_field_descriptions():
+    response = client.get("/api/exhibits/import-template")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    assert "exhibit-import-template.xlsx" in response.headers["content-disposition"]
+    assert response.content.startswith(b"PK")
+
+    with ZipFile(BytesIO(response.content)) as archive:
+        names = set(archive.namelist())
+        assert "xl/worksheets/sheet1.xml" in names
+        assert "xl/worksheets/sheet2.xml" in names
+        assert "xl/workbook.xml" in names
+
+        workbook_xml = archive.read("xl/workbook.xml").decode("utf-8")
+        template_xml = archive.read("xl/worksheets/sheet1.xml").decode("utf-8")
+        field_xml = archive.read("xl/worksheets/sheet2.xml").decode("utf-8")
+
+    assert "导入模板" in workbook_xml
+    assert "字段说明" in workbook_xml
+    assert "venue_type" in template_xml
+    assert "budget_min" in template_xml
+    assert "related_exhibit_ids" in template_xml
+    assert "是否必填" in field_xml
+    assert "展项唯一编号" in field_xml

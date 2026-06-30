@@ -609,6 +609,20 @@ describe('App exhibit management', () => {
     expect((committedImportCalls[1][1]?.body as FormData).get('commit')).toBe('true');
   });
 
+  it('shows a spreadsheet template download entry near the import control', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(okJson({ total: 1, items: [apiExhibit()] }));
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: '磁力迷宫' });
+    const templateLink = screen.getByRole('link', { name: '下载模板' });
+
+    expect(templateLink).toBeTruthy();
+    expect(templateLink.getAttribute('href')).toBe('http://127.0.0.1:8000/api/exhibits/import-template');
+    expect(templateLink.getAttribute('download')).toBe('展项导入模板.xlsx');
+    expect(screen.getByText('模板含字段说明')).toBeTruthy();
+  });
+
   it('shows import validation preview errors without changing the selected exhibit', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = String(input);

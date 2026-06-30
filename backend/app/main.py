@@ -27,7 +27,7 @@ from .services.assets import file_extension, file_path, media_type_from_upload, 
 from .services.auth import authenticate_demo_user, issue_access_token, verify_access_token
 from .services.documents import extract_document_chunks
 from .services.graphrag import answer_from_graphrag_context, search_graphrag_context
-from .services.imports import build_import_items, parse_import_file
+from .services.imports import build_import_items, build_import_template_xlsx, parse_import_file
 
 app = FastAPI(
     title="Exhibit Atlas API",
@@ -221,6 +221,17 @@ def import_exhibits(
         imported_count=len(imported),
         errors=errors,
         items=imported if commit and not errors else items,
+    )
+
+
+@app.get("/api/exhibits/import-template")
+def download_import_template() -> Response:
+    return Response(
+        content=build_import_template_xlsx(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": 'attachment; filename="exhibit-import-template.xlsx"',
+        },
     )
 
 

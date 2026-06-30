@@ -2,6 +2,7 @@ import { FormEvent, Suspense, SyntheticEvent, lazy, useEffect, useMemo, useState
 import {
   BarChart3,
   Database,
+  Download,
   FilePlus2,
   FileText,
   Filter,
@@ -24,6 +25,7 @@ import {
   fetchDemoGraph,
   fetchExhibitGraph,
   fetchExhibits,
+  importTemplateUrl,
   importExhibits,
   login,
   setApiRole,
@@ -738,6 +740,11 @@ export function App() {
               {isImporting ? '导入中' : '导入表格'}
               <input type="file" accept=".csv,.xlsx" onChange={importSpreadsheet} disabled={isImporting || !canWrite} />
             </label>
+            <a className="template-download" href={importTemplateUrl} download="展项导入模板.xlsx" aria-label="下载模板">
+              <Download size={18} />
+              下载模板
+              <small>模板含字段说明</small>
+            </a>
           </div>
         </header>
 
