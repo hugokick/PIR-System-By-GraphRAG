@@ -21,6 +21,13 @@ _demo_graph_seeded = False
 _demo_graph_seed_lock = threading.Lock()
 
 
+def _with_demo_exhibits(exhibits: Iterable[ExhibitResponse]) -> list[ExhibitResponse]:
+    merged = {item.id: item for item in neo4j_demo_exhibits}
+    for exhibit in exhibits:
+        merged[exhibit.id] = exhibit
+    return list(merged.values())
+
+
 class Neo4jBoltGraphClient:
     """Thin adapter around a Neo4j-like driver that supports session().run()."""
 
@@ -145,25 +152,26 @@ def create_neo4j_demo_graph_service(
     env: Mapping[str, str] | None = None,
 ) -> Neo4jDemoGraphService:
     source = env if env is not None else os.environ
+    graph_exhibits = _with_demo_exhibits(exhibits)
     enabled = source.get("NEO4J_DEMO_ENABLED", "").strip().lower() in TRUTHY_VALUES
     if not enabled:
-        return Neo4jDemoGraphService(exhibits=exhibits)
+        return Neo4jDemoGraphService(exhibits=graph_exhibits)
 
     uri = source.get("NEO4J_URI")
     password = source.get("NEO4J_PASSWORD")
     user = source.get("NEO4J_USER", "neo4j")
     if not uri or not password:
-        return Neo4jDemoGraphService()
+        return Neo4jDemoGraphService(exhibits=graph_exhibits)
 
     try:
         from neo4j import GraphDatabase
     except ImportError:
-        return Neo4jDemoGraphService()
+        return Neo4jDemoGraphService(exhibits=graph_exhibits)
 
     driver = GraphDatabase.driver(uri, auth=(user, password))
     auto_seed = source.get("NEO4J_DEMO_AUTO_SEED", "").strip().lower() in TRUTHY_VALUES
     return Neo4jDemoGraphService(
         client=Neo4jBoltGraphClient(driver),
-        exhibits=neo4j_demo_exhibits,
+        exhibits=graph_exhibits,
         auto_seed=auto_seed,
     )

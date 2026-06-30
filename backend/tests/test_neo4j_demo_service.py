@@ -1,4 +1,4 @@
-from app.neo4j_demo.service import Neo4jDemoGraphService
+from app.neo4j_demo.service import Neo4jDemoGraphService, create_neo4j_demo_graph_service
 from app.repository import seed_exhibits
 from app.schemas import GraphResponse
 
@@ -158,3 +158,16 @@ def test_service_auto_seeds_before_fetch_when_configured():
     assert result.nodes
     assert client.seeded_statements
     assert client.seeded_statements[0] == "MATCH (n) DETACH DELETE n"
+
+
+def test_factory_keeps_runtime_exhibits_for_enabled_fallback_without_credentials():
+    source = seed_exhibits[0].model_copy(update={"id": "runtime-source", "related_exhibit_ids": ["runtime-target"]})
+    target = seed_exhibits[1].model_copy(update={"id": "runtime-target", "related_exhibit_ids": []})
+
+    service = create_neo4j_demo_graph_service(
+        [source, target],
+        env={"NEO4J_DEMO_ENABLED": "true"},
+    )
+    result = service.get_exhibit_graph("runtime-source")
+
+    assert any(edge.type == "similar_to" and edge.target == "exhibit:runtime-target" for edge in result.edges)
