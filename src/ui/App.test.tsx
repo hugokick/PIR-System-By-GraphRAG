@@ -77,6 +77,52 @@ describe('App exhibit management', () => {
     expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8000/api/exhibits/magnet-maze/graph');
   });
 
+  it('renders Neo4j graph metadata, relationship types, and selected node details', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.endsWith('/api/exhibits/magnet-maze/graph')) {
+        return okJson({
+          nodes: [
+            { id: 'exhibit:magnet-maze', label: '纾佸姏杩峰', type: 'exhibit' },
+            { id: 'material:backend-only', label: 'Backend Material', type: 'material' },
+            { id: 'supplier:neo4j-demo', label: 'Neo4j Demo Supplier', type: 'supplier' }
+          ],
+          edges: [
+            {
+              source: 'exhibit:magnet-maze',
+              target: 'material:backend-only',
+              label: '浣跨敤鏉愭枡',
+              type: 'USES_MATERIAL'
+            },
+            {
+              source: 'exhibit:magnet-maze',
+              target: 'supplier:neo4j-demo',
+              label: '供应商',
+              type: 'SUPPLIED_BY'
+            }
+          ]
+        });
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText('Neo4j 知识图谱')).toBeTruthy();
+    expect(await screen.findByText('数据源 Neo4j API')).toBeTruthy();
+    expect(await screen.findByText('节点 3')).toBeTruthy();
+    expect(await screen.findByText('关系 2')).toBeTruthy();
+    expect(screen.getByText('USES_MATERIAL')).toBeTruthy();
+    expect(screen.getByText('SUPPLIED_BY')).toBeTruthy();
+
+    fireEvent.click(await screen.findByRole('button', { name: /Backend Material/ }));
+
+    expect(screen.getByText('material:backend-only')).toBeTruthy();
+    expect(screen.getAllByText('Backend Material').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('material').length).toBeGreaterThan(0);
+    expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8000/api/exhibits/magnet-maze/graph');
+  });
+
   it('prefills the selected exhibit and submits edits through the backend API', async () => {
     let updatedPayload: ApiExhibit | undefined;
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) => {

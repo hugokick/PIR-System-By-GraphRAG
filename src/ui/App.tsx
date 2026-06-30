@@ -1,4 +1,4 @@
-import { FormEvent, SyntheticEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, PointerEvent, SyntheticEvent, useEffect, useMemo, useState } from 'react';
 import {
   BarChart3,
   Database,
@@ -78,12 +78,29 @@ function storeRole(role: UserRole) {
   }
 }
 
-function graphNodePosition(index: number, total: number) {
-  if (index === 0) return { left: '50%', top: '50%' };
+type GraphPosition = {
+  x: number;
+  y: number;
+};
+
+function clampGraphPosition(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function graphNodePosition(index: number, total: number): GraphPosition {
+  if (index === 0) return { x: 50, y: 50 };
   const angle = ((index - 1) / Math.max(total - 1, 1)) * Math.PI * 2 - Math.PI / 2;
   return {
-    left: `${50 + Math.cos(angle) * 34}%`,
-    top: `${50 + Math.sin(angle) * 34}%`
+    x: 50 + Math.cos(angle) * 34,
+    y: 50 + Math.sin(angle) * 34
+  };
+}
+
+function edgeLabelPosition(source?: GraphPosition, target?: GraphPosition): GraphPosition {
+  if (!source || !target) return { x: 50, y: 50 };
+  return {
+    x: (source.x + target.x) / 2,
+    y: (source.y + target.y) / 2
   };
 }
 
@@ -182,6 +199,9 @@ export function App() {
     nodes: GraphNode[];
     edges: GraphEdge[];
   } | null>(null);
+  const [selectedGraphNodeId, setSelectedGraphNodeId] = useState<string | null>(null);
+  const [draggedGraphNodeId, setDraggedGraphNodeId] = useState<string | null>(null);
+  const [graphNodePositions, setGraphNodePositions] = useState<Record<string, GraphPosition>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -229,7 +249,19 @@ export function App() {
   const selected = items.find((item) => item.id === selectedId) ?? filteredItems[0] ?? items[0];
   const editingItem = editingId ? items.find((item) => item.id === editingId) : undefined;
   const fallbackGraph = useMemo(() => (selected ? buildGraph(selected, items) : { nodes: [], edges: [] }), [selected, items]);
-  const graph = remoteGraph?.exhibitId === selected?.id ? remoteGraph : fallbackGraph;
+  const isRemoteGraph = Boolean(remoteGraph && remoteGraph.exhibitId === selected?.id);
+  const graph = remoteGraph && remoteGraph.exhibitId === selected?.id ? remoteGraph : fallbackGraph;
+  const graphPositions = useMemo(
+    () =>
+      Object.fromEntries(
+        graph.nodes.map((node, index) => {
+          const saved = graphNodePositions[node.id];
+          return [node.id, saved ?? graphNodePosition(index, graph.nodes.length)];
+        })
+      ),
+    [graph.nodes, graphNodePositions]
+  );
+  const selectedGraphNode = graph.nodes.find((node) => node.id === selectedGraphNodeId) ?? graph.nodes[0] ?? null;
   const stats = useMemo(() => graphStats(items), [items]);
   const canWrite = role !== 'viewer';
   const canDelete = role === 'admin';
@@ -289,6 +321,21 @@ export function App() {
     return () => {
       cancelled = true;
     };
+  }, [selected?.id]);
+
+  useEffect(() => {
+    if (graph.nodes.length === 0) {
+      setSelectedGraphNodeId(null);
+      return;
+    }
+    if (!selectedGraphNodeId || !graph.nodes.some((node) => node.id === selectedGraphNodeId)) {
+      setSelectedGraphNodeId(graph.nodes[0].id);
+    }
+  }, [graph.nodes, selectedGraphNodeId]);
+
+  useEffect(() => {
+    setGraphNodePositions({});
+    setDraggedGraphNodeId(null);
   }, [selected?.id]);
 
   const updateFilter = (key: keyof ExhibitFilters, value: string) => {
@@ -497,6 +544,39 @@ export function App() {
       setIsImporting(false);
       input.value = '';
     }
+  };
+
+  const moveGraphNode = (event: PointerEvent<HTMLButtonElement>, nodeId: string) => {
+    const canvas = event.currentTarget.closest('.graph-canvas');
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const x = clampGraphPosition(((event.clientX - rect.left) / rect.width) * 100, 7, 93);
+    const y = clampGraphPosition(((event.clientY - rect.top) / rect.height) * 100, 10, 90);
+    setGraphNodePositions((current) => ({
+      ...current,
+      [nodeId]: { x, y }
+    }));
+  };
+
+  const beginGraphNodeDrag = (event: PointerEvent<HTMLButtonElement>, nodeId: string) => {
+    setSelectedGraphNodeId(nodeId);
+    setDraggedGraphNodeId(nodeId);
+    event.currentTarget.setPointerCapture(event.pointerId);
+    moveGraphNode(event, nodeId);
+  };
+
+  const dragGraphNode = (event: PointerEvent<HTMLButtonElement>, nodeId: string) => {
+    if (draggedGraphNodeId === nodeId) {
+      moveGraphNode(event, nodeId);
+    }
+  };
+
+  const endGraphNodeDrag = (event: PointerEvent<HTMLButtonElement>) => {
+    if (draggedGraphNodeId) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    setDraggedGraphNodeId(null);
   };
 
   return (
@@ -861,21 +941,91 @@ export function App() {
               <section className="graph">
                 <div className="panel-title">
                   <GitBranch size={18} />
-                  <span>轻量知识图谱</span>
+                  <span>Neo4j 知识图谱</span>
                 </div>
-                <div className="graph-canvas">
-                  {graph.nodes.map((node, index) => (
-                    <div className={`graph-node ${node.kind}`} key={node.id} style={graphNodePosition(index, graph.nodes.length)}>
-                      {node.label}
+                <div className="graph-meta" aria-label="Neo4j graph metadata">
+                  <span>数据源 {isRemoteGraph ? 'Neo4j API' : '本地轻量图谱'}</span>
+                  <span>节点 {graph.nodes.length}</span>
+                  <span>关系 {graph.edges.length}</span>
+                </div>
+                <div className="graph-enhanced">
+                  <div className="graph-canvas graph-canvas-enhanced">
+                    <svg className="graph-links" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                      {graph.edges.map((edge) => {
+                        const source = graphPositions[edge.source];
+                        const target = graphPositions[edge.target];
+                        if (!source || !target) return null;
+                        return (
+                          <line
+                            key={`${edge.source}-${edge.target}-${edge.type ?? edge.label}`}
+                            x1={source.x}
+                            y1={source.y}
+                            x2={target.x}
+                            y2={target.y}
+                          />
+                        );
+                      })}
+                    </svg>
+                    {graph.edges.map((edge) => {
+                      const source = graphPositions[edge.source];
+                      const target = graphPositions[edge.target];
+                      const position = edgeLabelPosition(source, target);
+                      return (
+                        <span
+                          className="graph-edge-label"
+                          key={`${edge.source}-${edge.target}-${edge.type ?? edge.label}`}
+                          style={{ left: `${position.x}%`, top: `${position.y}%` }}
+                        >
+                          {edge.type ?? edge.label}
+                        </span>
+                      );
+                    })}
+                    {graph.nodes.map((node, index) => {
+                      const position = graphPositions[node.id] ?? graphNodePosition(index, graph.nodes.length);
+                      return (
+                        <button
+                          type="button"
+                          className={`graph-node ${node.kind} ${node.id === selectedGraphNode?.id ? 'active' : ''}`}
+                          key={node.id}
+                          style={{ left: `${position.x}%`, top: `${position.y}%` }}
+                          onClick={() => setSelectedGraphNodeId(node.id)}
+                          onPointerDown={(event) => beginGraphNodeDrag(event, node.id)}
+                          onPointerMove={(event) => dragGraphNode(event, node.id)}
+                          onPointerUp={endGraphNodeDrag}
+                          onPointerCancel={endGraphNodeDrag}
+                        >
+                          <strong>{node.label}</strong>
+                          <small>{node.kind}</small>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {selectedGraphNode && (
+                    <div className="graph-node-detail">
+                      <strong>节点详情</strong>
+                      <dl>
+                        <div>
+                          <dt>id</dt>
+                          <dd>{selectedGraphNode.id}</dd>
+                        </div>
+                        <div>
+                          <dt>label</dt>
+                          <dd>{selectedGraphNode.label}</dd>
+                        </div>
+                        <div>
+                          <dt>type</dt>
+                          <dd>{selectedGraphNode.kind}</dd>
+                        </div>
+                      </dl>
                     </div>
-                  ))}
-                </div>
-                <div className="edge-list">
-                  {graph.edges.map((edge) => (
-                    <span key={`${edge.source}-${edge.target}-${edge.label}`}>
-                      {edge.label} {'->'} {graph.nodes.find((node) => node.id === edge.target)?.label}
-                    </span>
-                  ))}
+                  )}
+                  <div className="edge-list">
+                    {graph.edges.map((edge) => (
+                      <span key={`${edge.source}-${edge.target}-${edge.label}`}>
+                        {edge.type ?? edge.label} {'->'} {graph.nodes.find((node) => node.id === edge.target)?.label}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </section>
             </section>

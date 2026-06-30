@@ -310,7 +310,8 @@ export function mapApiGraph(payload: ApiGraphResponse): { nodes: GraphNode[]; ed
     edges: payload.edges.map((edge) => ({
       source: edge.source,
       target: edge.target,
-      label: edge.label
+      label: edge.label,
+      type: edge.type
     }))
   };
 }

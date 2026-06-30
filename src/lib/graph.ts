@@ -5,7 +5,7 @@ export function buildGraph(exhibit: Exhibit, allExhibits: Exhibit[]) {
   const edges: GraphEdge[] = [];
 
   const addNode = (node: GraphNode) => nodes.set(node.id, node);
-  const addEdge = (target: string, label: string) => edges.push({ source: exhibit.id, target, label });
+  const addEdge = (target: string, label: string) => edges.push({ source: exhibit.id, target, label, type: label });
 
   addNode({ id: exhibit.id, label: exhibit.name, kind: 'exhibit' });
 

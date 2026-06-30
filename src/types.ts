@@ -64,13 +64,14 @@ export type SearchResult = {
 export type GraphNode = {
   id: string;
   label: string;
-  kind: 'exhibit' | 'project' | 'owner' | 'material' | 'supplier' | 'theme';
+  kind: string;
 };
 
 export type GraphEdge = {
   source: string;
   target: string;
   label: string;
+  type?: string;
 };
 
 export type GraphRagCitation = {

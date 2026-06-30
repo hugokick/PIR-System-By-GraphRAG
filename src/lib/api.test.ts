@@ -220,6 +220,7 @@ describe('mapApiGraph', () => {
       {
         source: 'exhibit:lever-play',
         target: 'material:metal',
+        type: 'uses_material',
         label: '使用材料'
       }
     ]);
