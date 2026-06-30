@@ -560,22 +560,27 @@ textarea:focus {
 
 .document-items {
   display: grid;
-  gap: 8px;
+  gap: 12px;
   margin-top: 10px;
 }
 
 .document-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 9px 10px;
+  display: grid;
+  gap: 10px;
+  padding: 10px;
   border: 1px solid #e3ece7;
   border-radius: 6px;
   background: #fff;
 }
 
-.document-item a {
+.document-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.document-heading a {
   display: inline-flex;
   align-items: center;
   min-width: 0;
@@ -585,13 +590,51 @@ textarea:focus {
   text-decoration: none;
 }
 
-.document-item a span {
+.document-heading a span {
   overflow-wrap: anywhere;
 }
 
-.document-item small {
+.document-heading small {
   flex: 0 0 auto;
   color: #60736d;
+}
+
+.document-preview {
+  width: 100%;
+  min-height: 280px;
+  border: 1px solid #dbe5df;
+  border-radius: 6px;
+  background: #f4f7f5;
+}
+
+.document-chunks {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid #edf2ef;
+  padding-top: 10px;
+}
+
+.document-chunks strong {
+  color: #203b39;
+  font-size: 13px;
+}
+
+.document-chunks blockquote {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  border-left: 3px solid #0f8b78;
+  border-radius: 4px;
+  background: #f8fbf9;
+  color: #4e5f5a;
+  padding: 8px 10px;
+  line-height: 1.6;
+}
+
+.document-chunks blockquote span {
+  color: #0f6c5f;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .graph {

@@ -75,6 +75,10 @@ function assetKindForFile(file: File): 'media' | 'document' {
   return documentExtensions.has(fileExtension(file.name)) ? 'document' : 'media';
 }
 
+function isPdfDocument(document: DocumentAsset) {
+  return document.fileType.toLowerCase() === 'pdf';
+}
+
 function mergeImportedExhibits(currentItems: Exhibit[], importedItems: Exhibit[]) {
   const importedIds = new Set(importedItems.map((item) => item.id));
   return [...importedItems, ...currentItems.filter((item) => !importedIds.has(item.id))];
@@ -643,11 +647,31 @@ export function App() {
                   <div className="document-items">
                     {selected.documents.map((document) => (
                       <div className="document-item" key={document.id}>
-                        <a href={document.url} target="_blank" rel="noreferrer">
-                          <FileText size={16} />
-                          <span>{document.name}</span>
-                        </a>
-                        {document.sourceNote && <small>{document.sourceNote}</small>}
+                        <div className="document-heading">
+                          <a href={document.url} target="_blank" rel="noreferrer">
+                            <FileText size={16} />
+                            <span>{document.name}</span>
+                          </a>
+                          {document.sourceNote && <small>{document.sourceNote}</small>}
+                        </div>
+                        {isPdfDocument(document) && (
+                          <iframe
+                            className="document-preview"
+                            src={document.url}
+                            title={`${document.name} 预览`}
+                          />
+                        )}
+                        {document.chunks && document.chunks.length > 0 && (
+                          <div className="document-chunks">
+                            <strong>引用片段</strong>
+                            {document.chunks.slice(0, 3).map((chunk) => (
+                              <blockquote key={chunk.id}>
+                                <span>#{chunk.sequence}</span>
+                                {chunk.text}
+                              </blockquote>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

@@ -198,6 +198,35 @@ describe('App exhibit management', () => {
     expect(screen.getByText('报价资料')).toBeTruthy();
   });
 
+  it('renders PDF document previews with extracted citation chunks', async () => {
+    const withDocument = {
+      ...apiExhibit(),
+      documents: [
+        {
+          id: 'pressure-doc',
+          name: '气压演示说明.pdf',
+          file_type: 'pdf',
+          url: '/api/files/pressure-doc',
+          source_note: 'PDF 说明资料',
+          chunks: [
+            {
+              id: 'pressure-doc:chunk-1',
+              text: '伯努利气流环道用于解释可观察的气压差现象。',
+              sequence: 1
+            }
+          ]
+        }
+      ]
+    };
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [withDocument] }));
+
+    render(<App />);
+
+    expect(await screen.findByTitle('气压演示说明.pdf 预览')).toBeTruthy();
+    expect(screen.getByText('引用片段')).toBeTruthy();
+    expect(screen.getByText(/伯努利气流环道/)).toBeTruthy();
+  });
+
   it('uploads selected media through the backend and renders the returned asset link', async () => {
     const updated = {
       ...apiExhibit(),

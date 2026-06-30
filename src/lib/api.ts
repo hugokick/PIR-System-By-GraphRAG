@@ -145,6 +145,13 @@ function entityRef(name: string): ApiEntityRef {
   };
 }
 
+function resolveBackendFileUrl(url: string) {
+  if (!url.startsWith('/api/files/')) {
+    return url;
+  }
+  return `${apiBaseUrl.replace(/\/$/, '')}${url}`;
+}
+
 export function mapApiExhibit(item: ApiExhibit): Exhibit {
   return {
     id: item.id,
@@ -167,7 +174,7 @@ export function mapApiExhibit(item: ApiExhibit): Exhibit {
       id: asset.id,
       type: asset.type,
       name: asset.name,
-      url: asset.url,
+      url: resolveBackendFileUrl(asset.url),
       note: asset.note ?? undefined
     })),
     documents: (item.documents ?? []).map(mapApiDocument),
@@ -181,7 +188,7 @@ function mapApiDocument(document: ApiDocumentAsset) {
     id: document.id,
     name: document.name,
     fileType: document.file_type,
-    url: document.url,
+    url: resolveBackendFileUrl(document.url),
     sourceNote: document.source_note ?? undefined
   };
   if (!document.chunks?.length) {

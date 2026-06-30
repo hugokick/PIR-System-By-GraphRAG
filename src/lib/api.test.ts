@@ -117,6 +117,33 @@ describe('mapApiExhibit', () => {
       sourceNote: '样例文档'
     });
   });
+
+  it('resolves backend file URLs against the API base URL', () => {
+    const mapped = mapApiExhibit({
+      ...apiExhibit,
+      media_assets: [
+        {
+          id: 'uploaded-image',
+          type: 'image',
+          name: '现场图.png',
+          url: '/api/files/uploaded-image',
+          note: null
+        }
+      ],
+      documents: [
+        {
+          id: 'uploaded-pdf',
+          name: '说明.pdf',
+          file_type: 'pdf',
+          url: '/api/files/uploaded-pdf',
+          source_note: null
+        }
+      ]
+    });
+
+    expect(mapped.media[0].url).toBe('http://127.0.0.1:8000/api/files/uploaded-image');
+    expect(mapped.documents[0].url).toBe('http://127.0.0.1:8000/api/files/uploaded-pdf');
+  });
 });
 
 describe('mapExhibitToApiPayload', () => {
@@ -338,7 +365,7 @@ describe('uploadExhibitAsset', () => {
       id: 'media-uploaded',
       type: 'image',
       name: 'scene.png',
-      url: '/api/files/uploaded',
+      url: 'http://127.0.0.1:8000/api/files/uploaded',
       note: '现场照片'
     });
   });
@@ -372,7 +399,7 @@ describe('uploadExhibitAsset', () => {
       id: 'document-uploaded',
       name: 'quote.pdf',
       fileType: 'pdf',
-      url: '/api/files/uploaded-document',
+      url: 'http://127.0.0.1:8000/api/files/uploaded-document',
       sourceNote: '报价资料'
     });
   });
