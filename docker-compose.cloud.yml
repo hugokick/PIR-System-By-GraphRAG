@@ -11,7 +11,7 @@ services:
       context: .
       dockerfile: deploy/frontend.Dockerfile
       args:
-        VITE_API_BASE_URL: ""
+        VITE_API_BASE_URL: "/pir-system"
     container_name: exhibit-atlas-web
     depends_on:
       - backend

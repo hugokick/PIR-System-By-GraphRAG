@@ -70,6 +70,12 @@ docker compose -f docker-compose.cloud.yml up -d --build
 http://<服务器公网 IP>:18080/
 ```
 
+若服务器仅开放 80 端口，可通过宿主机 Nginx 反代到：
+
+```text
+http://<服务器公网 IP>/pir-system/
+```
+
 ## 后续建议
 
 - 用 FastAPI/NestJS + PostgreSQL 持久化展项、项目、媒体、关系数据
