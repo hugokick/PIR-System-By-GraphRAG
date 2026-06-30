@@ -39,6 +39,11 @@ def csv_bytes(rows: list[list[str]]) -> bytes:
     return ("\n".join(lines) + "\n").encode("utf-8")
 
 
+def csv_bytes_with_headers(headers: list[str], rows: list[list[str]]) -> bytes:
+    lines = [",".join(headers), *[",".join(row) for row in rows]]
+    return ("\n".join(lines) + "\n").encode("utf-8")
+
+
 def minimal_xlsx_bytes(headers: list[str], rows: list[list[str]]) -> bytes:
     def cell_ref(column_index: int, row_index: int) -> str:
         column = chr(ord("A") + column_index)
@@ -236,6 +241,56 @@ def test_import_accepts_basic_xlsx_files():
     assert payload["items"][0]["id"] == "xlsx-import-demo"
 
 
+def test_import_accepts_chinese_header_aliases():
+    chinese_headers = [
+        "展项编号",
+        "展项名称",
+        "类别",
+        "主题",
+        "适用场馆",
+        "造价下限",
+        "造价上限",
+        "材料",
+        "尺寸",
+        "交互方式",
+        "供应商",
+        "项目编号",
+        "项目名称",
+        "业主",
+        "项目年份",
+        "状态",
+        "展项说明",
+        "标签",
+        "相似展项",
+    ]
+
+    response = client.post(
+        "/api/exhibits/import",
+        data={"commit": "false"},
+        files={
+            "file": (
+                "chinese-headers.csv",
+                csv_bytes_with_headers(chinese_headers, [valid_import_row("chinese-header-demo")]),
+                "text/csv",
+            )
+        },
+        headers=EDITOR_HEADERS,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total_rows"] == 1
+    assert payload["valid_rows"] == 1
+    assert payload["errors"] == []
+    assert payload["items"][0]["id"] == "chinese-header-demo"
+    assert payload["items"][0]["venue_type"] == "Children Museum"
+    assert payload["items"][0]["materials"] == [
+        {"id": "metal", "name": "Metal"},
+        {"id": "acrylic", "name": "Acrylic"},
+    ]
+    assert client.get("/api/exhibits/chinese-header-demo").status_code == 404
+
+
 def test_import_template_downloads_xlsx_with_field_descriptions():
     response = client.get("/api/exhibits/import-template")
 
@@ -256,8 +311,11 @@ def test_import_template_downloads_xlsx_with_field_descriptions():
 
     assert "导入模板" in workbook_xml
     assert "字段说明" in workbook_xml
-    assert "venue_type" in template_xml
-    assert "budget_min" in template_xml
-    assert "related_exhibit_ids" in template_xml
+    assert "展项名称" in template_xml
+    assert "造价下限" in template_xml
+    assert "related_exhibit_ids" in field_xml
+    assert "venue_type" in field_xml
+    assert "budget_min" in field_xml
     assert "是否必填" in field_xml
     assert "展项唯一编号" in field_xml
+    assert "中文表头" in field_xml

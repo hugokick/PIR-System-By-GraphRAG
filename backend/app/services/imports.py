@@ -29,26 +29,54 @@ required_fields = {
 }
 
 import_template_fields = [
-    ("id", True, "展项唯一编号，建议使用英文、数字和短横线", "lever-play"),
-    ("name", True, "展项名称", "杠杆乐园"),
-    ("category", True, "学科领域或展项类别", "基础科学"),
-    ("theme", True, "主题名称", "力学"),
-    ("venue_type", True, "适用场馆类型", "儿童科技馆"),
-    ("budget_min", True, "最低造价，整数，单位元", "200000"),
-    ("budget_max", True, "最高造价，整数，单位元", "350000"),
-    ("materials", False, "材料列表，用竖线分隔多个值", "金属|木作|亚克力"),
-    ("dimensions", False, "尺寸说明", "4200x2200x1800mm"),
-    ("interactions", False, "交互方式列表，用竖线分隔多个值", "机械互动|亲子协作"),
-    ("supplier", True, "供应商名称", "启思互动工坊"),
-    ("project_id", True, "项目唯一编号", "qinghe-2024"),
-    ("project_name", True, "项目名称", "青禾儿童科技馆更新项目"),
-    ("owner", True, "业主名称", "青禾儿童科技馆"),
-    ("project_year", True, "项目年份，整数", "2024"),
-    ("status", True, "展项状态", "已落地"),
-    ("description", True, "展项说明", "通过杠杆装置展示力矩平衡。"),
-    ("tags", False, "标签列表，用竖线分隔多个值", "低龄儿童|力学"),
-    ("related_exhibit_ids", False, "相似展项编号列表，用竖线分隔多个值", "pulley-wall"),
+    ("id", "展项编号", True, "展项唯一编号，建议使用英文、数字和短横线", "lever-play"),
+    ("name", "展项名称", True, "展项名称", "杠杆乐园"),
+    ("category", "类别", True, "学科领域或展项类别", "基础科学"),
+    ("theme", "主题", True, "主题名称", "力学"),
+    ("venue_type", "适用场馆", True, "适用场馆类型", "儿童科技馆"),
+    ("budget_min", "造价下限", True, "最低造价，整数，单位元", "200000"),
+    ("budget_max", "造价上限", True, "最高造价，整数，单位元", "350000"),
+    ("materials", "材料", False, "材料列表，用竖线分隔多个值", "金属|木作|亚克力"),
+    ("dimensions", "尺寸", False, "尺寸说明", "4200x2200x1800mm"),
+    ("interactions", "交互方式", False, "交互方式列表，用竖线分隔多个值", "机械互动|亲子协作"),
+    ("supplier", "供应商", True, "供应商名称", "启思互动工坊"),
+    ("project_id", "项目编号", True, "项目唯一编号", "qinghe-2024"),
+    ("project_name", "项目名称", True, "项目名称", "青禾儿童科技馆更新项目"),
+    ("owner", "业主", True, "业主名称", "青禾儿童科技馆"),
+    ("project_year", "项目年份", True, "项目年份，整数", "2024"),
+    ("status", "状态", True, "展项状态", "已落地"),
+    ("description", "展项说明", True, "展项说明", "通过杠杆装置展示力矩平衡。"),
+    ("tags", "标签", False, "标签列表，用竖线分隔多个值", "低龄儿童|力学"),
+    ("related_exhibit_ids", "相似展项", False, "相似展项编号列表，用竖线分隔多个值", "pulley-wall"),
 ]
+
+field_aliases = {
+    "id": {"展项编号", "展项id", "展项ID", "编号"},
+    "name": {"展项名称", "名称"},
+    "category": {"类别", "学科领域", "分类"},
+    "theme": {"主题", "主题名称"},
+    "venue_type": {"适用场馆", "场馆类型", "展馆类型", "适用场馆类型"},
+    "budget_min": {"造价下限", "最低造价", "预算下限", "预算最低", "最小预算"},
+    "budget_max": {"造价上限", "最高造价", "预算上限", "预算最高", "最大预算"},
+    "materials": {"材料", "材质", "材料列表"},
+    "dimensions": {"尺寸", "规格", "外形尺寸"},
+    "interactions": {"交互方式", "互动形式", "互动方式", "交互形式"},
+    "supplier": {"供应商", "制作单位"},
+    "project_id": {"项目编号", "项目id", "项目ID"},
+    "project_name": {"项目名称", "项目案例"},
+    "owner": {"业主", "业主单位", "甲方"},
+    "project_year": {"项目年份", "年份", "项目年度"},
+    "status": {"状态", "展项状态"},
+    "description": {"展项说明", "说明", "描述", "简介"},
+    "tags": {"标签", "关键词"},
+    "related_exhibit_ids": {"相似展项", "关联展项", "相似展项编号", "相关展项"},
+}
+
+header_alias_lookup = {
+    alias.strip().lower(): field
+    for field, aliases in field_aliases.items()
+    for alias in aliases | {field}
+}
 
 
 def parse_import_file(file: UploadFile) -> list[dict[str, str]]:
@@ -151,9 +179,15 @@ def build_import_items(rows: list[dict[str, str]]) -> tuple[list[ExhibitResponse
 
 def normalize_row(row: dict[str, str]) -> dict[str, str]:
     return {
-        (key or "").strip(): (value or "").strip()
+        normalize_header(key): (value or "").strip()
         for key, value in row.items()
+        if normalize_header(key)
     }
+
+
+def normalize_header(value: str | None) -> str:
+    normalized = (value or "").strip().lower()
+    return header_alias_lookup.get(normalized, normalized)
 
 
 def validate_row(row: dict[str, str], row_number: int) -> list[ExhibitImportError]:
@@ -220,14 +254,14 @@ def slugify(value: str) -> str:
 
 def build_import_template_xlsx() -> bytes:
     template_rows = [
-        [field for field, _required, _description, _example in import_template_fields],
-        [example for _field, _required, _description, example in import_template_fields],
+        [label for _field, label, _required, _description, _example in import_template_fields],
+        [example for _field, _label, _required, _description, example in import_template_fields],
     ]
     description_rows = [
-        ["字段", "是否必填", "说明", "示例"],
+        ["字段", "中文表头", "是否必填", "说明", "示例"],
         *[
-            [field, "是" if required else "否", description, example]
-            for field, required, description, example in import_template_fields
+            [field, label, "是" if required else "否", description, example]
+            for field, label, required, description, example in import_template_fields
         ],
     ]
 
