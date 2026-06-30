@@ -200,6 +200,39 @@ textarea:focus {
   margin: 0;
 }
 
+.source-status {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 10px;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #24514b;
+  background: #e7eeeb;
+}
+
+.source-status.api {
+  color: #0f6c5f;
+  background: #dff5ed;
+}
+
+.source-status.loading {
+  color: #7a5a16;
+  background: #fff2ca;
+}
+
+.source-status.local {
+  color: #7a4b16;
+  background: #fff0dc;
+}
+
+.topbar .load-note {
+  margin-top: 6px;
+  color: #8d5c12;
+  font-size: 13px;
+}
+
 .top-actions {
   gap: 10px;
   flex-wrap: wrap;

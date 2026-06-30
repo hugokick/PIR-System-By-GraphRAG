@@ -1,4 +1,4 @@
-import { FormEvent, SyntheticEvent, useMemo, useState } from 'react';
+import { FormEvent, SyntheticEvent, useEffect, useMemo, useState } from 'react';
 import {
   BarChart3,
   Database,
@@ -11,6 +11,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { buildGraph, graphStats } from '../lib/graph';
+import { fetchExhibits } from '../lib/api';
 import { filterExhibits, formatBudget, semanticSearch } from '../lib/search';
 import { loadExhibits, resetExhibits, saveExhibits } from '../lib/storage';
 import type { Exhibit, ExhibitFilters, ExhibitStatus, MediaAsset } from '../types';
@@ -86,6 +87,38 @@ export function App() {
   const [semanticQuery, setSemanticQuery] = useState('找几个适合低龄儿童、预算不高、互动性强的力学展项');
   const [selectedId, setSelectedId] = useState(items[0]?.id ?? '');
   const [showForm, setShowForm] = useState(false);
+  const [dataSource, setDataSource] = useState<'loading' | 'api' | 'local'>('loading');
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setDataSource('loading');
+
+    fetchExhibits(filters)
+      .then((nextItems) => {
+        if (cancelled) return;
+        setItems(nextItems);
+        if (nextItems.length > 0 && !nextItems.some((item) => item.id === selectedId)) {
+          setSelectedId(nextItems[0].id);
+        }
+        setDataSource('api');
+        setLoadError(null);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        const localItems = filterExhibits(loadExhibits(), filters);
+        setItems(localItems);
+        if (localItems.length > 0 && !localItems.some((item) => item.id === selectedId)) {
+          setSelectedId(localItems[0].id);
+        }
+        setDataSource('local');
+        setLoadError('后端未连接，已使用本地数据');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filters]);
 
   const options = useMemo(
     () => ({
@@ -116,6 +149,8 @@ export function App() {
     setItems(updated);
     saveExhibits(updated);
     setSelectedId(next.id);
+    setDataSource('local');
+    setLoadError('新增档案暂存于本地，后端写入接口将在下一阶段接入');
     setShowForm(false);
     event.currentTarget.reset();
   };
@@ -146,6 +181,8 @@ export function App() {
     const restored = resetExhibits();
     setItems(restored);
     setSelectedId(restored[0].id);
+    setDataSource('local');
+    setLoadError('已恢复本地样例数据');
   };
 
   return (
@@ -211,7 +248,13 @@ export function App() {
         <header className="topbar">
           <div>
             <h1>展项数字档案与智能检索</h1>
-            <p>录入、筛选、语义召回和轻量关系图谱的第一条闭环</p>
+            <p>
+              录入、筛选、语义召回和轻量关系图谱的第一条闭环
+              <span className={`source-status ${dataSource}`}>
+                {dataSource === 'api' ? '后端 API' : dataSource === 'loading' ? '连接中' : '本地兜底'}
+              </span>
+            </p>
+            {loadError && <p className="load-note">{loadError}</p>}
           </div>
           <div className="top-actions">
             <button type="button" onClick={() => setShowForm((value) => !value)}>
