@@ -163,3 +163,18 @@ class GraphRagAnswerResponse(BaseModel):
     answer: str
     citations: list[GraphRagCitation]
     items: list[GraphRagSearchHit]
+
+
+class AuditLogEntry(BaseModel):
+    id: str
+    actor_role: str
+    action: str
+    resource_type: str
+    resource_id: str
+    summary: str
+    created_at: str
+
+
+class AuditLogListResponse(BaseModel):
+    total: int
+    items: list[AuditLogEntry]

@@ -1,9 +1,11 @@
 import json
 import os
+import uuid
 from collections.abc import Mapping
+from datetime import datetime, timezone
 from typing import Any
 
-from .schemas import DocumentAsset, EntityRef, ExhibitResponse, MediaAsset
+from .schemas import AuditLogEntry, DocumentAsset, EntityRef, ExhibitResponse, MediaAsset
 
 
 seed_exhibits = [
@@ -133,6 +135,7 @@ class ExhibitRepository:
     def __init__(self, exhibits: list[ExhibitResponse] | None = None):
         self._exhibits = list(exhibits or seed_exhibits)
         self._deleted_ids: set[str] = set()
+        self._audit_logs: list[AuditLogEntry] = []
 
     def get_exhibit(self, exhibit_id: str) -> ExhibitResponse | None:
         if exhibit_id in self._deleted_ids:
@@ -161,6 +164,30 @@ class ExhibitRepository:
             return False
         self._deleted_ids.add(exhibit_id)
         return True
+
+    def add_audit_log(
+        self,
+        *,
+        actor_role: str,
+        action: str,
+        resource_type: str,
+        resource_id: str,
+        summary: str,
+    ) -> AuditLogEntry:
+        entry = AuditLogEntry(
+            id=f"audit-{len(self._audit_logs) + 1}",
+            actor_role=actor_role,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            summary=summary,
+            created_at=datetime.now(timezone.utc).isoformat(),
+        )
+        self._audit_logs.append(entry)
+        return entry
+
+    def list_audit_logs(self, limit: int = 100) -> list[AuditLogEntry]:
+        return list(reversed(self._audit_logs[-limit:]))
 
     def list_exhibits(
         self,
@@ -260,6 +287,19 @@ class PostgresExhibitRepository:
 
         CREATE INDEX IF NOT EXISTS idx_exhibit_records_payload
           ON exhibit_records USING GIN (payload);
+
+        CREATE TABLE IF NOT EXISTS audit_log_entries (
+          id TEXT PRIMARY KEY,
+          actor_role TEXT NOT NULL,
+          action TEXT NOT NULL,
+          resource_type TEXT NOT NULL,
+          resource_id TEXT NOT NULL,
+          summary TEXT NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_audit_log_entries_created_at
+          ON audit_log_entries (created_at DESC);
         """
 
     def initialize(self) -> None:
@@ -395,6 +435,70 @@ class PostgresExhibitRepository:
                 budget_max=budget_max,
             )
         ]
+
+    def add_audit_log(
+        self,
+        *,
+        actor_role: str,
+        action: str,
+        resource_type: str,
+        resource_id: str,
+        summary: str,
+    ) -> AuditLogEntry:
+        entry_id = f"audit-{uuid.uuid4().hex}"
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO audit_log_entries
+                      (id, actor_role, action, resource_type, resource_id, summary)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    RETURNING id, actor_role, action, resource_type, resource_id, summary, created_at
+                    """,
+                    (entry_id, actor_role, action, resource_type, resource_id, summary),
+                )
+                row = cursor.fetchone()
+        return self.audit_log_from_row(row)
+
+    def list_audit_logs(self, limit: int = 100) -> list[AuditLogEntry]:
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT id, actor_role, action, resource_type, resource_id, summary, created_at
+                    FROM audit_log_entries
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                    """,
+                    (limit,),
+                )
+                rows = cursor.fetchall()
+        return [self.audit_log_from_row(row) for row in rows]
+
+    @staticmethod
+    def audit_log_from_row(row: Mapping[str, Any] | tuple[Any, ...]) -> AuditLogEntry:
+        if isinstance(row, Mapping):
+            created_at = row["created_at"]
+            return AuditLogEntry(
+                id=row["id"],
+                actor_role=row["actor_role"],
+                action=row["action"],
+                resource_type=row["resource_type"],
+                resource_id=row["resource_id"],
+                summary=row["summary"],
+                created_at=created_at.isoformat() if hasattr(created_at, "isoformat") else str(created_at),
+            )
+
+        created_at = row[6]
+        return AuditLogEntry(
+            id=row[0],
+            actor_role=row[1],
+            action=row[2],
+            resource_type=row[3],
+            resource_id=row[4],
+            summary=row[5],
+            created_at=created_at.isoformat() if hasattr(created_at, "isoformat") else str(created_at),
+        )
 
 
 def create_repository_from_env(

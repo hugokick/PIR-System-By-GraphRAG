@@ -5,6 +5,8 @@ from app.main import app
 
 client = TestClient(app)
 
+EDITOR_HEADERS = {"X-User-Role": "editor"}
+
 
 def minimal_pdf_bytes(text: str) -> bytes:
     escaped = text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
@@ -45,6 +47,7 @@ def test_upload_image_asset_attaches_media_and_serves_file(monkeypatch, tmp_path
         "/api/exhibits/lever-play/assets",
         data={"asset_kind": "media", "note": "现场照片"},
         files={"file": ("scene.png", b"fake image bytes", "image/png")},
+        headers=EDITOR_HEADERS,
     )
 
     assert response.status_code == 201
@@ -67,6 +70,7 @@ def test_upload_document_asset_attaches_document_source(monkeypatch, tmp_path):
         "/api/exhibits/lever-play/assets",
         data={"asset_kind": "document", "note": "报价资料"},
         files={"file": ("quote.pdf", b"%PDF fake", "application/pdf")},
+        headers=EDITOR_HEADERS,
     )
 
     assert response.status_code == 201
@@ -91,6 +95,7 @@ def test_uploaded_text_document_is_chunked_and_available_to_graphrag(monkeypatch
                 "text/plain",
             )
         },
+        headers=EDITOR_HEADERS,
     )
 
     assert upload_response.status_code == 201
@@ -128,6 +133,7 @@ def test_uploaded_pdf_document_is_chunked_and_available_to_graphrag(monkeypatch,
                 "application/pdf",
             )
         },
+        headers=EDITOR_HEADERS,
     )
 
     assert upload_response.status_code == 201
@@ -159,6 +165,7 @@ def test_upload_malformed_pdf_keeps_document_without_chunks(monkeypatch, tmp_pat
         "/api/exhibits/lever-play/assets",
         data={"asset_kind": "document", "note": "坏 PDF"},
         files={"file": ("broken.pdf", b"%PDF broken", "application/pdf")},
+        headers=EDITOR_HEADERS,
     )
 
     assert response.status_code == 201
@@ -174,6 +181,7 @@ def test_upload_asset_returns_404_for_unknown_exhibit(monkeypatch, tmp_path):
         "/api/exhibits/not-found/assets",
         data={"asset_kind": "media"},
         files={"file": ("scene.png", b"fake image bytes", "image/png")},
+        headers=EDITOR_HEADERS,
     )
 
     assert response.status_code == 404

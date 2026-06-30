@@ -23,8 +23,10 @@ import {
   fetchExhibitGraph,
   fetchExhibits,
   importExhibits,
+  setApiRole,
   updateExhibit,
-  uploadExhibitAsset
+  uploadExhibitAsset,
+  type UserRole
 } from '../lib/api';
 import { filterExhibits, formatBudget, semanticSearch } from '../lib/search';
 import { loadExhibits, resetExhibits, saveExhibits } from '../lib/storage';
@@ -42,6 +44,25 @@ const emptyFilters: ExhibitFilters = {
 };
 
 const documentExtensions = new Set(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'ppt', 'pptx']);
+const userRoles: UserRole[] = ['admin', 'editor', 'viewer'];
+
+function readInitialRole(): UserRole {
+  let stored: string | null = null;
+  try {
+    stored = globalThis.localStorage?.getItem('pir-system-role') ?? null;
+  } catch {
+    stored = null;
+  }
+  return userRoles.includes(stored as UserRole) ? (stored as UserRole) : 'admin';
+}
+
+function storeRole(role: UserRole) {
+  try {
+    globalThis.localStorage?.setItem('pir-system-role', role);
+  } catch {
+    // Storage can be unavailable in restricted test/browser contexts.
+  }
+}
 
 function graphNodePosition(index: number, total: number) {
   if (index === 0) return { left: '50%', top: '50%' };
@@ -118,6 +139,11 @@ function makeExhibitFromForm(form: HTMLFormElement, existingItem?: Exhibit): Exh
 
 export function App() {
   const [items, setItems] = useState<Exhibit[]>(() => loadExhibits());
+  const [role, setRole] = useState<UserRole>(() => {
+    const initialRole = readInitialRole();
+    setApiRole(initialRole);
+    return initialRole;
+  });
   const [filters, setFilters] = useState<ExhibitFilters>(emptyFilters);
   const [semanticQuery, setSemanticQuery] = useState('找几个适合低龄儿童、预算不高、互动性强的力学展项');
   const [graphRagQuery, setGraphRagQuery] = useState('pulley-wall');
@@ -186,6 +212,13 @@ export function App() {
   const fallbackGraph = useMemo(() => (selected ? buildGraph(selected, items) : { nodes: [], edges: [] }), [selected, items]);
   const graph = remoteGraph?.exhibitId === selected?.id ? remoteGraph : fallbackGraph;
   const stats = useMemo(() => graphStats(items), [items]);
+  const canWrite = role !== 'viewer';
+  const canDelete = role === 'admin';
+
+  useEffect(() => {
+    setApiRole(role);
+    storeRole(role);
+  }, [role]);
 
   useEffect(() => {
     if (!selected) {
@@ -215,6 +248,7 @@ export function App() {
 
   const addExhibit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!canWrite) return;
     const form = event.currentTarget;
     const currentEditingItem = editingId ? items.find((item) => item.id === editingId) : undefined;
     const next = makeExhibitFromForm(event.currentTarget, currentEditingItem);
@@ -248,7 +282,7 @@ export function App() {
   };
 
   const attachMedia = async (event: FormEvent<HTMLInputElement>) => {
-    if (!selected || !event.currentTarget.files?.length) return;
+    if (!canWrite || !selected || !event.currentTarget.files?.length) return;
     const file = event.currentTarget.files[0];
     const assetKind = assetKindForFile(file);
     try {
@@ -303,13 +337,14 @@ export function App() {
   };
 
   const startEdit = (item: Exhibit) => {
+    if (!canWrite) return;
     setEditingId(item.id);
     setShowForm(true);
     setLoadError(null);
   };
 
   const deleteSelected = async () => {
-    if (!selected || isDeleting) return;
+    if (!canDelete || !selected || isDeleting) return;
     setIsDeleting(true);
     const updated = items.filter((item) => item.id !== selected.id);
 
@@ -361,7 +396,7 @@ export function App() {
   const importSpreadsheet = async (event: FormEvent<HTMLInputElement>) => {
     const input = event.currentTarget;
     const file = input.files?.[0];
-    if (!file || isImporting) return;
+    if (!canWrite || !file || isImporting) return;
     setIsImporting(true);
     try {
       const result = await importExhibits(file, true);
@@ -458,8 +493,19 @@ export function App() {
             {loadError && <p className="load-note">{loadError}</p>}
           </div>
           <div className="top-actions">
+            <label className="role-select">
+              Role
+              <select value={role} onChange={(event) => setRole(event.target.value as UserRole)}>
+                {userRoles.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </label>
             <button
               type="button"
+              disabled={!canWrite}
               onClick={() => {
                 setEditingId(null);
                 setShowForm((value) => !value);
@@ -475,7 +521,7 @@ export function App() {
             <label className="import-upload">
               <Upload size={18} />
               {isImporting ? '导入中' : '导入表格'}
-              <input type="file" accept=".csv,.xlsx" onChange={importSpreadsheet} disabled={isImporting} />
+              <input type="file" accept=".csv,.xlsx" onChange={importSpreadsheet} disabled={isImporting || !canWrite} />
             </label>
           </div>
         </header>
@@ -507,7 +553,7 @@ export function App() {
               defaultValue={editingItem?.relatedExhibitIds.join(',') ?? ''}
             />
             <textarea name="description" placeholder="展项说明" defaultValue={editingItem?.description ?? ''} required />
-            <button type="submit" disabled={isSaving}>{isSaving ? '保存中' : editingId ? '保存修改' : '保存档案'}</button>
+            <button type="submit" disabled={isSaving || !canWrite}>{isSaving ? '保存中' : editingId ? '保存修改' : '保存档案'}</button>
           </form>
         )}
 
@@ -618,18 +664,18 @@ export function App() {
               </div>
 
               <div className="media-row">
-                <button type="button" className="secondary-action" onClick={() => startEdit(selected)}>
+                <button type="button" className="secondary-action" onClick={() => startEdit(selected)} disabled={!canWrite}>
                   <Pencil size={18} />
                   编辑档案
                 </button>
-                <button type="button" className="danger-action" onClick={deleteSelected} disabled={isDeleting}>
+                <button type="button" className="danger-action" onClick={deleteSelected} disabled={isDeleting || !canDelete}>
                   <Trash2 size={18} />
                   {isDeleting ? '删除中' : '删除档案'}
                 </button>
                 <label className="upload">
                   <ImageIcon size={18} />
                   上传媒体
-                  <input type="file" accept="image/*,.pdf,.doc,.docx,.xlsx" onChange={attachMedia} />
+                  <input type="file" accept="image/*,.pdf,.doc,.docx,.xlsx" onChange={attachMedia} disabled={!canWrite} />
                 </label>
                 {selected.media.map((asset) => (
                   <a key={asset.id} href={asset.url} target="_blank" rel="noreferrer">

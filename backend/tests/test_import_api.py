@@ -8,6 +8,8 @@ from app.main import app
 
 client = TestClient(app)
 
+EDITOR_HEADERS = {"X-User-Role": "editor"}
+
 
 CSV_HEADERS = [
     "id",
@@ -160,6 +162,7 @@ def test_import_preview_validates_rows_without_persisting():
                 "text/csv",
             )
         },
+        headers=EDITOR_HEADERS,
     )
 
     assert response.status_code == 200
@@ -188,6 +191,7 @@ def test_import_commit_upserts_valid_rows_and_graph_relationships():
                 "text/csv",
             )
         },
+        headers=EDITOR_HEADERS,
     )
 
     assert response.status_code == 200
@@ -222,6 +226,7 @@ def test_import_accepts_basic_xlsx_files():
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
         },
+        headers=EDITOR_HEADERS,
     )
 
     assert response.status_code == 200

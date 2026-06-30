@@ -123,9 +123,24 @@ describe('App exhibit management', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8000/api/exhibits/magnet-maze', {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: { 'X-User-Role': 'admin' }
       });
     });
+  });
+
+  it('disables write controls after switching to viewer role', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [apiExhibit()] }));
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: frontendExhibit.name });
+    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'viewer' } });
+
+    expect((document.querySelector('.top-actions button') as HTMLButtonElement).disabled).toBe(true);
+    expect((document.querySelector('.secondary-action') as HTMLButtonElement).disabled).toBe(true);
+    expect((document.querySelector('.danger-action') as HTMLButtonElement).disabled).toBe(true);
+    expect((document.querySelector('.upload input') as HTMLInputElement).disabled).toBe(true);
   });
 
   it('submits GraphRAG questions and renders answers with citations', async () => {

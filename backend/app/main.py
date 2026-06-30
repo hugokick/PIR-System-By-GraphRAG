@@ -1,9 +1,12 @@
-from fastapi import FastAPI, File, Form, HTTPException, Query, Response, UploadFile, status
+from collections.abc import Callable
+
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, Response, UploadFile, status
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from .repository import create_repository
 from .schemas import (
+    AuditLogListResponse,
     DocumentAsset,
     ExhibitImportResponse,
     ExhibitListResponse,
@@ -38,6 +41,8 @@ app.add_middleware(
 
 repository = create_repository()
 
+VALID_ROLES = ("admin", "editor", "viewer")
+
 
 def not_found(exhibit_id: str) -> HTTPException:
     return HTTPException(
@@ -50,6 +55,20 @@ def not_found(exhibit_id: str) -> HTTPException:
     )
 
 
+def forbidden(required_roles: tuple[str, ...], role: str) -> HTTPException:
+    return HTTPException(
+        status_code=403,
+        detail={
+            "error": "Forbidden",
+            "message": "Current role is not allowed to perform this action",
+            "details": {
+                "role": role,
+                "required_roles": list(required_roles),
+            },
+        },
+    )
+
+
 def conflict(exhibit_id: str) -> HTTPException:
     return HTTPException(
         status_code=409,
@@ -58,6 +77,41 @@ def conflict(exhibit_id: str) -> HTTPException:
             "message": "Exhibit id already exists",
             "details": {"id": exhibit_id},
         },
+    )
+
+
+def current_role(x_user_role: str | None = Header(default=None, alias="X-User-Role")) -> str:
+    role = (x_user_role or "viewer").strip().lower()
+    if role not in VALID_ROLES:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "InvalidRole",
+                "message": "Unknown user role",
+                "details": {"role": role, "valid_roles": list(VALID_ROLES)},
+            },
+        )
+    return role
+
+
+def require_roles(*roles: str) -> Callable[[str], str]:
+    required_roles = tuple(roles)
+
+    def dependency(role: str = Depends(current_role)) -> str:
+        if role not in required_roles:
+            raise forbidden(required_roles, role)
+        return role
+
+    return dependency
+
+
+def write_audit(role: str, action: str, resource_id: str, summary: str) -> None:
+    repository.add_audit_log(
+        actor_role=role,
+        action=action,
+        resource_type="exhibit",
+        resource_id=resource_id,
+        summary=summary,
     )
 
 
@@ -96,6 +150,7 @@ def list_exhibits(
 def import_exhibits(
     commit: bool = Form(default=False),
     file: UploadFile = File(...),
+    role: str = Depends(require_roles("admin", "editor")),
 ) -> ExhibitImportResponse:
     rows = parse_import_file(file)
     items, errors = build_import_items(rows)
@@ -106,8 +161,10 @@ def import_exhibits(
             existing = repository.get_exhibit(item.id)
             if existing is None:
                 imported.append(repository.create_exhibit(item))
+                write_audit(role, "import_create_exhibit", item.id, f"Imported exhibit {item.id}")
             else:
                 imported.append(repository.update_exhibit(item.id, item) or item)
+                write_audit(role, "import_update_exhibit", item.id, f"Updated exhibit {item.id} from import")
 
     return ExhibitImportResponse(
         total_rows=len(rows),
@@ -127,26 +184,40 @@ def get_exhibit(exhibit_id: str) -> ExhibitResponse:
 
 
 @app.post("/api/exhibits", response_model=ExhibitResponse, status_code=status.HTTP_201_CREATED)
-def create_exhibit(payload: ExhibitWriteRequest) -> ExhibitResponse:
+def create_exhibit(
+    payload: ExhibitWriteRequest,
+    role: str = Depends(require_roles("admin", "editor")),
+) -> ExhibitResponse:
     try:
-        return repository.create_exhibit(payload.to_response())
+        created = repository.create_exhibit(payload.to_response())
+        write_audit(role, "create_exhibit", created.id, f"Created exhibit {created.id}")
+        return created
     except ValueError:
         raise conflict(payload.id)
 
 
 @app.put("/api/exhibits/{exhibit_id}", response_model=ExhibitResponse)
-def update_exhibit(exhibit_id: str, payload: ExhibitWriteRequest) -> ExhibitResponse:
+def update_exhibit(
+    exhibit_id: str,
+    payload: ExhibitWriteRequest,
+    role: str = Depends(require_roles("admin", "editor")),
+) -> ExhibitResponse:
     updated = repository.update_exhibit(exhibit_id, payload.to_response())
     if updated is None:
         raise not_found(exhibit_id)
+    write_audit(role, "update_exhibit", exhibit_id, f"Updated exhibit {exhibit_id}")
     return updated
 
 
 @app.delete("/api/exhibits/{exhibit_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_exhibit(exhibit_id: str) -> Response:
+def delete_exhibit(
+    exhibit_id: str,
+    role: str = Depends(require_roles("admin")),
+) -> Response:
     deleted = repository.delete_exhibit(exhibit_id)
     if not deleted:
         raise not_found(exhibit_id)
+    write_audit(role, "delete_exhibit", exhibit_id, f"Deleted exhibit {exhibit_id}")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -156,6 +227,7 @@ def upload_exhibit_asset(
     asset_kind: str = Form(default="media"),
     note: str | None = Form(default=None),
     file: UploadFile = File(...),
+    role: str = Depends(require_roles("admin", "editor")),
 ) -> ExhibitResponse:
     exhibit = repository.get_exhibit(exhibit_id)
     if exhibit is None:
@@ -176,6 +248,7 @@ def upload_exhibit_asset(
             chunks=extract_document_chunks(document_id, path, extension) if path else [],
         )
         updated = exhibit.model_copy(update={"documents": [*exhibit.documents, document]})
+        audit_action = "upload_document"
     else:
         asset = MediaAsset(
             id=f"media-{file_id}",
@@ -185,8 +258,20 @@ def upload_exhibit_asset(
             note=note,
         )
         updated = exhibit.model_copy(update={"media_assets": [*exhibit.media_assets, asset]})
+        audit_action = "upload_media"
 
-    return repository.update_exhibit(exhibit_id, updated) or updated
+    saved = repository.update_exhibit(exhibit_id, updated) or updated
+    write_audit(role, audit_action, exhibit_id, f"Uploaded {filename} to exhibit {exhibit_id}")
+    return saved
+
+
+@app.get("/api/admin/audit-logs", response_model=AuditLogListResponse)
+def list_audit_logs(
+    limit: int = Query(default=100, ge=1, le=500),
+    role: str = Depends(require_roles("admin")),
+) -> AuditLogListResponse:
+    logs = repository.list_audit_logs(limit=limit)
+    return AuditLogListResponse(total=len(logs), items=logs)
 
 
 @app.get("/api/files/{file_id}")

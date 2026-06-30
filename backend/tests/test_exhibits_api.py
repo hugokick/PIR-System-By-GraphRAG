@@ -5,6 +5,9 @@ from app.main import app
 
 client = TestClient(app)
 
+ADMIN_HEADERS = {"X-User-Role": "admin"}
+EDITOR_HEADERS = {"X-User-Role": "editor"}
+
 
 def test_health_check():
     response = client.get("/health")
@@ -92,7 +95,7 @@ def test_create_exhibit_persists_record_and_relationships():
         "related_exhibit_ids": ["lever-play"],
     }
 
-    create_response = client.post("/api/exhibits", json=payload)
+    create_response = client.post("/api/exhibits", json=payload, headers=EDITOR_HEADERS)
     assert create_response.status_code == 201
     assert create_response.json()["id"] == "magnet-maze"
 
@@ -109,7 +112,7 @@ def test_create_exhibit_persists_record_and_relationships():
 def test_create_exhibit_rejects_duplicate_id():
     payload = client.get("/api/exhibits/lever-play").json()
 
-    response = client.post("/api/exhibits", json=payload)
+    response = client.post("/api/exhibits", json=payload, headers=EDITOR_HEADERS)
 
     assert response.status_code == 409
     assert response.json()["detail"]["error"] == "Conflict"
@@ -120,7 +123,7 @@ def test_update_exhibit_replaces_existing_record():
     payload["name"] = "杠杆乐园 Pro"
     payload["materials"] = [{"id": "steel", "name": "钢结构"}]
 
-    response = client.put("/api/exhibits/lever-play", json=payload)
+    response = client.put("/api/exhibits/lever-play", json=payload, headers=EDITOR_HEADERS)
 
     assert response.status_code == 200
     assert response.json()["name"] == "杠杆乐园 Pro"
@@ -131,7 +134,7 @@ def test_update_exhibit_relationships_refreshes_graph_edges():
     payload = client.get("/api/exhibits/lever-play").json()
     payload["related_exhibit_ids"] = ["water-cycle"]
 
-    response = client.put("/api/exhibits/lever-play", json=payload)
+    response = client.put("/api/exhibits/lever-play", json=payload, headers=EDITOR_HEADERS)
     assert response.status_code == 200
 
     graph_response = client.get("/api/exhibits/lever-play/graph")
@@ -154,9 +157,9 @@ def test_update_exhibit_relationships_refreshes_graph_edges():
 def test_delete_exhibit_soft_removes_from_list_and_detail():
     create_payload = client.get("/api/exhibits/pulley-wall").json()
     create_payload["id"] = "delete-me"
-    client.post("/api/exhibits", json=create_payload)
+    client.post("/api/exhibits", json=create_payload, headers=EDITOR_HEADERS)
 
-    delete_response = client.delete("/api/exhibits/delete-me")
+    delete_response = client.delete("/api/exhibits/delete-me", headers=ADMIN_HEADERS)
     assert delete_response.status_code == 204
 
     detail_response = client.get("/api/exhibits/delete-me")

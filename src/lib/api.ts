@@ -2,6 +2,14 @@ import type { Exhibit, ExhibitFilters, GraphEdge, GraphNode, GraphRagAnswer, Med
 
 export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
 
+export type UserRole = 'admin' | 'editor' | 'viewer';
+
+let activeRole: UserRole = 'admin';
+
+export function setApiRole(role: UserRole) {
+  activeRole = role;
+}
+
 type ApiEntityRef = {
   id: string;
   name: string;
@@ -311,6 +319,7 @@ async function sendJson<T>(path: string, init: RequestInit): Promise<T> {
     ...init,
     headers: {
       'Content-Type': 'application/json',
+      'X-User-Role': activeRole,
       ...(init.headers ?? {})
     }
   });
@@ -345,7 +354,10 @@ export async function updateExhibit(exhibitId: string, item: Exhibit): Promise<E
 
 export async function deleteExhibit(exhibitId: string): Promise<void> {
   const response = await fetch(`${apiBaseUrl}/api/exhibits/${encodeURIComponent(exhibitId)}`, {
-    method: 'DELETE'
+    method: 'DELETE',
+    headers: {
+      'X-User-Role': activeRole
+    }
   });
   if (!response.ok) {
     throw new Error(`API request failed: ${response.status} ${response.statusText}`);
@@ -365,6 +377,9 @@ export async function uploadExhibitAsset(
 
   const response = await fetch(`${apiBaseUrl}/api/exhibits/${encodeURIComponent(exhibitId)}/assets`, {
     method: 'POST',
+    headers: {
+      'X-User-Role': activeRole
+    },
     body: form
   });
   if (!response.ok) {
@@ -381,6 +396,9 @@ export async function importExhibits(file: File, commit = true): Promise<Exhibit
 
   const response = await fetch(`${apiBaseUrl}/api/exhibits/import`, {
     method: 'POST',
+    headers: {
+      'X-User-Role': activeRole
+    },
     body: form
   });
   if (!response.ok) {

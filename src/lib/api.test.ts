@@ -8,6 +8,7 @@ import {
   mapApiExhibit,
   mapApiGraph,
   mapExhibitToApiPayload,
+  setApiRole,
   updateExhibit,
   uploadExhibitAsset,
   type ApiExhibit
@@ -81,6 +82,7 @@ const frontendExhibit: Exhibit = {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  setApiRole('admin');
 });
 
 describe('mapApiExhibit', () => {
@@ -221,6 +223,26 @@ describe('mapApiGraph', () => {
 });
 
 describe('createExhibit', () => {
+  it('sends the active user role with write requests', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => mapExhibitToApiPayload(frontendExhibit)
+    } as Response);
+
+    setApiRole('editor');
+    await createExhibit(frontendExhibit);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/exhibits',
+      expect.objectContaining({
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Role': 'editor'
+        }
+      })
+    );
+  });
+
   it('posts backend write payloads and maps the response back to frontend records', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
@@ -233,7 +255,7 @@ describe('createExhibit', () => {
       'http://127.0.0.1:8000/api/exhibits',
       expect.objectContaining({
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-User-Role': 'admin' },
         body: JSON.stringify(mapExhibitToApiPayload(frontendExhibit))
       })
     );
@@ -260,7 +282,7 @@ describe('updateExhibit', () => {
       'http://127.0.0.1:8000/api/exhibits/magnet-maze',
       expect.objectContaining({
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-User-Role': 'admin' },
         body: JSON.stringify(mapExhibitToApiPayload(updated))
       })
     );
@@ -277,7 +299,8 @@ describe('deleteExhibit', () => {
     await deleteExhibit('magnet-maze');
 
     expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8000/api/exhibits/magnet-maze', {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: { 'X-User-Role': 'admin' }
     });
   });
 });
@@ -318,7 +341,7 @@ describe('askGraphRag', () => {
       'http://127.0.0.1:8000/api/graphrag/answer',
       expect.objectContaining({
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-User-Role': 'admin' },
         body: JSON.stringify({ query: 'lever-play', top_k: 2 })
       })
     );
