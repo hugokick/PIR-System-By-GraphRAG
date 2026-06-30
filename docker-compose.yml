@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: exhibit-atlas-postgres
+    environment:
+      POSTGRES_DB: exhibit_atlas
+      POSTGRES_USER: exhibit_atlas
+      POSTGRES_PASSWORD: exhibit_atlas_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/sql/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U exhibit_atlas -d exhibit_atlas"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

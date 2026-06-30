@@ -15,6 +15,8 @@
 
 ## 本地运行
 
+前端：
+
 ```bash
 npm install
 npm run dev -- --port 5173
@@ -26,10 +28,26 @@ npm run dev -- --port 5173
 http://127.0.0.1:5173/
 ```
 
+后端：
+
+```bash
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r backend\requirements.txt
+uvicorn app.main:app --app-dir backend --reload --host 127.0.0.1 --port 8000
+```
+
+访问：
+
+```text
+http://127.0.0.1:8000/docs
+```
+
 ## 验证
 
 ```bash
 npm test
+python -m pytest backend/tests -q
 npm run build
 npm audit --audit-level=high
 ```
