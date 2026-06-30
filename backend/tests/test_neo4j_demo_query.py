@@ -63,3 +63,18 @@ def test_map_neo4j_records_to_graph_response_deduplicates_nodes():
 
     exhibit_nodes = [node for node in graph.nodes if node.id == "exhibit:lever-play"]
     assert len(exhibit_nodes) == 1
+
+
+def test_map_neo4j_records_to_graph_response_deduplicates_edges():
+    record = {
+        "center": {"id": "lever-play", "name": "鏉犳潌涔愬洯"},
+        "center_labels": ["Exhibit"],
+        "neighbor": {"id": "mechanics", "name": "鍔涘"},
+        "neighbor_labels": ["Theme"],
+        "rel_type": "HAS_THEME",
+        "rel_label": "theme",
+    }
+
+    graph = map_neo4j_records_to_graph_response([record, record])
+
+    assert [edge.type for edge in graph.edges] == ["has_theme"]

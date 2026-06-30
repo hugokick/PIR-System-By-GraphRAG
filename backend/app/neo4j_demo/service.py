@@ -1,4 +1,5 @@
 import os
+import threading
 from collections.abc import Iterable, Mapping
 from typing import Any
 
@@ -12,6 +13,7 @@ from .seed import build_demo_seed_statements
 
 TRUTHY_VALUES = {"1", "true", "yes", "on"}
 _demo_graph_seeded = False
+_demo_graph_seed_lock = threading.Lock()
 
 
 class Neo4jBoltGraphClient:
@@ -80,12 +82,13 @@ class Neo4jDemoGraphService:
 
     def _seed_once(self) -> None:
         global _demo_graph_seeded
-        if _demo_graph_seeded:
-            return
-        if not hasattr(self.client, "execute_statements"):
-            return
-        self.client.execute_statements(build_demo_seed_statements(self.exhibits))
-        _demo_graph_seeded = True
+        with _demo_graph_seed_lock:
+            if _demo_graph_seeded:
+                return
+            if not hasattr(self.client, "execute_statements"):
+                return
+            self.client.execute_statements(build_demo_seed_statements(self.exhibits))
+            _demo_graph_seeded = True
 
 
 def create_neo4j_demo_graph_service(

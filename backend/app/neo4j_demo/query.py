@@ -50,6 +50,7 @@ def _node_from_record(payload: Mapping[str, str], labels: list[str] | None) -> G
 def map_neo4j_records_to_graph_response(records: list[dict]) -> GraphResponse:
     nodes: dict[str, GraphNode] = {}
     edges: list[GraphEdge] = []
+    edge_keys: set[tuple[str, str, str, str]] = set()
 
     for row in records:
         center_payload = row.get("center")
@@ -66,12 +67,18 @@ def map_neo4j_records_to_graph_response(records: list[dict]) -> GraphResponse:
 
         neighbor_node = _node_from_record(neighbor_payload, row.get("neighbor_labels"))
         nodes[neighbor_node.id] = neighbor_node
+        edge_label = row.get("rel_label") or rel_type
+        edge_type = REL_TYPE_MAP.get(rel_type, rel_type.lower())
+        edge_key = (center_node.id, neighbor_node.id, edge_label, edge_type)
+        if edge_key in edge_keys:
+            continue
+        edge_keys.add(edge_key)
         edges.append(
             GraphEdge(
                 source=center_node.id,
                 target=neighbor_node.id,
-                label=row.get("rel_label") or rel_type,
-                type=REL_TYPE_MAP.get(rel_type, rel_type.lower()),
+                label=edge_label,
+                type=edge_type,
             )
         )
 
