@@ -269,6 +269,54 @@ describe('App exhibit management', () => {
     });
   });
 
+  it('protects approved or landed exhibits from direct deletion', async () => {
+    const protectedExhibit = {
+      ...frontendExhibit,
+      status: '已落地',
+      reviewStatus: '已审核'
+    } satisfies Exhibit;
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async () => okJson({ total: 1, items: [apiExhibit(protectedExhibit)] }));
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: protectedExhibit.name });
+    const deleteButton = document.querySelector('.danger-action') as HTMLButtonElement;
+
+    expect(deleteButton.disabled).toBe(true);
+    expect(screen.getByText('已审核/已落地档案受保护，请先退回审核或变更状态后再删除')).toBeTruthy();
+    fireEvent.click(deleteButton);
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(false);
+  });
+
+  it('keeps the exhibit visible when backend deletion fails', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) => {
+      if (init && init.method === 'DELETE') {
+        return {
+          ok: false,
+          status: 409,
+          json: async () => ({
+            detail: {
+              error: 'ProtectedExhibit',
+              message: 'Important exhibit records cannot be deleted directly',
+              details: {}
+            }
+          })
+        } as Response;
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: frontendExhibit.name });
+    fireEvent.click(screen.getByRole('button', { name: /删除档案/ }));
+
+    expect(await screen.findByText('删除失败，请检查权限或档案保护状态')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: frontendExhibit.name })).toBeTruthy();
+  });
+
   it('filters exhibits by budget range through backend query parameters', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [apiExhibit()] }));
 

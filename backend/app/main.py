@@ -89,6 +89,21 @@ def conflict(exhibit_id: str) -> HTTPException:
     )
 
 
+def protected_delete(exhibit: ExhibitResponse) -> HTTPException:
+    return HTTPException(
+        status_code=409,
+        detail={
+            "error": "ProtectedExhibit",
+            "message": "Approved or landed exhibits cannot be deleted directly",
+            "details": {
+                "id": exhibit.id,
+                "status": exhibit.status,
+                "review_status": exhibit.review_status,
+            },
+        },
+    )
+
+
 def invalid_credentials() -> HTTPException:
     return HTTPException(
         status_code=401,
@@ -345,6 +360,12 @@ def delete_exhibit(
     exhibit_id: str,
     role: str = Depends(require_roles("admin")),
 ) -> Response:
+    exhibit = repository.get_exhibit(exhibit_id)
+    if exhibit is None:
+        raise not_found(exhibit_id)
+    if exhibit.review_status == "已审核" or exhibit.status == "已落地":
+        raise protected_delete(exhibit)
+
     deleted = repository.delete_exhibit(exhibit_id)
     if not deleted:
         raise not_found(exhibit_id)

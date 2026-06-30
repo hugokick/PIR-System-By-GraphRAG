@@ -283,6 +283,8 @@ export function App() {
   const canWrite = role !== 'viewer';
   const canDelete = role === 'admin';
   const canReview = role === 'admin';
+  const isDeleteProtected = Boolean(selected && (selected.reviewStatus === '已审核' || selected.status === '已落地'));
+  const deleteProtectionMessage = '已审核/已落地档案受保护，请先退回审核或变更状态后再删除';
   const relatedExhibits = useMemo(
     () =>
       selected
@@ -576,7 +578,7 @@ export function App() {
   };
 
   const deleteSelected = async () => {
-    if (!canDelete || !selected || isDeleting) return;
+    if (!canDelete || !selected || isDeleting || isDeleteProtected) return;
     setIsDeleting(true);
     const updated = items.filter((item) => item.id !== selected.id);
 
@@ -587,11 +589,7 @@ export function App() {
       setDataSource('api');
       setLoadError(null);
     } catch {
-      setItems(updated);
-      saveExhibits(updated);
-      setSelectedId(updated[0]?.id ?? '');
-      setDataSource('local');
-      setLoadError('后端删除失败，已仅从本地列表移除');
+      setLoadError('删除失败，请检查权限或档案保护状态');
     } finally {
       setIsDeleting(false);
     }
@@ -1189,10 +1187,18 @@ export function App() {
                   <Pencil size={18} />
                   编辑档案
                 </button>
-                <button type="button" className="danger-action" onClick={deleteSelected} disabled={isDeleting || !canDelete}>
-                  <Trash2 size={18} />
-                  {isDeleting ? '删除中' : '删除档案'}
-                </button>
+                <div className="delete-action-wrap">
+                  <button
+                    type="button"
+                    className="danger-action"
+                    onClick={deleteSelected}
+                    disabled={isDeleting || !canDelete || isDeleteProtected}
+                  >
+                    <Trash2 size={18} />
+                    {isDeleting ? '删除中' : '删除档案'}
+                  </button>
+                  {isDeleteProtected && <span className="delete-protection-note">{deleteProtectionMessage}</span>}
+                </div>
                 {canReview && (
                   <div className="review-actions" aria-label="审核操作">
                     <button

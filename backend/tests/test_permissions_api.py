@@ -169,6 +169,38 @@ def test_admin_can_delete_and_audit_log_records_mutations():
     )
 
 
+def test_admin_cannot_delete_approved_or_landed_exhibit_directly():
+    protected_id = "protected-delete-demo"
+    payload = exhibit_payload(protected_id)
+    payload["status"] = "已落地"
+    payload["review_status"] = "已审核"
+    create_response = client.post(
+        "/api/exhibits",
+        json=payload,
+        headers=ADMIN_HEADERS,
+    )
+    assert create_response.status_code == 201
+
+    try:
+        delete_response = client.delete(f"/api/exhibits/{protected_id}", headers=ADMIN_HEADERS)
+
+        assert delete_response.status_code == 409
+        detail = delete_response.json()["detail"]
+        assert detail["error"] == "ProtectedExhibit"
+        assert detail["details"] == {
+            "id": protected_id,
+            "status": "已落地",
+            "review_status": "已审核",
+        }
+        assert client.get(f"/api/exhibits/{protected_id}").status_code == 200
+    finally:
+        cleanup_payload = client.get(f"/api/exhibits/{protected_id}").json()
+        cleanup_payload["status"] = "制作中"
+        cleanup_payload["review_status"] = "待审核"
+        client.put(f"/api/exhibits/{protected_id}", json=cleanup_payload, headers=ADMIN_HEADERS)
+        client.delete(f"/api/exhibits/{protected_id}", headers=ADMIN_HEADERS)
+
+
 def test_only_admin_can_read_audit_logs():
     response = client.get("/api/admin/audit-logs", headers=EDITOR_HEADERS)
 
