@@ -6,6 +6,11 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: 'jsdom',
-    globals: true
+    globals: true,
+    environmentOptions: {
+      jsdom: {
+        url: 'http://127.0.0.1/'
+      }
+    }
   }
 });

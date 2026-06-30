@@ -116,6 +116,8 @@ textarea:focus {
 .top-actions button,
 .create-form button,
 .semantic-results button,
+.secondary-action,
+.danger-action,
 .upload {
   border: 0;
   border-radius: 6px;
@@ -128,9 +130,21 @@ textarea:focus {
 }
 
 .filter-actions button,
-.top-actions button:nth-child(2) {
+.top-actions button:nth-child(2),
+.secondary-action {
   background: #e7eeeb;
   color: #24514b;
+}
+
+.danger-action {
+  background: #ffe4df;
+  color: #8f2d1e;
+}
+
+.create-form button:disabled,
+.danger-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .stat-grid {

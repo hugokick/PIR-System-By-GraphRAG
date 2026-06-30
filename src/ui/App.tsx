@@ -6,12 +6,14 @@ import {
   Filter,
   GitBranch,
   ImageIcon,
+  Pencil,
   RotateCcw,
   Search,
-  Sparkles
+  Sparkles,
+  Trash2
 } from 'lucide-react';
 import { buildGraph, graphStats } from '../lib/graph';
-import { createExhibit, fetchExhibits } from '../lib/api';
+import { createExhibit, deleteExhibit, fetchExhibits, updateExhibit } from '../lib/api';
 import { filterExhibits, formatBudget, semanticSearch } from '../lib/search';
 import { loadExhibits, resetExhibits, saveExhibits } from '../lib/storage';
 import type { Exhibit, ExhibitFilters, ExhibitStatus, MediaAsset } from '../types';
@@ -50,7 +52,7 @@ function uniqueValues(items: Exhibit[], getter: (item: Exhibit) => string | stri
   return [...new Set(items.flatMap((item) => getter(item)))].filter(Boolean).sort();
 }
 
-function makeExhibitFromForm(form: HTMLFormElement): Exhibit {
+function makeExhibitFromForm(form: HTMLFormElement, existingItem?: Exhibit): Exhibit {
   const data = new FormData(form);
   const list = (key: string) =>
     String(data.get(key) ?? '')
@@ -59,7 +61,7 @@ function makeExhibitFromForm(form: HTMLFormElement): Exhibit {
       .filter(Boolean);
 
   return {
-    id: `exhibit-${Date.now()}`,
+    id: existingItem?.id ?? `exhibit-${Date.now()}`,
     name: String(data.get('name') ?? '').trim(),
     category: String(data.get('category') ?? '').trim(),
     theme: String(data.get('theme') ?? '').trim(),
@@ -75,9 +77,9 @@ function makeExhibitFromForm(form: HTMLFormElement): Exhibit {
     status: String(data.get('status') ?? '概念方案') as ExhibitStatus,
     description: String(data.get('description') ?? '').trim(),
     tags: list('tags'),
-    media: [],
+    media: existingItem?.media ?? [],
     relatedProjectIds: list('relatedProjectIds'),
-    relatedExhibitIds: []
+    relatedExhibitIds: existingItem?.relatedExhibitIds ?? []
   };
 }
 
@@ -90,6 +92,8 @@ export function App() {
   const [dataSource, setDataSource] = useState<'loading' | 'api' | 'local'>('loading');
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -135,6 +139,7 @@ export function App() {
   const filteredItems = useMemo(() => filterExhibits(items, filters), [items, filters]);
   const semanticResults = useMemo(() => semanticSearch(items, semanticQuery).slice(0, 4), [items, semanticQuery]);
   const selected = items.find((item) => item.id === selectedId) ?? filteredItems[0] ?? items[0];
+  const editingItem = editingId ? items.find((item) => item.id === editingId) : undefined;
   const graph = selected ? buildGraph(selected, items) : { nodes: [], edges: [] };
   const stats = useMemo(() => graphStats(items), [items]);
 
@@ -145,26 +150,32 @@ export function App() {
   const addExhibit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = event.currentTarget;
-    const next = makeExhibitFromForm(event.currentTarget);
+    const currentEditingItem = editingId ? items.find((item) => item.id === editingId) : undefined;
+    const next = makeExhibitFromForm(event.currentTarget, currentEditingItem);
     if (!next.name || !next.category || !next.theme) return;
     setIsSaving(true);
 
     try {
-      const saved = await createExhibit(next);
-      const updated = [saved, ...items.filter((item) => item.id !== saved.id)];
+      const saved = editingId ? await updateExhibit(editingId, next) : await createExhibit(next);
+      const updated = editingId
+        ? items.map((item) => (item.id === editingId ? saved : item))
+        : [saved, ...items.filter((item) => item.id !== saved.id)];
       setItems(updated);
       setSelectedId(saved.id);
       setDataSource('api');
       setLoadError(null);
     } catch {
-      const updated = [next, ...items];
+      const updated = editingId
+        ? items.map((item) => (item.id === editingId ? next : item))
+        : [next, ...items];
       setItems(updated);
       saveExhibits(updated);
       setSelectedId(next.id);
       setDataSource('local');
-      setLoadError('后端写入失败，新增档案已暂存于本地');
+      setLoadError(editingId ? '后端更新失败，修改已暂存于本地' : '后端写入失败，新增档案已暂存于本地');
     } finally {
       setIsSaving(false);
+      setEditingId(null);
       setShowForm(false);
       form.reset();
     }
@@ -190,6 +201,34 @@ export function App() {
     );
     setItems(updated);
     saveExhibits(updated);
+  };
+
+  const startEdit = (item: Exhibit) => {
+    setEditingId(item.id);
+    setShowForm(true);
+    setLoadError(null);
+  };
+
+  const deleteSelected = async () => {
+    if (!selected || isDeleting) return;
+    setIsDeleting(true);
+    const updated = items.filter((item) => item.id !== selected.id);
+
+    try {
+      await deleteExhibit(selected.id);
+      setItems(updated);
+      setSelectedId(updated[0]?.id ?? '');
+      setDataSource('api');
+      setLoadError(null);
+    } catch {
+      setItems(updated);
+      saveExhibits(updated);
+      setSelectedId(updated[0]?.id ?? '');
+      setDataSource('local');
+      setLoadError('后端删除失败，已仅从本地列表移除');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const restoreSeed = () => {
@@ -272,7 +311,13 @@ export function App() {
             {loadError && <p className="load-note">{loadError}</p>}
           </div>
           <div className="top-actions">
-            <button type="button" onClick={() => setShowForm((value) => !value)}>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingId(null);
+                setShowForm((value) => !value);
+              }}
+            >
               <FilePlus2 size={18} />
               新增展项
             </button>
@@ -284,28 +329,28 @@ export function App() {
         </header>
 
         {showForm && (
-          <form className="create-form" onSubmit={addExhibit}>
-            <input name="name" placeholder="展项名称" required />
-            <input name="category" placeholder="类别，如基础科学" required />
-            <input name="theme" placeholder="主题，如力学" required />
-            <input name="venueType" placeholder="适用场馆" required />
-            <input name="budgetMin" type="number" placeholder="最低造价" required />
-            <input name="budgetMax" type="number" placeholder="最高造价" required />
-            <input name="materials" placeholder="材料，用逗号分隔" />
-            <input name="interactions" placeholder="交互方式，用逗号分隔" />
-            <input name="dimensions" placeholder="尺寸" />
-            <input name="supplier" placeholder="供应商" />
-            <input name="owner" placeholder="业主" />
-            <input name="projectYear" type="number" defaultValue={new Date().getFullYear()} />
-            <select name="status" defaultValue="概念方案">
+          <form key={editingId ?? 'new-exhibit'} className="create-form" onSubmit={addExhibit}>
+            <input name="name" placeholder="展项名称" defaultValue={editingItem?.name ?? ''} required />
+            <input name="category" placeholder="类别，如基础科学" defaultValue={editingItem?.category ?? ''} required />
+            <input name="theme" placeholder="主题，如力学" defaultValue={editingItem?.theme ?? ''} required />
+            <input name="venueType" placeholder="适用场馆" defaultValue={editingItem?.venueType ?? ''} required />
+            <input name="budgetMin" type="number" placeholder="最低造价" defaultValue={editingItem?.budgetMin ?? ''} required />
+            <input name="budgetMax" type="number" placeholder="最高造价" defaultValue={editingItem?.budgetMax ?? ''} required />
+            <input name="materials" placeholder="材料，用逗号分隔" defaultValue={editingItem?.materials.join(',') ?? ''} />
+            <input name="interactions" placeholder="交互方式，用逗号分隔" defaultValue={editingItem?.interactions.join(',') ?? ''} />
+            <input name="dimensions" placeholder="尺寸" defaultValue={editingItem?.dimensions ?? ''} />
+            <input name="supplier" placeholder="供应商" defaultValue={editingItem?.supplier ?? ''} />
+            <input name="owner" placeholder="业主" defaultValue={editingItem?.owner ?? ''} />
+            <input name="projectYear" type="number" defaultValue={editingItem?.projectYear ?? new Date().getFullYear()} />
+            <select name="status" defaultValue={editingItem?.status ?? statuses[0]}>
               {statuses.map((status) => (
                 <option key={status}>{status}</option>
               ))}
             </select>
-            <input name="tags" placeholder="标签，用逗号分隔" />
-            <input name="relatedProjectIds" placeholder="项目编号，用逗号分隔" />
-            <textarea name="description" placeholder="展项说明" required />
-            <button type="submit" disabled={isSaving}>{isSaving ? '保存中' : '保存档案'}</button>
+            <input name="tags" placeholder="标签，用逗号分隔" defaultValue={editingItem?.tags.join(',') ?? ''} />
+            <input name="relatedProjectIds" placeholder="项目编号，用逗号分隔" defaultValue={editingItem?.relatedProjectIds.join(',') ?? ''} />
+            <textarea name="description" placeholder="展项说明" defaultValue={editingItem?.description ?? ''} required />
+            <button type="submit" disabled={isSaving}>{isSaving ? '保存中' : editingId ? '保存修改' : '保存档案'}</button>
           </form>
         )}
 
@@ -371,6 +416,14 @@ export function App() {
               </div>
 
               <div className="media-row">
+                <button type="button" className="secondary-action" onClick={() => startEdit(selected)}>
+                  <Pencil size={18} />
+                  编辑档案
+                </button>
+                <button type="button" className="danger-action" onClick={deleteSelected} disabled={isDeleting}>
+                  <Trash2 size={18} />
+                  {isDeleting ? '删除中' : '删除档案'}
+                </button>
                 <label className="upload">
                   <ImageIcon size={18} />
                   上传媒体

@@ -2,9 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   buildExhibitQuery,
   createExhibit,
+  deleteExhibit,
   mapApiExhibit,
   mapApiGraph,
   mapExhibitToApiPayload,
+  updateExhibit,
   type ApiExhibit
 } from './api';
 import type { Exhibit } from '../types';
@@ -192,6 +194,42 @@ describe('createExhibit', () => {
       name: '磁力迷宫',
       theme: '电磁学',
       venueType: '儿童科技馆'
+    });
+  });
+});
+
+describe('updateExhibit', () => {
+  it('puts backend write payloads and maps the updated response', async () => {
+    const updated = { ...frontendExhibit, name: '磁力迷宫 Pro' };
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => mapExhibitToApiPayload(updated)
+    } as Response);
+
+    const result = await updateExhibit('magnet-maze', updated);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/exhibits/magnet-maze',
+      expect.objectContaining({
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mapExhibitToApiPayload(updated))
+      })
+    );
+    expect(result.name).toBe('磁力迷宫 Pro');
+  });
+});
+
+describe('deleteExhibit', () => {
+  it('sends a DELETE request for the selected exhibit', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true
+    } as Response);
+
+    await deleteExhibit('magnet-maze');
+
+    expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8000/api/exhibits/magnet-maze', {
+      method: 'DELETE'
     });
   });
 });

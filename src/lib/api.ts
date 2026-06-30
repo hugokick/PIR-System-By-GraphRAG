@@ -230,6 +230,23 @@ export async function createExhibit(item: Exhibit): Promise<Exhibit> {
   return mapApiExhibit(payload);
 }
 
+export async function updateExhibit(exhibitId: string, item: Exhibit): Promise<Exhibit> {
+  const payload = await sendJson<ApiExhibit>(`/api/exhibits/${encodeURIComponent(exhibitId)}`, {
+    method: 'PUT',
+    body: JSON.stringify(mapExhibitToApiPayload(item))
+  });
+  return mapApiExhibit(payload);
+}
+
+export async function deleteExhibit(exhibitId: string): Promise<void> {
+  const response = await fetch(`${apiBaseUrl}/api/exhibits/${encodeURIComponent(exhibitId)}`, {
+    method: 'DELETE'
+  });
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+  }
+}
+
 export async function fetchExhibitGraph(exhibitId: string) {
   const payload = await requestJson<ApiGraphResponse>(`/api/exhibits/${encodeURIComponent(exhibitId)}/graph`);
   return mapApiGraph(payload);
