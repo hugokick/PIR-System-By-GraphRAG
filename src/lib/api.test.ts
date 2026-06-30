@@ -5,6 +5,7 @@ import {
   createExhibit,
   deleteExhibit,
   fetchAuditLogs,
+  fetchDemoGraph,
   importExhibits,
   login,
   mapApiExhibit,
@@ -224,6 +225,34 @@ describe('mapApiGraph', () => {
         label: '使用材料'
       }
     ]);
+  });
+});
+
+describe('fetchDemoGraph', () => {
+  it('loads the full Neo4j demo graph from the demo endpoint', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        nodes: [
+          { id: 'exhibit:lever-play', label: 'Lever Play', type: 'exhibit' },
+          { id: 'exhibit:space-dome', label: 'Space Dome', type: 'exhibit' }
+        ],
+        edges: [
+          {
+            source: 'exhibit:lever-play',
+            target: 'exhibit:space-dome',
+            label: 'similar',
+            type: 'similar_to'
+          }
+        ]
+      })
+    } as Response);
+
+    const result = await fetchDemoGraph();
+
+    expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8000/api/neo4j-demo/graph');
+    expect(result.nodes.map((node) => node.id)).toEqual(['exhibit:lever-play', 'exhibit:space-dome']);
+    expect(result.edges[0].type).toBe('similar_to');
   });
 });
 

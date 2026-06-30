@@ -351,6 +351,15 @@ def get_exhibit_graph(exhibit_id: str) -> GraphResponse:
     return graph
 
 
+@app.get("/api/neo4j-demo/graph", response_model=GraphResponse)
+def get_neo4j_demo_graph() -> GraphResponse:
+    service = create_neo4j_demo_graph_service(repository.list_exhibits())
+    try:
+        return service.get_demo_graph()
+    finally:
+        service.close()
+
+
 @app.post("/api/graphrag/search", response_model=GraphRagSearchResponse)
 def graphrag_search(payload: GraphRagSearchRequest) -> GraphRagSearchResponse:
     return search_graphrag_context(

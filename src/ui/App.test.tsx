@@ -4,6 +4,19 @@ import { App } from './App';
 import { mapExhibitToApiPayload, type ApiExhibit } from '../lib/api';
 import type { Exhibit } from '../types';
 
+vi.mock('@neo4j-nvl/react', () => ({
+  InteractiveNvlWrapper: ({ nodes, rels }: { nodes: { id: string; caption?: string }[]; rels: { id: string; caption?: string }[] }) => (
+    <div data-testid="mock-nvl">
+      {nodes.map((node) => (
+        <span key={node.id}>{node.caption ?? node.id}</span>
+      ))}
+      {rels.map((rel) => (
+        <span key={rel.id}>{rel.caption ?? rel.id}</span>
+      ))}
+    </div>
+  )
+}));
+
 vi.mock('../lib/storage', () => ({
   loadExhibits: () => [],
   resetExhibits: () => [],
@@ -122,6 +135,66 @@ describe('App exhibit management', () => {
     expect(screen.getAllByText('Backend Material').length).toBeGreaterThan(0);
     expect(screen.getAllByText('material').length).toBeGreaterThan(0);
     expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8000/api/exhibits/magnet-maze/graph');
+  });
+
+  it('switches the graph panel to the full Neo4j demo graph', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.endsWith('/api/exhibits/magnet-maze/graph')) {
+        return okJson({
+          nodes: [
+            { id: 'exhibit:magnet-maze', label: 'Current Exhibit', type: 'exhibit' },
+            { id: 'material:current-only', label: 'Current Material', type: 'material' }
+          ],
+          edges: [
+            {
+              source: 'exhibit:magnet-maze',
+              target: 'material:current-only',
+              label: 'material',
+              type: 'uses_material'
+            }
+          ]
+        });
+      }
+      if (url.endsWith('/api/neo4j-demo/graph')) {
+        return okJson({
+          nodes: [
+            { id: 'exhibit:lever-play', label: 'Lever Play', type: 'exhibit' },
+            { id: 'exhibit:pulley-wall', label: 'Pulley Wall', type: 'exhibit' },
+            { id: 'exhibit:water-cycle', label: 'Water Cycle', type: 'exhibit' },
+            { id: 'exhibit:space-dome', label: 'Space Dome', type: 'exhibit' },
+            { id: 'supplier:qisi', label: 'Qisi Supplier', type: 'supplier' }
+          ],
+          edges: [
+            {
+              source: 'exhibit:lever-play',
+              target: 'supplier:qisi',
+              label: 'supplier',
+              type: 'supplied_by'
+            },
+            {
+              source: 'exhibit:space-dome',
+              target: 'supplier:qisi',
+              label: 'supplier',
+              type: 'supplied_by'
+            }
+          ]
+        });
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText('Current Material')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: '全库演示' }));
+
+    expect(await screen.findByText('Space Dome')).toBeTruthy();
+    expect(await screen.findByText('节点 5')).toBeTruthy();
+    expect(await screen.findByText('关系 2')).toBeTruthy();
+    expect(await screen.findByText('数据源：Neo4j 图数据库')).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8000/api/neo4j-demo/graph');
   });
 
   it('prefills the selected exhibit and submits edits through the backend API', async () => {

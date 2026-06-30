@@ -1,5 +1,6 @@
 import { FormEvent, SyntheticEvent, useEffect, useMemo, useRef, useState } from 'react';
-import cytoscape, { type Core, type ElementDefinition, type StylesheetJson } from 'cytoscape';
+import type { Layout, Node as NvlNode, Relationship as NvlRelationship } from '@neo4j-nvl/base';
+import { InteractiveNvlWrapper } from '@neo4j-nvl/react';
 import {
   BarChart3,
   Database,
@@ -22,6 +23,7 @@ import {
   createExhibit,
   deleteExhibit,
   fetchAuditLogs,
+  fetchDemoGraph,
   fetchExhibitGraph,
   fetchExhibits,
   importExhibits,
@@ -90,107 +92,55 @@ const graphNodeColors: Record<string, string> = {
   document: '#50677d'
 };
 
-const graphLayoutOptions = {
-  name: 'cose',
-  animate: false,
-  fit: true,
-  padding: 34,
-  idealEdgeLength: 110,
-  nodeRepulsion: 4200,
-  gravity: 0.28,
-  numIter: 900
-} as const;
+const nvlForceDirectedLayout = 'forceDirected' as Layout;
 
-const cytoscapeStylesheet = [
-  {
-    selector: 'node',
-    style: {
-      label: 'data(label)',
-      'background-color': 'data(color)',
-      color: '#203b39',
-      'font-size': '11px',
-      'font-weight': 'bold',
-      'text-valign': 'bottom',
-      'text-halign': 'center',
-      'text-margin-y': '8px',
-      'text-wrap': 'wrap',
-      'text-max-width': '120px',
-      width: '34px',
-      height: '34px',
-      'border-width': '2px',
-      'border-color': '#ffffff'
-    }
-  },
-  {
-    selector: 'edge',
-    style: {
-      label: 'data(label)',
-      width: '2px',
-      'line-color': '#9aaba5',
-      'target-arrow-color': '#9aaba5',
-      'target-arrow-shape': 'triangle',
-      'curve-style': 'bezier',
-      color: '#51635e',
-      'font-size': '9px',
-      'font-weight': 'bold',
-      'text-background-color': '#ffffff',
-      'text-background-opacity': 0.86,
-      'text-background-padding': '3px',
-      'text-rotation': 'autorotate'
-    }
-  },
-  {
-    selector: '.faded',
-    style: {
-      opacity: 0.18,
-      'text-opacity': 0.18
-    }
-  },
-  {
-    selector: '.neighbor',
-    style: {
-      opacity: 1,
-      'line-color': '#4361a8',
-      'target-arrow-color': '#4361a8'
-    }
-  },
-  {
-    selector: 'node.selected',
-    style: {
-      'border-width': '5px',
-      'border-color': '#f2b84b',
-      width: '46px',
-      height: '46px',
-      'font-size': '12px'
-    }
-  }
-] as unknown as StylesheetJson;
-
-function cytoscapeCanUseDomRenderer() {
+function nvlCanUseDomRenderer() {
   if (typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('jsdom')) return false;
   if (typeof document === 'undefined') return false;
   return true;
 }
 
-function graphToCytoscapeElements(graph: { nodes: GraphNode[]; edges: GraphEdge[] }): ElementDefinition[] {
-  const nodes = graph.nodes.map((node) => ({
-    data: {
-      id: node.id,
-      label: node.label,
-      type: node.kind,
-      color: graphNodeColors[node.kind] ?? '#607d75'
-    }
+function collectGraphNeighborIds(graph: { nodes: GraphNode[]; edges: GraphEdge[] }, selectedNodeId: string | null) {
+  const ids = new Set<string>();
+  if (!selectedNodeId) return ids;
+  ids.add(selectedNodeId);
+  graph.edges.forEach((edge) => {
+    if (edge.source === selectedNodeId) ids.add(edge.target);
+    if (edge.target === selectedNodeId) ids.add(edge.source);
+  });
+  return ids;
+}
+
+function buildNvlGraphData(graph: { nodes: GraphNode[]; edges: GraphEdge[] }, selectedNodeId: string | null) {
+  const neighborIds = collectGraphNeighborIds(graph, selectedNodeId);
+  const nodes: NvlNode[] = graph.nodes.map((node) => ({
+    id: node.id,
+    caption: node.label,
+    color: graphNodeColors[node.kind] ?? '#607d75',
+    size: node.id === selectedNodeId ? 44 : 34,
+    selected: node.id === selectedNodeId,
+    disabled: Boolean(selectedNodeId) && !neighborIds.has(node.id),
+    captions: [
+      {
+        value: node.label,
+        styles: ['bold']
+      },
+      {
+        value: node.kind
+      }
+    ]
   }));
-  const edges = graph.edges.map((edge) => ({
-    data: {
-      id: `${edge.source}->${edge.target}:${edge.type ?? edge.label}`,
-      source: edge.source,
-      target: edge.target,
-      label: edge.type ?? edge.label,
-      type: edge.type ?? edge.label
-    }
+  const rels: NvlRelationship[] = graph.edges.map((edge) => ({
+    id: `${edge.source}->${edge.target}:${edge.type ?? edge.label}`,
+    from: edge.source,
+    to: edge.target,
+    type: edge.type ?? edge.label,
+    caption: edge.type ?? edge.label,
+    color: Boolean(selectedNodeId) && (edge.source === selectedNodeId || edge.target === selectedNodeId) ? '#4361a8' : '#9aaba5',
+    width: Boolean(selectedNodeId) && (edge.source === selectedNodeId || edge.target === selectedNodeId) ? 3 : 2,
+    disabled: Boolean(selectedNodeId) && edge.source !== selectedNodeId && edge.target !== selectedNodeId
   }));
-  return [...nodes, ...edges];
+  return { nodes, rels };
 }
 
 const fallbackImage =
@@ -258,8 +208,7 @@ function makeExhibitFromForm(form: HTMLFormElement, existingItem?: Exhibit): Exh
 }
 
 export function App() {
-  const graphContainerRef = useRef<HTMLDivElement | null>(null);
-  const cytoscapeRef = useRef<Core | null>(null);
+  const graphRef = useRef<any>(null);
   const [items, setItems] = useState<Exhibit[]>(() => loadExhibits());
   const [role, setRole] = useState<UserRole>(() => {
     const initialRole = readInitialRole();
@@ -290,6 +239,12 @@ export function App() {
     nodes: GraphNode[];
     edges: GraphEdge[];
   } | null>(null);
+  const [demoGraph, setDemoGraph] = useState<{
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+  } | null>(null);
+  const [graphMode, setGraphMode] = useState<'current' | 'demo'>('current');
+  const [graphError, setGraphError] = useState<string | null>(null);
   const [selectedGraphNodeId, setSelectedGraphNodeId] = useState<string | null>(null);
   const [graphLayoutVersion, setGraphLayoutVersion] = useState(0);
 
@@ -340,8 +295,14 @@ export function App() {
   const editingItem = editingId ? items.find((item) => item.id === editingId) : undefined;
   const fallbackGraph = useMemo(() => (selected ? buildGraph(selected, items) : { nodes: [], edges: [] }), [selected, items]);
   const isRemoteGraph = Boolean(remoteGraph && remoteGraph.exhibitId === selected?.id);
-  const graph = remoteGraph && remoteGraph.exhibitId === selected?.id ? remoteGraph : fallbackGraph;
-  const graphElements = useMemo(() => graphToCytoscapeElements(graph), [graph]);
+  const graph =
+    graphMode === 'demo'
+      ? demoGraph ?? { nodes: [], edges: [] }
+      : remoteGraph && remoteGraph.exhibitId === selected?.id
+        ? remoteGraph
+        : fallbackGraph;
+  const graphSourceLabel = graphMode === 'demo' || isRemoteGraph ? 'Neo4j 图数据库' : '本地轻量图谱';
+  const graphData = useMemo(() => buildNvlGraphData(graph, selectedGraphNodeId), [graph, selectedGraphNodeId]);
   const selectedGraphNode = graph.nodes.find((node) => node.id === selectedGraphNodeId) ?? graph.nodes[0] ?? null;
   const stats = useMemo(() => graphStats(items), [items]);
   const canWrite = role !== 'viewer';
@@ -405,6 +366,27 @@ export function App() {
   }, [selected?.id]);
 
   useEffect(() => {
+    if (graphMode !== 'demo' || demoGraph) return;
+
+    let cancelled = false;
+    fetchDemoGraph()
+      .then((nextGraph) => {
+        if (cancelled) return;
+        setDemoGraph(nextGraph);
+        setGraphError(null);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setDemoGraph(null);
+        setGraphError('全库 Neo4j 演示图谱暂不可用');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [graphMode, demoGraph]);
+
+  useEffect(() => {
     if (graph.nodes.length === 0) {
       setSelectedGraphNodeId(null);
       return;
@@ -415,59 +397,12 @@ export function App() {
   }, [graph.nodes, selectedGraphNodeId]);
 
   useEffect(() => {
-    const useDomRenderer = cytoscapeCanUseDomRenderer();
-    if (!useDomRenderer) {
-      cytoscapeRef.current?.destroy();
-      cytoscapeRef.current = null;
-      return;
-    }
-    if (useDomRenderer && !graphContainerRef.current) return;
-
-    cytoscapeRef.current?.destroy();
-    const cy = cytoscape({
-      container: graphContainerRef.current,
-      elements: graphElements,
-      style: cytoscapeStylesheet,
-      layout: graphLayoutOptions,
-      minZoom: 0.35,
-      maxZoom: 2.6,
-      boxSelectionEnabled: false,
-      autoungrabify: false,
-      userPanningEnabled: true,
-      userZoomingEnabled: true
-    });
-
-    cytoscapeRef.current = cy;
-    cy.on('tap', 'node', (event) => {
-      setSelectedGraphNodeId(event.target.id());
-    });
-    cy.ready(() => {
-      cy.fit(undefined, 34);
-    });
-
-    return () => {
-      cy.destroy();
-      if (cytoscapeRef.current === cy) {
-        cytoscapeRef.current = null;
-      }
-    };
-  }, [graphElements, graphLayoutVersion]);
-
-  useEffect(() => {
-    const cy = cytoscapeRef.current;
-    if (!cy) return;
-
-    cy.elements().removeClass('faded neighbor selected');
-    if (!selectedGraphNodeId) return;
-
-    const selectedNode = cy.getElementById(selectedGraphNodeId);
-    if (selectedNode.empty()) return;
-
-    const neighborhood = selectedNode.closedNeighborhood();
-    cy.elements().not(neighborhood).addClass('faded');
-    neighborhood.addClass('neighbor');
-    selectedNode.addClass('selected');
-  }, [graphElements, selectedGraphNodeId]);
+    if (!nvlCanUseDomRenderer()) return;
+    const timer = window.setTimeout(() => {
+      graphRef.current?.fit?.(graph.nodes.map((node) => node.id));
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [graphMode, graph.nodes.length, graph.edges.length, graphLayoutVersion]);
 
   const updateFilter = (key: keyof ExhibitFilters, value: string) => {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -678,11 +613,9 @@ export function App() {
   };
 
   const relayoutGraph = () => {
-    const cy = cytoscapeRef.current;
-    if (cy) {
-      cy.layout(graphLayoutOptions).run();
-      cy.fit(undefined, 34);
-    }
+    graphRef.current?.setLayout?.(nvlForceDirectedLayout);
+    graphRef.current?.restart?.();
+    graphRef.current?.fit?.(graph.nodes.map((node) => node.id));
     setGraphLayoutVersion((value) => value + 1);
   };
 
@@ -1050,16 +983,62 @@ export function App() {
                   <GitBranch size={18} />
                   <span>Neo4j 知识图谱</span>
                 </div>
+                <div className="graph-mode-switch" aria-label="Neo4j graph mode">
+                  <button
+                    type="button"
+                    className={graphMode === 'current' ? 'active' : ''}
+                    onClick={() => setGraphMode('current')}
+                  >
+                    当前展项
+                  </button>
+                  <button
+                    type="button"
+                    className={graphMode === 'demo' ? 'active' : ''}
+                    onClick={() => setGraphMode('demo')}
+                  >
+                    全库演示
+                  </button>
+                </div>
                 <div className="graph-meta" aria-label="Neo4j graph metadata">
-                  <span>数据源：{isRemoteGraph ? 'Neo4j 图数据库' : '本地轻量图谱'}</span>
+                  <span>数据源：{graphSourceLabel}</span>
                   <span>节点 {graph.nodes.length}</span>
                   <span>关系 {graph.edges.length}</span>
                   <button type="button" className="graph-layout-button" onClick={relayoutGraph}>
                     重新布局
                   </button>
                 </div>
+                {graphError && <div className="graph-error">{graphError}</div>}
                 <div className="graph-enhanced">
-                  <div className="cytoscape-canvas" ref={graphContainerRef} role="img" aria-label="Neo4j 交互式知识图谱" />
+                  <div className="nvl-canvas" role="img" aria-label="Neo4j 交互式知识图谱">
+                    {nvlCanUseDomRenderer() ? (
+                      <InteractiveNvlWrapper
+                        key={`${graphMode}-${graphLayoutVersion}`}
+                        ref={graphRef}
+                        nodes={graphData.nodes}
+                        rels={graphData.rels}
+                        layout={nvlForceDirectedLayout}
+                        nvlOptions={{
+                          disableTelemetry: true,
+                          renderer: 'canvas',
+                          minZoom: 0.2,
+                          maxZoom: 4
+                        }}
+                        mouseEventCallbacks={{
+                          onNodeClick: (node) => setSelectedGraphNodeId(node.id),
+                          onNodeDoubleClick: (node) => {
+                            setSelectedGraphNodeId(node.id);
+                            graphRef.current?.fit?.([node.id]);
+                          },
+                          onDrag: true,
+                          onPan: true,
+                          onZoom: true
+                        }}
+                        interactionOptions={{ selectOnClick: true }}
+                      />
+                    ) : (
+                      <div className="nvl-test-fallback">NVL 图谱将在浏览器中渲染</div>
+                    )}
+                  </div>
                   <aside className="graph-inspector">
                     {selectedGraphNode && (
                       <div className="graph-node-detail">

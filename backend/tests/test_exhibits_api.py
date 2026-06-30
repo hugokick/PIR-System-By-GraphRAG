@@ -124,6 +124,54 @@ def test_unknown_exhibit_returns_404():
     assert response.json()["detail"]["error"] == "NotFound"
 
 
+def test_get_neo4j_demo_graph_returns_full_demo_graph(monkeypatch):
+    from app import main
+    from app.schemas import GraphEdge, GraphNode, GraphResponse
+
+    class StubNeo4jService:
+        def __init__(self):
+            self.closed = False
+
+        def get_demo_graph(self) -> GraphResponse:
+            return GraphResponse(
+                nodes=[
+                    GraphNode(id="exhibit:lever-play", label="Lever Play", type="exhibit"),
+                    GraphNode(id="exhibit:space-dome", label="Space Dome", type="exhibit"),
+                    GraphNode(id="supplier:qisi", label="Qisi", type="supplier"),
+                ],
+                edges=[
+                    GraphEdge(
+                        source="exhibit:lever-play",
+                        target="supplier:qisi",
+                        label="supplier",
+                        type="supplied_by",
+                    )
+                ],
+            )
+
+        def close(self) -> None:
+            self.closed = True
+
+    service = StubNeo4jService()
+    monkeypatch.setattr(main, "create_neo4j_demo_graph_service", lambda exhibits: service)
+
+    response = client.get("/api/neo4j-demo/graph")
+
+    assert response.status_code == 200
+    payload = response.json()
+    node_ids = {node["id"] for node in payload["nodes"]}
+    assert {"exhibit:lever-play", "exhibit:space-dome", "supplier:qisi"} <= node_ids
+    assert payload["edges"] == [
+        {
+            "source": "exhibit:lever-play",
+            "target": "supplier:qisi",
+            "label": "supplier",
+            "type": "supplied_by",
+        }
+    ]
+    assert service.closed
+
+
 def test_create_exhibit_persists_record_and_relationships():
     payload = {
         "id": "magnet-maze",

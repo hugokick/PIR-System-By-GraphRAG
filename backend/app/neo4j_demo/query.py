@@ -36,6 +36,17 @@ def build_exhibit_graph_cypher(exhibit_id: str) -> str:
     )
 
 
+def build_demo_graph_cypher() -> str:
+    return "\n".join(
+        [
+            "MATCH (source)-[rel]->(target)",
+            "RETURN source, labels(source) AS source_labels,",
+            "       target, labels(target) AS target_labels,",
+            "       type(rel) AS rel_type, rel.label AS rel_label",
+        ]
+    )
+
+
 def _node_from_record(payload: Mapping[str, str], labels: list[str] | None) -> GraphNode:
     primary_label = labels[0] if labels else "Node"
     raw_id = payload["id"]
@@ -77,6 +88,41 @@ def map_neo4j_records_to_graph_response(records: list[dict]) -> GraphResponse:
             GraphEdge(
                 source=center_node.id,
                 target=neighbor_node.id,
+                label=edge_label,
+                type=edge_type,
+            )
+        )
+
+    return GraphResponse(nodes=list(nodes.values()), edges=edges)
+
+
+def map_neo4j_relationship_records_to_graph_response(records: list[dict]) -> GraphResponse:
+    nodes: dict[str, GraphNode] = {}
+    edges: list[GraphEdge] = []
+    edge_keys: set[tuple[str, str, str, str]] = set()
+
+    for row in records:
+        source_payload = row.get("source")
+        target_payload = row.get("target")
+        rel_type = row.get("rel_type")
+        if not source_payload or not target_payload or not rel_type:
+            continue
+
+        source_node = _node_from_record(source_payload, row.get("source_labels"))
+        target_node = _node_from_record(target_payload, row.get("target_labels"))
+        nodes[source_node.id] = source_node
+        nodes[target_node.id] = target_node
+
+        edge_label = row.get("rel_label") or rel_type
+        edge_type = REL_TYPE_MAP.get(rel_type, rel_type.lower())
+        edge_key = (source_node.id, target_node.id, edge_label, edge_type)
+        if edge_key in edge_keys:
+            continue
+        edge_keys.add(edge_key)
+        edges.append(
+            GraphEdge(
+                source=source_node.id,
+                target=target_node.id,
                 label=edge_label,
                 type=edge_type,
             )

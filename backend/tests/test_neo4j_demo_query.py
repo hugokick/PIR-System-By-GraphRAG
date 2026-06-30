@@ -1,4 +1,9 @@
-from app.neo4j_demo.query import build_exhibit_graph_cypher, map_neo4j_records_to_graph_response
+from app.neo4j_demo.query import (
+    build_demo_graph_cypher,
+    build_exhibit_graph_cypher,
+    map_neo4j_records_to_graph_response,
+    map_neo4j_relationship_records_to_graph_response,
+)
 
 
 def test_build_exhibit_graph_cypher_targets_exhibit_id():
@@ -7,6 +12,14 @@ def test_build_exhibit_graph_cypher_targets_exhibit_id():
     assert "MATCH (center:Exhibit {id: $exhibit_id})" in cypher
     assert "OPTIONAL MATCH (center)-[rel]->(neighbor)" in cypher
     assert "RETURN center, labels(center) AS center_labels" in cypher
+
+
+def test_build_demo_graph_cypher_returns_all_demo_relationships():
+    cypher = build_demo_graph_cypher()
+
+    assert "MATCH (source)-[rel]->(target)" in cypher
+    assert "RETURN source, labels(source) AS source_labels" in cypher
+    assert "$exhibit_id" not in cypher
 
 
 def test_map_neo4j_records_to_graph_response_returns_prefixed_nodes_and_edges():
@@ -78,3 +91,31 @@ def test_map_neo4j_records_to_graph_response_deduplicates_edges():
     graph = map_neo4j_records_to_graph_response([record, record])
 
     assert [edge.type for edge in graph.edges] == ["has_theme"]
+
+
+def test_map_neo4j_relationship_records_to_graph_response_maps_all_edges():
+    records = [
+        {
+            "source": {"id": "lever-play", "name": "Lever Play"},
+            "source_labels": ["Exhibit"],
+            "target": {"id": "qisi", "name": "Qisi Supplier"},
+            "target_labels": ["Supplier"],
+            "rel_type": "SUPPLIED_BY",
+            "rel_label": "supplier",
+        },
+        {
+            "source": {"id": "space-dome", "name": "Space Dome"},
+            "source_labels": ["Exhibit"],
+            "target": {"id": "astronomy", "name": "Astronomy"},
+            "target_labels": ["Theme"],
+            "rel_type": "HAS_THEME",
+            "rel_label": "theme",
+        },
+    ]
+
+    graph = map_neo4j_relationship_records_to_graph_response(records)
+
+    node_ids = {node.id for node in graph.nodes}
+    edge_types = {edge.type for edge in graph.edges}
+    assert {"exhibit:lever-play", "supplier:qisi", "exhibit:space-dome", "theme:astronomy"} <= node_ids
+    assert {"supplied_by", "has_theme"} <= edge_types

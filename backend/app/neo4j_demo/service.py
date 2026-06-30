@@ -7,7 +7,12 @@ from app.schemas import ExhibitResponse, GraphResponse
 from app.services.graph import build_exhibit_graph
 
 from .demo_data import neo4j_demo_exhibits
-from .query import build_exhibit_graph_cypher, map_neo4j_records_to_graph_response
+from .query import (
+    build_demo_graph_cypher,
+    build_exhibit_graph_cypher,
+    map_neo4j_records_to_graph_response,
+    map_neo4j_relationship_records_to_graph_response,
+)
 from .seed import build_demo_seed_statements
 
 
@@ -26,6 +31,12 @@ class Neo4jBoltGraphClient:
         query = build_exhibit_graph_cypher(exhibit_id)
         with self.driver.session() as session:
             result = session.run(query, exhibit_id=exhibit_id)
+            return [record.data() for record in result]
+
+    def fetch_demo_graph(self) -> list[dict]:
+        query = build_demo_graph_cypher()
+        with self.driver.session() as session:
+            result = session.run(query)
             return [record.data() for record in result]
 
     def execute_statements(self, statements: Iterable[str]) -> None:
@@ -70,11 +81,46 @@ class Neo4jDemoGraphService:
             return self._fallback(exhibit_id)
         return graph
 
+    def get_demo_graph(self) -> GraphResponse:
+        if self.client is None:
+            return self._fallback_demo_graph()
+
+        try:
+            if self.auto_seed:
+                self._seed_once()
+            rows = self.client.fetch_demo_graph()
+        except Exception:
+            return self._fallback_demo_graph()
+
+        if not rows:
+            return self._fallback_demo_graph()
+
+        graph = map_neo4j_relationship_records_to_graph_response(rows)
+        if not graph.nodes:
+            return self._fallback_demo_graph()
+        return graph
+
     def _fallback(self, exhibit_id: str) -> GraphResponse:
         exhibit = next((item for item in self.exhibits if item.id == exhibit_id), None)
         if exhibit is None:
             return GraphResponse(nodes=[], edges=[])
         return build_exhibit_graph(exhibit, self.exhibits)
+
+    def _fallback_demo_graph(self) -> GraphResponse:
+        nodes = {}
+        edges = []
+        edge_keys = set()
+        for exhibit in self.exhibits:
+            graph = build_exhibit_graph(exhibit, self.exhibits)
+            for node in graph.nodes:
+                nodes[node.id] = node
+            for edge in graph.edges:
+                edge_key = (edge.source, edge.target, edge.label, edge.type)
+                if edge_key in edge_keys:
+                    continue
+                edge_keys.add(edge_key)
+                edges.append(edge)
+        return GraphResponse(nodes=list(nodes.values()), edges=edges)
 
     def close(self) -> None:
         if self.client is not None and hasattr(self.client, "close"):

@@ -509,6 +509,11 @@ export async function fetchExhibitGraph(exhibitId: string) {
   return mapApiGraph(payload);
 }
 
+export async function fetchDemoGraph() {
+  const payload = await requestJson<ApiGraphResponse>('/api/neo4j-demo/graph');
+  return mapApiGraph(payload);
+}
+
 export async function askGraphRag(query: string, topK = 3): Promise<GraphRagAnswer> {
   const payload = await sendJson<ApiGraphRagAnswerResponse>('/api/graphrag/answer', {
     method: 'POST',

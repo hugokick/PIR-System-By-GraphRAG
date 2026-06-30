@@ -25,6 +25,26 @@ class HappyClient:
             }
         ]
 
+    def fetch_demo_graph(self):
+        return [
+            {
+                "source": {"id": "lever-play", "name": "Lever Play"},
+                "source_labels": ["Exhibit"],
+                "target": {"id": "qisi", "name": "Qisi Supplier"},
+                "target_labels": ["Supplier"],
+                "rel_type": "SUPPLIED_BY",
+                "rel_label": "supplier",
+            },
+            {
+                "source": {"id": "space-dome", "name": "Space Dome"},
+                "source_labels": ["Exhibit"],
+                "target": {"id": "astronomy", "name": "Astronomy"},
+                "target_labels": ["Theme"],
+                "rel_type": "HAS_THEME",
+                "rel_label": "theme",
+            },
+        ]
+
 
 class SeedingClient(HappyClient):
     def __init__(self):
@@ -73,6 +93,27 @@ def test_service_prefers_neo4j_rows_when_available():
     assert isinstance(result, GraphResponse)
     assert any(node.id == "supplier:qisi" for node in result.nodes)
     assert result.edges[0].type == "supplied_by"
+
+
+def test_service_returns_full_demo_graph_from_neo4j_rows_when_available():
+    service = Neo4jDemoGraphService(client=HappyClient())
+
+    result = service.get_demo_graph()
+
+    node_ids = {node.id for node in result.nodes}
+    edge_types = {edge.type for edge in result.edges}
+    assert {"exhibit:lever-play", "supplier:qisi", "exhibit:space-dome", "theme:astronomy"} <= node_ids
+    assert {"supplied_by", "has_theme"} <= edge_types
+
+
+def test_service_full_demo_graph_fallback_includes_all_four_demo_exhibits():
+    service = Neo4jDemoGraphService(client=EmptyClient())
+
+    result = service.get_demo_graph()
+
+    exhibit_node_ids = {node.id for node in result.nodes if node.type == "exhibit"}
+    assert {"exhibit:lever-play", "exhibit:pulley-wall", "exhibit:water-cycle", "exhibit:space-dome"} <= exhibit_node_ids
+    assert len(result.edges) >= 20
 
 
 def test_service_build_query_exposes_cypher_for_review():

@@ -750,14 +750,23 @@ textarea:focus {
   padding-top: 14px;
 }
 
+.graph-mode-switch,
 .graph-meta {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.graph-mode-switch {
+  margin: -2px 0 10px;
+}
+
+.graph-meta {
   margin: -4px 0 12px;
 }
 
+.graph-mode-switch button,
 .graph-meta span,
 .graph-layout-button {
   border: 1px solid #d6e0dc;
@@ -769,10 +778,27 @@ textarea:focus {
   padding: 5px 9px;
 }
 
+.graph-mode-switch button {
+  cursor: pointer;
+}
+
+.graph-mode-switch button.active {
+  background: #0f8b78;
+  border-color: #0f8b78;
+  color: #fff;
+}
+
 .graph-layout-button {
   background: #203b39;
   color: #fff;
   cursor: pointer;
+}
+
+.graph-error {
+  color: #a4471f;
+  font-size: 12px;
+  font-weight: 700;
+  margin: -4px 0 10px;
 }
 
 .graph-enhanced {
@@ -782,7 +808,7 @@ textarea:focus {
   align-items: stretch;
 }
 
-.cytoscape-canvas {
+.nvl-canvas {
   min-height: 420px;
   border-radius: 8px;
   border: 1px solid #d8e5df;
@@ -792,6 +818,17 @@ textarea:focus {
     #f8fbf9;
   background-size: 28px 28px;
   overflow: hidden;
+}
+
+.nvl-canvas > div {
+  min-height: 420px;
+}
+
+.nvl-test-fallback {
+  color: #60736d;
+  display: grid;
+  min-height: 420px;
+  place-items: center;
 }
 
 .graph-inspector {
@@ -957,7 +994,9 @@ textarea:focus {
     width: fit-content;
   }
 
-  .cytoscape-canvas {
+  .nvl-canvas,
+  .nvl-canvas > div,
+  .nvl-test-fallback {
     min-height: 320px;
   }
 
