@@ -109,11 +109,12 @@ describe('App exhibit management', () => {
     render(<App />);
 
     expect(await screen.findByText('Neo4j 知识图谱')).toBeTruthy();
-    expect(await screen.findByText('数据源 Neo4j API')).toBeTruthy();
+    expect(await screen.findByText('数据源：Neo4j 图数据库')).toBeTruthy();
     expect(await screen.findByText('节点 3')).toBeTruthy();
     expect(await screen.findByText('关系 2')).toBeTruthy();
     expect(screen.getByText('USES_MATERIAL')).toBeTruthy();
     expect(screen.getByText('SUPPLIED_BY')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '重新布局' })).toBeTruthy();
 
     fireEvent.click(await screen.findByRole('button', { name: /Backend Material/ }));
 

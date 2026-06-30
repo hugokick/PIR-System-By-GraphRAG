@@ -1,4 +1,5 @@
-import { FormEvent, PointerEvent, SyntheticEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, SyntheticEvent, useEffect, useMemo, useRef, useState } from 'react';
+import cytoscape, { type Core, type ElementDefinition, type StylesheetJson } from 'cytoscape';
 import {
   BarChart3,
   Database,
@@ -78,30 +79,118 @@ function storeRole(role: UserRole) {
   }
 }
 
-type GraphPosition = {
-  x: number;
-  y: number;
+const graphNodeColors: Record<string, string> = {
+  exhibit: '#0f8b78',
+  project: '#d18a24',
+  owner: '#4361a8',
+  material: '#6b7a30',
+  supplier: '#7a4f9f',
+  theme: '#8b4d2f',
+  interaction: '#c05621',
+  document: '#50677d'
 };
 
-function clampGraphPosition(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
+const graphLayoutOptions = {
+  name: 'cose',
+  animate: false,
+  fit: true,
+  padding: 34,
+  idealEdgeLength: 110,
+  nodeRepulsion: 4200,
+  gravity: 0.28,
+  numIter: 900
+} as const;
+
+const cytoscapeStylesheet = [
+  {
+    selector: 'node',
+    style: {
+      label: 'data(label)',
+      'background-color': 'data(color)',
+      color: '#203b39',
+      'font-size': '11px',
+      'font-weight': 'bold',
+      'text-valign': 'bottom',
+      'text-halign': 'center',
+      'text-margin-y': '8px',
+      'text-wrap': 'wrap',
+      'text-max-width': '120px',
+      width: '34px',
+      height: '34px',
+      'border-width': '2px',
+      'border-color': '#ffffff'
+    }
+  },
+  {
+    selector: 'edge',
+    style: {
+      label: 'data(label)',
+      width: '2px',
+      'line-color': '#9aaba5',
+      'target-arrow-color': '#9aaba5',
+      'target-arrow-shape': 'triangle',
+      'curve-style': 'bezier',
+      color: '#51635e',
+      'font-size': '9px',
+      'font-weight': 'bold',
+      'text-background-color': '#ffffff',
+      'text-background-opacity': 0.86,
+      'text-background-padding': '3px',
+      'text-rotation': 'autorotate'
+    }
+  },
+  {
+    selector: '.faded',
+    style: {
+      opacity: 0.18,
+      'text-opacity': 0.18
+    }
+  },
+  {
+    selector: '.neighbor',
+    style: {
+      opacity: 1,
+      'line-color': '#4361a8',
+      'target-arrow-color': '#4361a8'
+    }
+  },
+  {
+    selector: 'node.selected',
+    style: {
+      'border-width': '5px',
+      'border-color': '#f2b84b',
+      width: '46px',
+      height: '46px',
+      'font-size': '12px'
+    }
+  }
+] as unknown as StylesheetJson;
+
+function cytoscapeCanUseDomRenderer() {
+  if (typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('jsdom')) return false;
+  if (typeof document === 'undefined') return false;
+  return true;
 }
 
-function graphNodePosition(index: number, total: number): GraphPosition {
-  if (index === 0) return { x: 50, y: 50 };
-  const angle = ((index - 1) / Math.max(total - 1, 1)) * Math.PI * 2 - Math.PI / 2;
-  return {
-    x: 50 + Math.cos(angle) * 34,
-    y: 50 + Math.sin(angle) * 34
-  };
-}
-
-function edgeLabelPosition(source?: GraphPosition, target?: GraphPosition): GraphPosition {
-  if (!source || !target) return { x: 50, y: 50 };
-  return {
-    x: (source.x + target.x) / 2,
-    y: (source.y + target.y) / 2
-  };
+function graphToCytoscapeElements(graph: { nodes: GraphNode[]; edges: GraphEdge[] }): ElementDefinition[] {
+  const nodes = graph.nodes.map((node) => ({
+    data: {
+      id: node.id,
+      label: node.label,
+      type: node.kind,
+      color: graphNodeColors[node.kind] ?? '#607d75'
+    }
+  }));
+  const edges = graph.edges.map((edge) => ({
+    data: {
+      id: `${edge.source}->${edge.target}:${edge.type ?? edge.label}`,
+      source: edge.source,
+      target: edge.target,
+      label: edge.type ?? edge.label,
+      type: edge.type ?? edge.label
+    }
+  }));
+  return [...nodes, ...edges];
 }
 
 const fallbackImage =
@@ -169,6 +258,8 @@ function makeExhibitFromForm(form: HTMLFormElement, existingItem?: Exhibit): Exh
 }
 
 export function App() {
+  const graphContainerRef = useRef<HTMLDivElement | null>(null);
+  const cytoscapeRef = useRef<Core | null>(null);
   const [items, setItems] = useState<Exhibit[]>(() => loadExhibits());
   const [role, setRole] = useState<UserRole>(() => {
     const initialRole = readInitialRole();
@@ -200,8 +291,7 @@ export function App() {
     edges: GraphEdge[];
   } | null>(null);
   const [selectedGraphNodeId, setSelectedGraphNodeId] = useState<string | null>(null);
-  const [draggedGraphNodeId, setDraggedGraphNodeId] = useState<string | null>(null);
-  const [graphNodePositions, setGraphNodePositions] = useState<Record<string, GraphPosition>>({});
+  const [graphLayoutVersion, setGraphLayoutVersion] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -251,16 +341,7 @@ export function App() {
   const fallbackGraph = useMemo(() => (selected ? buildGraph(selected, items) : { nodes: [], edges: [] }), [selected, items]);
   const isRemoteGraph = Boolean(remoteGraph && remoteGraph.exhibitId === selected?.id);
   const graph = remoteGraph && remoteGraph.exhibitId === selected?.id ? remoteGraph : fallbackGraph;
-  const graphPositions = useMemo(
-    () =>
-      Object.fromEntries(
-        graph.nodes.map((node, index) => {
-          const saved = graphNodePositions[node.id];
-          return [node.id, saved ?? graphNodePosition(index, graph.nodes.length)];
-        })
-      ),
-    [graph.nodes, graphNodePositions]
-  );
+  const graphElements = useMemo(() => graphToCytoscapeElements(graph), [graph]);
   const selectedGraphNode = graph.nodes.find((node) => node.id === selectedGraphNodeId) ?? graph.nodes[0] ?? null;
   const stats = useMemo(() => graphStats(items), [items]);
   const canWrite = role !== 'viewer';
@@ -334,9 +415,59 @@ export function App() {
   }, [graph.nodes, selectedGraphNodeId]);
 
   useEffect(() => {
-    setGraphNodePositions({});
-    setDraggedGraphNodeId(null);
-  }, [selected?.id]);
+    const useDomRenderer = cytoscapeCanUseDomRenderer();
+    if (!useDomRenderer) {
+      cytoscapeRef.current?.destroy();
+      cytoscapeRef.current = null;
+      return;
+    }
+    if (useDomRenderer && !graphContainerRef.current) return;
+
+    cytoscapeRef.current?.destroy();
+    const cy = cytoscape({
+      container: graphContainerRef.current,
+      elements: graphElements,
+      style: cytoscapeStylesheet,
+      layout: graphLayoutOptions,
+      minZoom: 0.35,
+      maxZoom: 2.6,
+      boxSelectionEnabled: false,
+      autoungrabify: false,
+      userPanningEnabled: true,
+      userZoomingEnabled: true
+    });
+
+    cytoscapeRef.current = cy;
+    cy.on('tap', 'node', (event) => {
+      setSelectedGraphNodeId(event.target.id());
+    });
+    cy.ready(() => {
+      cy.fit(undefined, 34);
+    });
+
+    return () => {
+      cy.destroy();
+      if (cytoscapeRef.current === cy) {
+        cytoscapeRef.current = null;
+      }
+    };
+  }, [graphElements, graphLayoutVersion]);
+
+  useEffect(() => {
+    const cy = cytoscapeRef.current;
+    if (!cy) return;
+
+    cy.elements().removeClass('faded neighbor selected');
+    if (!selectedGraphNodeId) return;
+
+    const selectedNode = cy.getElementById(selectedGraphNodeId);
+    if (selectedNode.empty()) return;
+
+    const neighborhood = selectedNode.closedNeighborhood();
+    cy.elements().not(neighborhood).addClass('faded');
+    neighborhood.addClass('neighbor');
+    selectedNode.addClass('selected');
+  }, [graphElements, selectedGraphNodeId]);
 
   const updateFilter = (key: keyof ExhibitFilters, value: string) => {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -546,37 +677,13 @@ export function App() {
     }
   };
 
-  const moveGraphNode = (event: PointerEvent<HTMLButtonElement>, nodeId: string) => {
-    const canvas = event.currentTarget.closest('.graph-canvas');
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-    const x = clampGraphPosition(((event.clientX - rect.left) / rect.width) * 100, 7, 93);
-    const y = clampGraphPosition(((event.clientY - rect.top) / rect.height) * 100, 10, 90);
-    setGraphNodePositions((current) => ({
-      ...current,
-      [nodeId]: { x, y }
-    }));
-  };
-
-  const beginGraphNodeDrag = (event: PointerEvent<HTMLButtonElement>, nodeId: string) => {
-    setSelectedGraphNodeId(nodeId);
-    setDraggedGraphNodeId(nodeId);
-    event.currentTarget.setPointerCapture(event.pointerId);
-    moveGraphNode(event, nodeId);
-  };
-
-  const dragGraphNode = (event: PointerEvent<HTMLButtonElement>, nodeId: string) => {
-    if (draggedGraphNodeId === nodeId) {
-      moveGraphNode(event, nodeId);
+  const relayoutGraph = () => {
+    const cy = cytoscapeRef.current;
+    if (cy) {
+      cy.layout(graphLayoutOptions).run();
+      cy.fit(undefined, 34);
     }
-  };
-
-  const endGraphNodeDrag = (event: PointerEvent<HTMLButtonElement>) => {
-    if (draggedGraphNodeId) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-    setDraggedGraphNodeId(null);
+    setGraphLayoutVersion((value) => value + 1);
   };
 
   return (
@@ -944,88 +1051,65 @@ export function App() {
                   <span>Neo4j 知识图谱</span>
                 </div>
                 <div className="graph-meta" aria-label="Neo4j graph metadata">
-                  <span>数据源 {isRemoteGraph ? 'Neo4j API' : '本地轻量图谱'}</span>
+                  <span>数据源：{isRemoteGraph ? 'Neo4j 图数据库' : '本地轻量图谱'}</span>
                   <span>节点 {graph.nodes.length}</span>
                   <span>关系 {graph.edges.length}</span>
+                  <button type="button" className="graph-layout-button" onClick={relayoutGraph}>
+                    重新布局
+                  </button>
                 </div>
                 <div className="graph-enhanced">
-                  <div className="graph-canvas graph-canvas-enhanced">
-                    <svg className="graph-links" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-                      {graph.edges.map((edge) => {
-                        const source = graphPositions[edge.source];
-                        const target = graphPositions[edge.target];
-                        if (!source || !target) return null;
-                        return (
-                          <line
-                            key={`${edge.source}-${edge.target}-${edge.type ?? edge.label}`}
-                            x1={source.x}
-                            y1={source.y}
-                            x2={target.x}
-                            y2={target.y}
-                          />
-                        );
-                      })}
-                    </svg>
-                    {graph.edges.map((edge) => {
-                      const source = graphPositions[edge.source];
-                      const target = graphPositions[edge.target];
-                      const position = edgeLabelPosition(source, target);
-                      return (
-                        <span
-                          className="graph-edge-label"
-                          key={`${edge.source}-${edge.target}-${edge.type ?? edge.label}`}
-                          style={{ left: `${position.x}%`, top: `${position.y}%` }}
-                        >
-                          {edge.type ?? edge.label}
+                  <div className="cytoscape-canvas" ref={graphContainerRef} role="img" aria-label="Neo4j 交互式知识图谱" />
+                  <aside className="graph-inspector">
+                    {selectedGraphNode && (
+                      <div className="graph-node-detail">
+                        <strong>节点详情</strong>
+                        <dl>
+                          <div>
+                            <dt>id</dt>
+                            <dd>{selectedGraphNode.id}</dd>
+                          </div>
+                          <div>
+                            <dt>label</dt>
+                            <dd>{selectedGraphNode.label}</dd>
+                          </div>
+                          <div>
+                            <dt>type</dt>
+                            <dd>{selectedGraphNode.kind}</dd>
+                          </div>
+                        </dl>
+                      </div>
+                    )}
+                    <div className="graph-legend" aria-label="graph node type legend">
+                      {[...new Set(graph.nodes.map((node) => node.kind))].map((kind) => (
+                        <span key={kind}>
+                          <i style={{ background: graphNodeColors[kind] ?? '#607d75' }} />
+                          {kind}
                         </span>
-                      );
-                    })}
-                    {graph.nodes.map((node, index) => {
-                      const position = graphPositions[node.id] ?? graphNodePosition(index, graph.nodes.length);
-                      return (
+                      ))}
+                    </div>
+                    <div className="graph-node-list" aria-label="graph nodes">
+                      {graph.nodes.map((node) => (
                         <button
                           type="button"
-                          className={`graph-node ${node.kind} ${node.id === selectedGraphNode?.id ? 'active' : ''}`}
                           key={node.id}
-                          style={{ left: `${position.x}%`, top: `${position.y}%` }}
+                          className={node.id === selectedGraphNode?.id ? 'active' : ''}
                           onClick={() => setSelectedGraphNodeId(node.id)}
-                          onPointerDown={(event) => beginGraphNodeDrag(event, node.id)}
-                          onPointerMove={(event) => dragGraphNode(event, node.id)}
-                          onPointerUp={endGraphNodeDrag}
-                          onPointerCancel={endGraphNodeDrag}
                         >
-                          <strong>{node.label}</strong>
+                          <span>{node.label}</span>
                           <small>{node.kind}</small>
                         </button>
-                      );
-                    })}
-                  </div>
-                  {selectedGraphNode && (
-                    <div className="graph-node-detail">
-                      <strong>节点详情</strong>
-                      <dl>
-                        <div>
-                          <dt>id</dt>
-                          <dd>{selectedGraphNode.id}</dd>
-                        </div>
-                        <div>
-                          <dt>label</dt>
-                          <dd>{selectedGraphNode.label}</dd>
-                        </div>
-                        <div>
-                          <dt>type</dt>
-                          <dd>{selectedGraphNode.kind}</dd>
-                        </div>
-                      </dl>
+                      ))}
                     </div>
-                  )}
-                  <div className="edge-list">
-                    {graph.edges.map((edge) => (
-                      <span key={`${edge.source}-${edge.target}-${edge.label}`}>
-                        {edge.type ?? edge.label} {'->'} {graph.nodes.find((node) => node.id === edge.target)?.label}
-                      </span>
-                    ))}
-                  </div>
+                    <div className="edge-list">
+                      {graph.edges.map((edge) => (
+                        <span key={`${edge.source}-${edge.target}-${edge.label}`}>
+                          <strong>{edge.type ?? edge.label}</strong>
+                          {' ->'} {graph.nodes.find((node) => node.id === edge.target)?.label}
+                        </span>
+                      ))}
+                    </div>
+                  </aside>
                 </div>
               </section>
             </section>
