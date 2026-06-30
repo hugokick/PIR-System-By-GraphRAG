@@ -148,6 +148,44 @@ textarea:focus {
   font-weight: 700;
 }
 
+.auth-form,
+.auth-session {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #d9e1dc;
+  border-radius: 8px;
+  background: #fff;
+  padding: 6px;
+}
+
+.auth-form label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 0;
+  color: #47615d;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.auth-form input {
+  width: 104px;
+  min-height: 34px;
+  padding: 6px 8px;
+}
+
+.auth-form small {
+  color: #8f2d1e;
+  font-size: 12px;
+}
+
+.auth-session span {
+  color: #24514b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .role-select select {
   min-height: 38px;
   border: 1px solid #cbdad4;

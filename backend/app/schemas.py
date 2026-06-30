@@ -178,3 +178,20 @@ class AuditLogEntry(BaseModel):
 class AuditLogListResponse(BaseModel):
     total: int
     items: list[AuditLogEntry]
+
+
+class AuthLoginRequest(BaseModel):
+    username: str = Field(min_length=1)
+    password: str = Field(min_length=1)
+
+
+class AuthUser(BaseModel):
+    username: str
+    role: str
+    display_name: str
+
+
+class AuthLoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: AuthUser

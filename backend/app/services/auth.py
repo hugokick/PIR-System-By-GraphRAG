@@ -1,0 +1,78 @@
+import base64
+import hashlib
+import hmac
+import json
+import os
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class DemoUser:
+    username: str
+    password: str
+    role: str
+    display_name: str
+
+
+DEMO_USERS = {
+    "admin": DemoUser("admin", "admin123", "admin", "管理员"),
+    "editor": DemoUser("editor", "editor123", "editor", "编辑员"),
+    "viewer": DemoUser("viewer", "viewer123", "viewer", "只读访客"),
+}
+
+
+def authenticate_demo_user(username: str, password: str) -> DemoUser | None:
+    user = DEMO_USERS.get(username.strip().lower())
+    if user is None:
+        return None
+    if not hmac.compare_digest(user.password, password):
+        return None
+    return user
+
+
+def issue_access_token(user: DemoUser) -> str:
+    payload = {
+        "username": user.username,
+        "role": user.role,
+        "display_name": user.display_name,
+    }
+    encoded_payload = _urlsafe_b64encode(json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode())
+    signature = _sign(encoded_payload)
+    return f"{encoded_payload}.{signature}"
+
+
+def verify_access_token(token: str) -> DemoUser | None:
+    parts = token.split(".")
+    if len(parts) != 2:
+        return None
+    encoded_payload, signature = parts
+    if not hmac.compare_digest(_sign(encoded_payload), signature):
+        return None
+    try:
+        payload = json.loads(_urlsafe_b64decode(encoded_payload).decode())
+    except (ValueError, UnicodeDecodeError):
+        return None
+    username = str(payload.get("username", ""))
+    role = str(payload.get("role", ""))
+    user = DEMO_USERS.get(username)
+    if user is None or user.role != role:
+        return None
+    return user
+
+
+def _sign(payload: str) -> str:
+    digest = hmac.new(_token_secret(), payload.encode(), hashlib.sha256).digest()
+    return _urlsafe_b64encode(digest)
+
+
+def _token_secret() -> bytes:
+    return os.environ.get("AUTH_TOKEN_SECRET", "exhibit-atlas-demo-secret").encode()
+
+
+def _urlsafe_b64encode(value: bytes) -> str:
+    return base64.urlsafe_b64encode(value).decode().rstrip("=")
+
+
+def _urlsafe_b64decode(value: str) -> bytes:
+    padding = "=" * (-len(value) % 4)
+    return base64.urlsafe_b64decode(value + padding)

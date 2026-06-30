@@ -1,13 +1,21 @@
-import type { AuditLogEntry, Exhibit, ExhibitFilters, GraphEdge, GraphNode, GraphRagAnswer, MediaAsset } from '../types';
+import type { AuditLogEntry, Exhibit, ExhibitFilters, GraphEdge, GraphNode, GraphRagAnswer, MediaAsset, UserSession } from '../types';
 
 export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
 
 export type UserRole = 'admin' | 'editor' | 'viewer';
 
 let activeRole: UserRole = 'admin';
+let activeSession: UserSession | null = null;
 
 export function setApiRole(role: UserRole) {
   activeRole = role;
+}
+
+export function setApiSession(session: UserSession | null) {
+  activeSession = session;
+  if (session) {
+    activeRole = session.user.role;
+  }
 }
 
 type ApiEntityRef = {
@@ -131,6 +139,16 @@ type ApiAuditLogEntry = {
 type ApiAuditLogListResponse = {
   total: number;
   items: ApiAuditLogEntry[];
+};
+
+type ApiAuthLoginResponse = {
+  access_token: string;
+  token_type: 'bearer';
+  user: {
+    username: string;
+    role: UserRole;
+    display_name: string;
+  };
 };
 
 export type ExhibitImportResult = {
@@ -333,6 +351,29 @@ function mapApiAuditLogEntry(entry: ApiAuditLogEntry): AuditLogEntry {
   };
 }
 
+function mapApiAuthSession(payload: ApiAuthLoginResponse): UserSession {
+  return {
+    accessToken: payload.access_token,
+    tokenType: payload.token_type,
+    user: {
+      username: payload.user.username,
+      role: payload.user.role,
+      displayName: payload.user.display_name
+    }
+  };
+}
+
+function authHeaders(): Record<string, string> {
+  if (activeSession) {
+    return {
+      Authorization: `Bearer ${activeSession.accessToken}`
+    };
+  }
+  return {
+    'X-User-Role': activeRole
+  };
+}
+
 async function requestJson<T>(path: string): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`);
   if (!response.ok) {
@@ -346,7 +387,7 @@ async function sendJson<T>(path: string, init: RequestInit): Promise<T> {
     ...init,
     headers: {
       'Content-Type': 'application/json',
-      'X-User-Role': activeRole,
+      ...authHeaders(),
       ...(init.headers ?? {})
     }
   });
@@ -354,6 +395,22 @@ async function sendJson<T>(path: string, init: RequestInit): Promise<T> {
     throw new Error(`API request failed: ${response.status} ${response.statusText}`);
   }
   return response.json() as Promise<T>;
+}
+
+export async function login(username: string, password: string): Promise<UserSession> {
+  const response = await fetch(`${apiBaseUrl}/api/auth/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ username, password })
+  });
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+  }
+  const session = mapApiAuthSession((await response.json()) as ApiAuthLoginResponse);
+  setApiSession(session);
+  return session;
 }
 
 export async function fetchExhibits(filters: ExhibitFilters = {}): Promise<Exhibit[]> {
@@ -382,9 +439,7 @@ export async function updateExhibit(exhibitId: string, item: Exhibit): Promise<E
 export async function deleteExhibit(exhibitId: string): Promise<void> {
   const response = await fetch(`${apiBaseUrl}/api/exhibits/${encodeURIComponent(exhibitId)}`, {
     method: 'DELETE',
-    headers: {
-      'X-User-Role': activeRole
-    }
+    headers: authHeaders()
   });
   if (!response.ok) {
     throw new Error(`API request failed: ${response.status} ${response.statusText}`);
@@ -404,9 +459,7 @@ export async function uploadExhibitAsset(
 
   const response = await fetch(`${apiBaseUrl}/api/exhibits/${encodeURIComponent(exhibitId)}/assets`, {
     method: 'POST',
-    headers: {
-      'X-User-Role': activeRole
-    },
+    headers: authHeaders(),
     body: form
   });
   if (!response.ok) {
@@ -423,9 +476,7 @@ export async function importExhibits(file: File, commit = true): Promise<Exhibit
 
   const response = await fetch(`${apiBaseUrl}/api/exhibits/import`, {
     method: 'POST',
-    headers: {
-      'X-User-Role': activeRole
-    },
+    headers: authHeaders(),
     body: form
   });
   if (!response.ok) {
@@ -443,9 +494,7 @@ export async function importExhibits(file: File, commit = true): Promise<Exhibit
 
 export async function fetchAuditLogs(limit = 8): Promise<AuditLogEntry[]> {
   const response = await fetch(`${apiBaseUrl}/api/admin/audit-logs?limit=${encodeURIComponent(String(limit))}`, {
-    headers: {
-      'X-User-Role': activeRole
-    }
+    headers: authHeaders()
   });
   if (!response.ok) {
     throw new Error(`API request failed: ${response.status} ${response.statusText}`);

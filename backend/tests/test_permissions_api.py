@@ -33,6 +33,53 @@ def test_mutations_require_editor_or_admin_role():
     assert viewer_response.json()["detail"]["details"]["required_roles"] == ["admin", "editor"]
 
 
+def test_demo_login_returns_role_token_and_profile():
+    response = client.post(
+        "/api/auth/login",
+        json={"username": "editor", "password": "editor123"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["user"]["username"] == "editor"
+    assert payload["user"]["role"] == "editor"
+    assert payload["access_token"]
+    assert payload["token_type"] == "bearer"
+
+
+def test_demo_login_rejects_invalid_credentials():
+    response = client.post(
+        "/api/auth/login",
+        json={"username": "editor", "password": "wrong-password"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"]["error"] == "InvalidCredentials"
+
+
+def test_bearer_token_authorizes_role_protected_mutations():
+    login_response = client.post(
+        "/api/auth/login",
+        json={"username": "editor", "password": "editor123"},
+    )
+    token = login_response.json()["access_token"]
+
+    create_response = client.post(
+        "/api/exhibits",
+        json=exhibit_payload("editor-token-demo"),
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert create_response.status_code == 201
+
+    delete_response = client.delete(
+        "/api/exhibits/editor-token-demo",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert delete_response.status_code == 403
+
+
 def test_editor_can_create_and_update_but_cannot_delete():
     create_response = client.post(
         "/api/exhibits",

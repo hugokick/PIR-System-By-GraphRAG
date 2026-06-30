@@ -24,7 +24,9 @@ import {
   fetchExhibitGraph,
   fetchExhibits,
   importExhibits,
+  login,
   setApiRole,
+  setApiSession,
   updateExhibit,
   uploadExhibitAsset,
   type UserRole
@@ -40,7 +42,8 @@ import type {
   GraphEdge,
   GraphNode,
   GraphRagAnswer,
-  MediaAsset
+  MediaAsset,
+  UserSession
 } from '../types';
 
 const statuses: ExhibitStatus[] = ['概念方案', '深化设计', '制作中', '已落地', '维护中'];
@@ -161,6 +164,9 @@ export function App() {
   const [graphRagAnswer, setGraphRagAnswer] = useState<GraphRagAnswer | null>(null);
   const [graphRagError, setGraphRagError] = useState<string | null>(null);
   const [isAskingGraphRag, setIsAskingGraphRag] = useState(false);
+  const [session, setSession] = useState<UserSession | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [selectedId, setSelectedId] = useState(items[0]?.id ?? '');
   const [showForm, setShowForm] = useState(false);
   const [dataSource, setDataSource] = useState<'loading' | 'api' | 'local'>('loading');
@@ -229,9 +235,14 @@ export function App() {
   const canDelete = role === 'admin';
 
   useEffect(() => {
-    setApiRole(role);
+    if (session) {
+      setApiSession(session);
+    } else {
+      setApiSession(null);
+      setApiRole(role);
+    }
     storeRole(role);
-  }, [role]);
+  }, [role, session]);
 
   useEffect(() => {
     if (role !== 'admin') {
@@ -282,6 +293,35 @@ export function App() {
 
   const updateFilter = (key: keyof ExhibitFilters, value: string) => {
     setFilters((current) => ({ ...current, [key]: value }));
+  };
+
+  const submitLogin = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isLoggingIn) return;
+    const data = new FormData(event.currentTarget);
+    const username = String(data.get('username') ?? '').trim();
+    const password = String(data.get('password') ?? '');
+    if (!username || !password) return;
+    setIsLoggingIn(true);
+    setAuthError(null);
+    try {
+      const nextSession = await login(username, password);
+      setSession(nextSession);
+      setRole(nextSession.user.role);
+    } catch {
+      setSession(null);
+      setApiSession(null);
+      setAuthError('登录失败，请检查演示账号和密码');
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const logout = () => {
+    setSession(null);
+    setApiSession(null);
+    setRole('viewer');
+    setAuthError(null);
   };
 
   const addExhibit = async (event: FormEvent<HTMLFormElement>) => {
@@ -555,9 +595,41 @@ export function App() {
             {loadError && <p className="load-note">{loadError}</p>}
           </div>
           <div className="top-actions">
+            {session ? (
+              <div className="auth-session">
+                <span>
+                  {session.user.displayName} / {session.user.role}
+                </span>
+                <button type="button" onClick={logout}>
+                  退出
+                </button>
+              </div>
+            ) : (
+              <form className="auth-form" onSubmit={submitLogin}>
+                <label>
+                  用户名
+                  <input name="username" defaultValue="editor" autoComplete="username" />
+                </label>
+                <label>
+                  密码
+                  <input name="password" type="password" defaultValue="editor123" autoComplete="current-password" />
+                </label>
+                <button type="submit" disabled={isLoggingIn}>
+                  {isLoggingIn ? '登录中' : '登录'}
+                </button>
+                {authError && <small>{authError}</small>}
+              </form>
+            )}
             <label className="role-select">
               Role
-              <select value={role} onChange={(event) => setRole(event.target.value as UserRole)}>
+              <select
+                value={role}
+                onChange={(event) => {
+                  setSession(null);
+                  setApiSession(null);
+                  setRole(event.target.value as UserRole);
+                }}
+              >
                 {userRoles.map((item) => (
                   <option key={item} value={item}>
                     {item}

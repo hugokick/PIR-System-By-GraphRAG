@@ -107,3 +107,15 @@ export type AuditLogEntry = {
   summary: string;
   createdAt: string;
 };
+
+export type AuthUser = {
+  username: string;
+  role: 'admin' | 'editor' | 'viewer';
+  displayName: string;
+};
+
+export type UserSession = {
+  accessToken: string;
+  tokenType: 'bearer';
+  user: AuthUser;
+};

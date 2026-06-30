@@ -137,10 +137,55 @@ describe('App exhibit management', () => {
     await screen.findByRole('heading', { name: frontendExhibit.name });
     fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'viewer' } });
 
-    expect((document.querySelector('.top-actions button') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: '新增展项' }) as HTMLButtonElement).disabled).toBe(true);
     expect((document.querySelector('.secondary-action') as HTMLButtonElement).disabled).toBe(true);
     expect((document.querySelector('.danger-action') as HTMLButtonElement).disabled).toBe(true);
     expect((document.querySelector('.upload input') as HTMLInputElement).disabled).toBe(true);
+  });
+
+  it('logs in with demo credentials and uses the returned bearer token for writes', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/api/auth/login')) {
+        expect(init?.method).toBe('POST');
+        expect(init?.body).toBe(JSON.stringify({ username: 'editor', password: 'editor123' }));
+        return okJson({
+          access_token: 'signed-token',
+          token_type: 'bearer',
+          user: {
+            username: 'editor',
+            role: 'editor',
+            display_name: '编辑员'
+          }
+        });
+      }
+      if (init && init.method === 'PUT') {
+        return okJson(JSON.parse(String(init.body)));
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: frontendExhibit.name });
+    fireEvent.change(screen.getByLabelText('用户名'), { target: { value: 'editor' } });
+    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'editor123' } });
+    fireEvent.click(screen.getByRole('button', { name: '登录' }));
+
+    expect(await screen.findByText(/编辑员/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: /编辑档案/ }));
+    fireEvent.click(screen.getByRole('button', { name: '保存修改' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://127.0.0.1:8000/api/exhibits/magnet-maze',
+        expect.objectContaining({
+          method: 'PUT',
+          headers: expect.objectContaining({ Authorization: 'Bearer signed-token' })
+        })
+      );
+    });
   });
 
   it('shows audit log entries to admins', async () => {

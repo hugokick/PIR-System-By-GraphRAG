@@ -8,6 +8,9 @@ from .repository import create_repository
 from .neo4j_demo.service import create_neo4j_demo_graph_service
 from .schemas import (
     AuditLogListResponse,
+    AuthLoginRequest,
+    AuthLoginResponse,
+    AuthUser,
     DocumentAsset,
     ExhibitImportResponse,
     ExhibitListResponse,
@@ -21,6 +24,7 @@ from .schemas import (
     MediaAsset,
 )
 from .services.assets import file_extension, file_path, media_type_from_upload, save_upload_file
+from .services.auth import authenticate_demo_user, issue_access_token, verify_access_token
 from .services.documents import extract_document_chunks
 from .services.graphrag import answer_from_graphrag_context, search_graphrag_context
 from .services.imports import build_import_items, parse_import_file
@@ -80,7 +84,41 @@ def conflict(exhibit_id: str) -> HTTPException:
     )
 
 
-def current_role(x_user_role: str | None = Header(default=None, alias="X-User-Role")) -> str:
+def invalid_credentials() -> HTTPException:
+    return HTTPException(
+        status_code=401,
+        detail={
+            "error": "InvalidCredentials",
+            "message": "Username or password is incorrect",
+            "details": {},
+        },
+    )
+
+
+def invalid_token() -> HTTPException:
+    return HTTPException(
+        status_code=401,
+        detail={
+            "error": "InvalidToken",
+            "message": "Authorization token is invalid",
+            "details": {},
+        },
+    )
+
+
+def current_role(
+    authorization: str | None = Header(default=None, alias="Authorization"),
+    x_user_role: str | None = Header(default=None, alias="X-User-Role"),
+) -> str:
+    if authorization:
+        scheme, _, token = authorization.partition(" ")
+        if scheme.lower() != "bearer" or not token:
+            raise invalid_token()
+        user = verify_access_token(token)
+        if user is None:
+            raise invalid_token()
+        return user.role
+
     role = (x_user_role or "viewer").strip().lower()
     if role not in VALID_ROLES:
         raise HTTPException(
@@ -112,6 +150,17 @@ def write_audit(role: str, action: str, resource_id: str, summary: str) -> None:
         resource_type="exhibit",
         resource_id=resource_id,
         summary=summary,
+    )
+
+
+@app.post("/api/auth/login", response_model=AuthLoginResponse)
+def login(payload: AuthLoginRequest) -> AuthLoginResponse:
+    user = authenticate_demo_user(payload.username, payload.password)
+    if user is None:
+        raise invalid_credentials()
+    return AuthLoginResponse(
+        access_token=issue_access_token(user),
+        user=AuthUser(username=user.username, role=user.role, display_name=user.display_name),
     )
 
 

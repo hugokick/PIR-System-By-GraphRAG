@@ -6,10 +6,12 @@ import {
   deleteExhibit,
   fetchAuditLogs,
   importExhibits,
+  login,
   mapApiExhibit,
   mapApiGraph,
   mapExhibitToApiPayload,
   setApiRole,
+  setApiSession,
   updateExhibit,
   uploadExhibitAsset,
   type ApiExhibit
@@ -84,6 +86,7 @@ const frontendExhibit: Exhibit = {
 afterEach(() => {
   vi.restoreAllMocks();
   setApiRole('admin');
+  setApiSession(null);
 });
 
 describe('mapApiExhibit', () => {
@@ -223,6 +226,43 @@ describe('mapApiGraph', () => {
   });
 });
 
+describe('login', () => {
+  it('posts credentials and maps the authenticated session', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        access_token: 'signed-token',
+        token_type: 'bearer',
+        user: {
+          username: 'editor',
+          role: 'editor',
+          display_name: '编辑员'
+        }
+      })
+    } as Response);
+
+    const session = await login('editor', 'editor123');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/auth/login',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'editor', password: 'editor123' })
+      })
+    );
+    expect(session).toEqual({
+      accessToken: 'signed-token',
+      tokenType: 'bearer',
+      user: {
+        username: 'editor',
+        role: 'editor',
+        displayName: '编辑员'
+      }
+    });
+  });
+});
+
 describe('createExhibit', () => {
   it('sends the active user role with write requests', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
@@ -239,6 +279,30 @@ describe('createExhibit', () => {
         headers: {
           'Content-Type': 'application/json',
           'X-User-Role': 'editor'
+        }
+      })
+    );
+  });
+
+  it('sends a bearer token when an authenticated session is active', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => mapExhibitToApiPayload(frontendExhibit)
+    } as Response);
+
+    setApiSession({
+      accessToken: 'signed-token',
+      tokenType: 'bearer',
+      user: { username: 'editor', role: 'editor', displayName: '编辑员' }
+    });
+    await createExhibit(frontendExhibit);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/exhibits',
+      expect.objectContaining({
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer signed-token'
         }
       })
     );

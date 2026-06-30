@@ -82,3 +82,9 @@ http://<服务器公网 IP>/pir-system/
 - 接入 pgvector 做真正的向量语义检索，并保留结构化过滤条件
 - 将上传媒体切到 MinIO 或云对象存储
 - 为问答增加 RAG 引用来源与权限控制
+
+## Demo accounts
+
+- admin / admin123
+- editor / editor123
+- viewer / viewer123
