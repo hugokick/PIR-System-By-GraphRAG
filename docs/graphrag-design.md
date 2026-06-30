@@ -47,7 +47,7 @@ POST /api/graphrag/answer
 - `citations`：去重后的引用来源
 - `items`：答案所依据的 GraphRAG 检索结果
 
-如果库内没有证据，接口会返回空 `items` 和 `citations`，并在 `answer` 中明确说明未找到依据。
+当前答案为无 LLM 的中文模板，会根据命中展项、匹配原因和去重后的 citation 生成带 `[1]`、`[2]` 等编号的来源说明。如果库内没有证据，接口会返回空 `items` 和 `citations`，并在 `answer` 中明确说明未找到依据。
 
 ## 当前实现边界
 
@@ -62,14 +62,14 @@ POST /api/graphrag/answer
 - 按展项 ID、名称、类别、主题、材料、交互方式、项目/业主/供应商、说明、文档来源做规则匹配
 - 返回匹配原因和引用
 - 调用现有图谱服务返回展项邻域
-- 给问答接口提供无 LLM 的答案模板
+- 使用展项档案、上传文本资料和可抽取文本的 PDF chunk 作为检索与引用来源
+- 给问答接口提供无 LLM 的中文、带编号引用的答案模板
 
 暂不负责：
 
 - embedding 生成
 - pgvector 相似度检索
 - LLM 答案生成
-- 文档切片
 - Neo4j/Cypher
 - 自动知识图谱抽取
 
@@ -81,8 +81,8 @@ POST /api/graphrag/answer
   - 加入结构化过滤、关键词检索、pgvector 召回和图谱邻域扩展
 - `answer_from_graphrag_context`
   - 接入 LLM，根据 `items` 和 `citations` 生成带来源答案
-- `_citations_for_exhibit`
-  - 扩展到文档切片、媒体说明、报价文件、设计图等来源
+- `backend/app/services/documents.py`
+  - 将当前内嵌 `DocumentAsset.chunks` 升级为独立持久化 chunk、embedding 与引用定位
 
 ## 并行开发约束
 

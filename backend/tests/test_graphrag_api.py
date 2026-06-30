@@ -79,6 +79,22 @@ def test_graphrag_answer_uses_search_hits_and_returns_citations():
     assert payload["items"][0]["exhibit"]["id"] == "lever-play"
 
 
+def test_graphrag_answer_is_source_grounded_with_numbered_citations():
+    response = client.post(
+        "/api/graphrag/answer",
+        json={"query": "lever-play", "top_k": 1, "filters": {"theme": "力学"}},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["items"][0]["exhibit"]["id"] == "lever-play"
+    assert "根据库内资料" in payload["answer"]
+    assert "[1]" in payload["answer"]
+    assert "杠杆乐园" in payload["answer"]
+    assert payload["citations"][0]["title"]
+    assert payload["citations"][0]["snippet"]
+
+
 def test_graphrag_answer_reports_when_no_evidence_is_found():
     response = client.post(
         "/api/graphrag/answer",
@@ -89,4 +105,4 @@ def test_graphrag_answer_reports_when_no_evidence_is_found():
     payload = response.json()
     assert payload["items"] == []
     assert payload["citations"] == []
-    assert "No evidence" in payload["answer"]
+    assert "未找到依据" in payload["answer"]

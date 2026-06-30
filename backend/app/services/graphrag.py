@@ -45,28 +45,21 @@ def answer_from_graphrag_context(
     if not search_response.items:
         return GraphRagAnswerResponse(
             query=query,
-            answer=f"No evidence found in the exhibit library for: {query}",
+            answer=f"未找到依据：库内资料暂未命中“{query}”。请补充展项档案、上传资料，或调整筛选条件后重试。",
             citations=[],
             items=[],
         )
 
-    summaries = [
-        f"{item.exhibit.id}: {item.exhibit.name} ({'; '.join(item.reasons)})"
+    citations = _deduplicate_citations(
+        citation
         for item in search_response.items
-    ]
-    answer = (
-        "Based on exhibit records and graph context, the strongest matches are "
-        + " | ".join(summaries)
-        + "."
+        for citation in item.citations
     )
+    answer = _compose_grounded_answer(query, search_response.items, citations)
     return GraphRagAnswerResponse(
         query=query,
         answer=answer,
-        citations=_deduplicate_citations(
-            citation
-            for item in search_response.items
-            for citation in item.citations
-        ),
+        citations=citations,
         items=search_response.items,
     )
 
@@ -150,3 +143,45 @@ def _deduplicate_citations(citations) -> list[GraphRagCitation]:
         seen.add(key)
         unique.append(citation)
     return unique
+
+
+def _compose_grounded_answer(
+    query: str,
+    items: list[GraphRagSearchHit],
+    citations: list[GraphRagCitation],
+) -> str:
+    citation_numbers = {
+        (citation.source_type, citation.source_id): index + 1
+        for index, citation in enumerate(citations)
+    }
+    lines = [f"根据库内资料，针对“{query}”找到 {len(items)} 个相关展项："]
+
+    for index, item in enumerate(items, start=1):
+        reference = _first_reference_marker(item.citations, citation_numbers)
+        reason = "、".join(item.reasons) if item.reasons else "与查询文本和图谱关系匹配"
+        lines.append(
+            f"{index}. {item.exhibit.name}（{item.exhibit.id}）：{item.exhibit.description}"
+            f" 匹配依据：{reason}。{reference}"
+        )
+
+    if citations:
+        source_summaries = [
+            f"[{index}] {citation.title}"
+            for index, citation in enumerate(citations, start=1)
+        ]
+        lines.append("来源：" + "；".join(source_summaries))
+    else:
+        lines.append("当前命中结果缺少可引用来源，请补充展项资料后再生成正式答复。")
+
+    return "\n".join(lines)
+
+
+def _first_reference_marker(
+    citations: list[GraphRagCitation],
+    citation_numbers: dict[tuple[str, str], int],
+) -> str:
+    for citation in citations:
+        number = citation_numbers.get((citation.source_type, citation.source_id))
+        if number is not None:
+            return f"依据 [{number}]。"
+    return "暂无可编号来源。"
