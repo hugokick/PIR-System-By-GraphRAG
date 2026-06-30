@@ -8,6 +8,7 @@ import {
   mapApiGraph,
   mapExhibitToApiPayload,
   updateExhibit,
+  uploadExhibitAsset,
   type ApiExhibit
 } from './api';
 import type { Exhibit } from '../types';
@@ -287,5 +288,48 @@ describe('askGraphRag', () => {
     expect(result.answer).toBe('Based on exhibit records and graph context.');
     expect(result.items[0].exhibit.id).toBe('lever-play');
     expect(result.citations[0].sourceId).toBe('lever-play');
+  });
+});
+
+describe('uploadExhibitAsset', () => {
+  it('uploads files as multipart form data and maps the updated exhibit', async () => {
+    const updatedPayload = {
+      ...mapExhibitToApiPayload(frontendExhibit),
+      media_assets: [
+        {
+          id: 'media-uploaded',
+          type: 'image',
+          name: 'scene.png',
+          url: '/api/files/uploaded',
+          note: '现场照片'
+        }
+      ]
+    };
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => updatedPayload
+    } as Response);
+    const file = new File(['fake image bytes'], 'scene.png', { type: 'image/png' });
+
+    const result = await uploadExhibitAsset('magnet-maze', file, 'media', '现场照片');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/exhibits/magnet-maze/assets',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.any(FormData)
+      })
+    );
+    const body = fetchMock.mock.calls[0][1]?.body as FormData;
+    expect(body.get('asset_kind')).toBe('media');
+    expect(body.get('note')).toBe('现场照片');
+    expect(body.get('file')).toBe(file);
+    expect(result.media[0]).toEqual({
+      id: 'media-uploaded',
+      type: 'image',
+      name: 'scene.png',
+      url: '/api/files/uploaded',
+      note: '现场照片'
+    });
   });
 });

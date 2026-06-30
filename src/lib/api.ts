@@ -293,6 +293,28 @@ export async function deleteExhibit(exhibitId: string): Promise<void> {
   }
 }
 
+export async function uploadExhibitAsset(
+  exhibitId: string,
+  file: File,
+  assetKind: 'media' | 'document' = 'media',
+  note = ''
+): Promise<Exhibit> {
+  const form = new FormData();
+  form.set('asset_kind', assetKind);
+  if (note) form.set('note', note);
+  form.set('file', file);
+
+  const response = await fetch(`${apiBaseUrl}/api/exhibits/${encodeURIComponent(exhibitId)}/assets`, {
+    method: 'POST',
+    body: form
+  });
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+  }
+  const payload = (await response.json()) as ApiExhibit;
+  return mapApiExhibit(payload);
+}
+
 export async function fetchExhibitGraph(exhibitId: string) {
   const payload = await requestJson<ApiGraphResponse>(`/api/exhibits/${encodeURIComponent(exhibitId)}/graph`);
   return mapApiGraph(payload);

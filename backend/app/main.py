@@ -1,8 +1,10 @@
-from fastapi import FastAPI, HTTPException, Query, Response, status
+from fastapi import FastAPI, File, Form, HTTPException, Query, Response, UploadFile, status
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from .repository import create_repository
 from .schemas import (
+    DocumentAsset,
     ExhibitListResponse,
     ExhibitResponse,
     ExhibitWriteRequest,
@@ -11,7 +13,9 @@ from .schemas import (
     GraphRagAnswerResponse,
     GraphRagSearchRequest,
     GraphRagSearchResponse,
+    MediaAsset,
 )
+from .services.assets import file_extension, file_path, media_type_from_upload, save_upload_file
 from .services.graphrag import answer_from_graphrag_context, search_graphrag_context
 from .services.graph import build_exhibit_graph
 
@@ -115,6 +119,56 @@ def delete_exhibit(exhibit_id: str) -> Response:
     if not deleted:
         raise not_found(exhibit_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@app.post("/api/exhibits/{exhibit_id}/assets", response_model=ExhibitResponse, status_code=status.HTTP_201_CREATED)
+def upload_exhibit_asset(
+    exhibit_id: str,
+    asset_kind: str = Form(default="media"),
+    note: str | None = Form(default=None),
+    file: UploadFile = File(...),
+) -> ExhibitResponse:
+    exhibit = repository.get_exhibit(exhibit_id)
+    if exhibit is None:
+        raise not_found(exhibit_id)
+
+    file_id, filename = save_upload_file(file)
+    url = f"/api/files/{file_id}"
+    if asset_kind == "document":
+        document = DocumentAsset(
+            id=f"document-{file_id}",
+            name=filename,
+            file_type=file_extension(filename),
+            url=url,
+            source_note=note,
+        )
+        updated = exhibit.model_copy(update={"documents": [*exhibit.documents, document]})
+    else:
+        asset = MediaAsset(
+            id=f"media-{file_id}",
+            type=media_type_from_upload(file),
+            name=filename,
+            url=url,
+            note=note,
+        )
+        updated = exhibit.model_copy(update={"media_assets": [*exhibit.media_assets, asset]})
+
+    return repository.update_exhibit(exhibit_id, updated) or updated
+
+
+@app.get("/api/files/{file_id}")
+def download_file(file_id: str) -> FileResponse:
+    path = file_path(file_id)
+    if path is None:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "NotFound",
+                "message": "File not found",
+                "details": {"id": file_id},
+            },
+        )
+    return FileResponse(path)
 
 
 @app.get("/api/exhibits/{exhibit_id}/graph", response_model=GraphResponse)

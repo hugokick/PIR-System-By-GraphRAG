@@ -24,6 +24,8 @@ services:
     container_name: exhibit-atlas-api
     environment:
       DATABASE_URL: postgresql://exhibit_atlas:exhibit_atlas_dev@postgres:5432/exhibit_atlas
+    volumes:
+      - file_storage:/app/backend/storage
     depends_on:
       postgres:
         condition: service_healthy
@@ -45,3 +47,5 @@ services:
 volumes:
   postgres_data:
     name: exhibit_atlas_postgres_data
+  file_storage:
+    name: exhibit_atlas_file_storage

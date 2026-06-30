@@ -14,7 +14,15 @@ import {
   Trash2
 } from 'lucide-react';
 import { buildGraph, graphStats } from '../lib/graph';
-import { askGraphRag, createExhibit, deleteExhibit, fetchExhibitGraph, fetchExhibits, updateExhibit } from '../lib/api';
+import {
+  askGraphRag,
+  createExhibit,
+  deleteExhibit,
+  fetchExhibitGraph,
+  fetchExhibits,
+  updateExhibit,
+  uploadExhibitAsset
+} from '../lib/api';
 import { filterExhibits, formatBudget, semanticSearch } from '../lib/search';
 import { loadExhibits, resetExhibits, saveExhibits } from '../lib/storage';
 import type { Exhibit, ExhibitFilters, ExhibitStatus, GraphEdge, GraphNode, GraphRagAnswer, MediaAsset } from '../types';
@@ -214,26 +222,36 @@ export function App() {
     }
   };
 
-  const attachMedia = (event: FormEvent<HTMLInputElement>) => {
+  const attachMedia = async (event: FormEvent<HTMLInputElement>) => {
     if (!selected || !event.currentTarget.files?.length) return;
     const file = event.currentTarget.files[0];
-    const url = URL.createObjectURL(file);
-    const asset: MediaAsset = {
-      id: `media-${Date.now()}`,
-      type: file.type.startsWith('image/') ? 'image' : 'document',
-      name: file.name,
-      url
-    };
-    const updated = items.map((item) =>
-      item.id === selected.id
-        ? {
-            ...item,
-            media: [asset, ...item.media]
-          }
-        : item
-    );
-    setItems(updated);
-    saveExhibits(updated);
+    try {
+      const updatedExhibit = await uploadExhibitAsset(selected.id, file, 'media');
+      const updated = items.map((item) => (item.id === selected.id ? updatedExhibit : item));
+      setItems(updated);
+      setDataSource('api');
+      setLoadError(null);
+    } catch {
+      const url = URL.createObjectURL(file);
+      const asset: MediaAsset = {
+        id: `media-${Date.now()}`,
+        type: file.type.startsWith('image/') ? 'image' : 'document',
+        name: file.name,
+        url
+      };
+      const updated = items.map((item) =>
+        item.id === selected.id
+          ? {
+              ...item,
+              media: [asset, ...item.media]
+            }
+          : item
+      );
+      setItems(updated);
+      saveExhibits(updated);
+      setDataSource('local');
+      setLoadError('后端上传失败，文件已临时保存在本地会话');
+    }
   };
 
   const startEdit = (item: Exhibit) => {

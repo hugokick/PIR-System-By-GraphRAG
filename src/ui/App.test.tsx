@@ -175,4 +175,42 @@ describe('App exhibit management', () => {
       expect.objectContaining({ method: 'POST' })
     );
   });
+
+  it('uploads selected media through the backend and renders the returned asset link', async () => {
+    const updated = {
+      ...apiExhibit(),
+      media_assets: [
+        ...apiExhibit().media_assets,
+        {
+          id: 'media-uploaded',
+          type: 'image',
+          name: 'scene.png',
+          url: '/api/files/uploaded',
+          note: '现场照片'
+        }
+      ]
+    };
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/api/exhibits/magnet-maze/assets')) {
+        expect(init?.method).toBe('POST');
+        expect(init?.body).toBeInstanceOf(FormData);
+        return okJson(updated);
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: '磁力迷宫' });
+    const input = document.querySelector('.upload input') as HTMLInputElement;
+    const file = new File(['fake image bytes'], 'scene.png', { type: 'image/png' });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    expect(await screen.findByRole('link', { name: 'scene.png' })).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/exhibits/magnet-maze/assets',
+      expect.objectContaining({ method: 'POST' })
+    );
+  });
 });
