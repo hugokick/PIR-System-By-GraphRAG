@@ -97,3 +97,13 @@ export type GraphRagAnswer = {
   citations: GraphRagCitation[];
   items: GraphRagHit[];
 };
+
+export type AuditLogEntry = {
+  id: string;
+  actorRole: string;
+  action: string;
+  resourceType: string;
+  resourceId: string;
+  summary: string;
+  createdAt: string;
+};

@@ -143,6 +143,55 @@ describe('App exhibit management', () => {
     expect((document.querySelector('.upload input') as HTMLInputElement).disabled).toBe(true);
   });
 
+  it('shows audit log entries to admins', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.endsWith('/api/admin/audit-logs?limit=8')) {
+        return okJson({
+          total: 1,
+          items: [
+            {
+              id: 'audit-1',
+              actor_role: 'admin',
+              action: 'delete_exhibit',
+              resource_type: 'exhibit',
+              resource_id: 'magnet-maze',
+              summary: 'Deleted exhibit magnet-maze',
+              created_at: '2026-07-01T00:00:00+00:00'
+            }
+          ]
+        });
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText('操作日志')).toBeTruthy();
+    expect(screen.getByText('delete_exhibit')).toBeTruthy();
+    expect(screen.getAllByText(/magnet-maze/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('admin').length).toBeGreaterThan(0);
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/admin/audit-logs?limit=8',
+      expect.objectContaining({ headers: { 'X-User-Role': 'admin' } })
+    );
+  });
+
+  it('hides audit log entries from viewers', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [apiExhibit()] }));
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: frontendExhibit.name });
+    fetchMock.mockClear();
+    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'viewer' } });
+
+    expect(screen.queryByText('操作日志')).toBeNull();
+    expect(
+      fetchMock.mock.calls.some(([input]) => String(input).includes('/api/admin/audit-logs'))
+    ).toBe(false);
+  });
+
   it('submits GraphRAG questions and renders answers with citations', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = String(input);

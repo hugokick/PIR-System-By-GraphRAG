@@ -1,4 +1,4 @@
-import type { Exhibit, ExhibitFilters, GraphEdge, GraphNode, GraphRagAnswer, MediaAsset } from '../types';
+import type { AuditLogEntry, Exhibit, ExhibitFilters, GraphEdge, GraphNode, GraphRagAnswer, MediaAsset } from '../types';
 
 export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
 
@@ -116,6 +116,21 @@ type ApiExhibitImportResponse = {
   imported_count: number;
   errors: ApiExhibitImportError[];
   items: ApiExhibit[];
+};
+
+type ApiAuditLogEntry = {
+  id: string;
+  actor_role: string;
+  action: string;
+  resource_type: string;
+  resource_id: string;
+  summary: string;
+  created_at: string;
+};
+
+type ApiAuditLogListResponse = {
+  total: number;
+  items: ApiAuditLogEntry[];
 };
 
 export type ExhibitImportResult = {
@@ -306,6 +321,18 @@ function mapApiGraphRagAnswer(payload: ApiGraphRagAnswerResponse): GraphRagAnswe
   };
 }
 
+function mapApiAuditLogEntry(entry: ApiAuditLogEntry): AuditLogEntry {
+  return {
+    id: entry.id,
+    actorRole: entry.actor_role,
+    action: entry.action,
+    resourceType: entry.resource_type,
+    resourceId: entry.resource_id,
+    summary: entry.summary,
+    createdAt: entry.created_at
+  };
+}
+
 async function requestJson<T>(path: string): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`);
   if (!response.ok) {
@@ -412,6 +439,19 @@ export async function importExhibits(file: File, commit = true): Promise<Exhibit
     errors: payload.errors,
     items: payload.items.map(mapApiExhibit)
   };
+}
+
+export async function fetchAuditLogs(limit = 8): Promise<AuditLogEntry[]> {
+  const response = await fetch(`${apiBaseUrl}/api/admin/audit-logs?limit=${encodeURIComponent(String(limit))}`, {
+    headers: {
+      'X-User-Role': activeRole
+    }
+  });
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+  }
+  const payload = (await response.json()) as ApiAuditLogListResponse;
+  return payload.items.map(mapApiAuditLogEntry);
 }
 
 export async function fetchExhibitGraph(exhibitId: string) {

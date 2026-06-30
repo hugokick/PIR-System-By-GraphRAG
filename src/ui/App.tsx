@@ -20,6 +20,7 @@ import {
   askGraphRag,
   createExhibit,
   deleteExhibit,
+  fetchAuditLogs,
   fetchExhibitGraph,
   fetchExhibits,
   importExhibits,
@@ -30,7 +31,17 @@ import {
 } from '../lib/api';
 import { filterExhibits, formatBudget, semanticSearch } from '../lib/search';
 import { loadExhibits, resetExhibits, saveExhibits } from '../lib/storage';
-import type { DocumentAsset, Exhibit, ExhibitFilters, ExhibitStatus, GraphEdge, GraphNode, GraphRagAnswer, MediaAsset } from '../types';
+import type {
+  AuditLogEntry,
+  DocumentAsset,
+  Exhibit,
+  ExhibitFilters,
+  ExhibitStatus,
+  GraphEdge,
+  GraphNode,
+  GraphRagAnswer,
+  MediaAsset
+} from '../types';
 
 const statuses: ExhibitStatus[] = ['概念方案', '深化设计', '制作中', '已落地', '维护中'];
 const emptyFilters: ExhibitFilters = {
@@ -157,6 +168,8 @@ export function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [auditError, setAuditError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [remoteGraph, setRemoteGraph] = useState<{
     exhibitId: string;
@@ -218,6 +231,31 @@ export function App() {
   useEffect(() => {
     setApiRole(role);
     storeRole(role);
+  }, [role]);
+
+  useEffect(() => {
+    if (role !== 'admin') {
+      setAuditLogs([]);
+      setAuditError(null);
+      return;
+    }
+
+    let cancelled = false;
+    fetchAuditLogs(8)
+      .then((logs) => {
+        if (cancelled) return;
+        setAuditLogs(logs);
+        setAuditError(null);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAuditLogs([]);
+        setAuditError('操作日志暂不可用');
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [role]);
 
   useEffect(() => {
@@ -478,6 +516,30 @@ export function App() {
             ))}
           </div>
         </section>
+
+        {role === 'admin' && (
+          <section className="panel audit-panel">
+            <div className="panel-title">
+              <FileText size={18} />
+              <span>操作日志</span>
+            </div>
+            {auditError && <p className="audit-error">{auditError}</p>}
+            {!auditError && auditLogs.length === 0 && <p className="audit-empty">暂无操作记录</p>}
+            <div className="audit-list">
+              {auditLogs.map((entry) => (
+                <div className="audit-item" key={entry.id}>
+                  <div>
+                    <strong>{entry.action}</strong>
+                    <span>{entry.summary}</span>
+                  </div>
+                  <small>
+                    {entry.actorRole} / {entry.resourceId}
+                  </small>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </aside>
 
       <section className="content">

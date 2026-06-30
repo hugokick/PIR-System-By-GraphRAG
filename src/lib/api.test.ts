@@ -4,6 +4,7 @@ import {
   buildExhibitQuery,
   createExhibit,
   deleteExhibit,
+  fetchAuditLogs,
   importExhibits,
   mapApiExhibit,
   mapApiGraph,
@@ -302,6 +303,45 @@ describe('deleteExhibit', () => {
       method: 'DELETE',
       headers: { 'X-User-Role': 'admin' }
     });
+  });
+});
+
+describe('fetchAuditLogs', () => {
+  it('loads admin audit log entries with the active role header', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        total: 1,
+        items: [
+          {
+            id: 'audit-1',
+            actor_role: 'admin',
+            action: 'delete_exhibit',
+            resource_type: 'exhibit',
+            resource_id: 'magnet-maze',
+            summary: 'Deleted exhibit magnet-maze',
+            created_at: '2026-07-01T00:00:00+00:00'
+          }
+        ]
+      })
+    } as Response);
+
+    const result = await fetchAuditLogs(10);
+
+    expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8000/api/admin/audit-logs?limit=10', {
+      headers: { 'X-User-Role': 'admin' }
+    });
+    expect(result).toEqual([
+      {
+        id: 'audit-1',
+        actorRole: 'admin',
+        action: 'delete_exhibit',
+        resourceType: 'exhibit',
+        resourceId: 'magnet-maze',
+        summary: 'Deleted exhibit magnet-maze',
+        createdAt: '2026-07-01T00:00:00+00:00'
+      }
+    ]);
   });
 });
 
