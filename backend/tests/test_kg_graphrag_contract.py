@@ -43,6 +43,24 @@ def test_query_graphrag_contract_returns_candidates_citations_and_signals():
     assert any(signal.exhibit_id == result.matched_exhibits[0].exhibit.id for signal in result.reasoning_signals)
 
 
+def test_query_graphrag_contract_can_use_vector_semantic_scores_as_recall_signal():
+    result = query_graphrag_contract(
+        GraphRAGContractQueryInput(query_text="液体城市系统", top_k=1),
+        exhibits=seed_exhibits,
+        semantic_scores={"water-cycle": 0.91},
+    )
+
+    assert result.matched_exhibits[0].exhibit.id == "water-cycle"
+    assert result.matched_exhibits[0].score > 0
+    assert any(
+        signal.exhibit_id == "water-cycle"
+        and signal.signal_type == "semantic_recall"
+        and "向量召回" in signal.detail
+        for signal in result.reasoning_signals
+    )
+    assert result.citations
+
+
 def test_contract_queries_are_pure_models_not_fastapi_route_responses():
     subgraph_result = query_subgraph_by_exhibit_id(
         KGSubgraphQueryInput(exhibit_id="lever-play"),

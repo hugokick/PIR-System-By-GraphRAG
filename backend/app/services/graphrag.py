@@ -1,3 +1,5 @@
+from collections.abc import Mapping
+
 from app.graphrag.contract import (
     GraphRAGContractFilters,
     GraphRAGContractQueryInput,
@@ -22,6 +24,7 @@ def search_graphrag_context(
     exhibits: list[ExhibitResponse],
     top_k: int = 5,
     filters: GraphRagRequestFilters | None = None,
+    semantic_scores: Mapping[str, float] | None = None,
 ) -> GraphRagSearchResponse:
     contract_result = query_graphrag_contract(
         GraphRAGContractQueryInput(
@@ -30,6 +33,7 @@ def search_graphrag_context(
             filters=_contract_filters(filters),
         ),
         exhibits=exhibits,
+        semantic_scores=semantic_scores,
     )
     return _contract_to_search_response(query, contract_result)
 
@@ -39,8 +43,15 @@ def answer_from_graphrag_context(
     exhibits: list[ExhibitResponse],
     top_k: int = 3,
     filters: GraphRagRequestFilters | None = None,
+    semantic_scores: Mapping[str, float] | None = None,
 ) -> GraphRagAnswerResponse:
-    search_response = search_graphrag_context(query, exhibits, top_k=top_k, filters=filters)
+    search_response = search_graphrag_context(
+        query,
+        exhibits,
+        top_k=top_k,
+        filters=filters,
+        semantic_scores=semantic_scores,
+    )
 
     if not search_response.items:
         return GraphRagAnswerResponse(

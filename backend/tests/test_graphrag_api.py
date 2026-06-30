@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from app.repository import seed_exhibits
 from app.main import app
 
 
@@ -64,6 +65,31 @@ def test_graphrag_search_keeps_document_citations_with_their_exhibit():
 
     assert "lever-brief" in lever_citation_ids
     assert "lever-brief" not in pulley_citation_ids
+
+
+def test_graphrag_search_uses_repository_vector_scores(monkeypatch):
+    from app import main
+
+    class VectorScoreRepository:
+        def list_exhibits(self):
+            return seed_exhibits
+
+        def semantic_scores(self, query: str, limit: int = 20):
+            assert query == "液体城市系统"
+            return {"water-cycle": 0.91}
+
+    monkeypatch.setattr(main, "repository", VectorScoreRepository())
+
+    response = client.post(
+        "/api/graphrag/search",
+        json={"query": "液体城市系统", "top_k": 1},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["items"][0]["exhibit"]["id"] == "water-cycle"
+    assert "向量召回" in "；".join(payload["items"][0]["reasons"])
+    assert payload["items"][0]["citations"]
 
 
 def test_graphrag_answer_uses_search_hits_and_returns_citations():

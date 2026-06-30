@@ -78,13 +78,14 @@ POST /api/graphrag/answer
 - `PostgresExhibitRepository` 初始化 `vector` 扩展、`search_embeddings` 表和 ivfflat 索引
 - 展项新增/更新时同步展项正文和文档 chunk embedding
 - `/api/search/hybrid` 可读取 repository 的 pgvector 相似度分数，并合并到混合排序和匹配原因中
+- `/api/graphrag/search` 与 `/api/graphrag/answer` 已将 repository 的 pgvector 相似度分数作为 GraphRAG 候选召回信号，命中结果仍返回图谱邻域、reasoning signal 和 citation
 
 ## 后续替换点
 
 后续开发 GraphRAG 时优先替换以下内部函数，而不是改 API 契约：
 
 - `search_graphrag_context`
-  - 将当前规则匹配逐步替换为结构化过滤、关键词检索、pgvector 召回和图谱邻域扩展的统一召回器
+  - 将当前确定性本地 embedding 召回替换为真实 embedding 模型、重排器和更完整的图谱邻域扩展策略
 - `answer_from_graphrag_context`
   - 接入 LLM，根据 `items` 和 `citations` 生成带来源答案
 - `backend/app/services/documents.py`

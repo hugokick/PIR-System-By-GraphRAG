@@ -1,3 +1,5 @@
+from collections.abc import Mapping
+
 from pydantic import BaseModel, Field
 
 from app.kg.builder import build_exhibit_kg_snapshot
@@ -102,6 +104,7 @@ def query_graphrag_contract(
     query: GraphRAGContractQueryInput,
     exhibits: list[ExhibitResponse],
     snapshot: KGSnapshot | None = None,
+    semantic_scores: Mapping[str, float] | None = None,
 ) -> KGGraphRAGQueryResult:
     active_snapshot = snapshot or build_exhibit_kg_snapshot(exhibits)
     filtered_exhibits = _apply_contract_filters(exhibits, query.filters)
@@ -111,6 +114,7 @@ def query_graphrag_contract(
         snapshot=active_snapshot,
         filters=_search_filters(query.filters),
         top_k=query.top_k,
+        semantic_scores=semantic_scores,
     )
     matched_exhibits = [
         MatchedExhibit(exhibit=item.exhibit, score=item.score) for item in search_response.items
@@ -129,7 +133,7 @@ def query_graphrag_contract(
     reasoning_signals = [
         ReasoningSignal(
             exhibit_id=item.exhibit.id,
-            signal_type="rule_match",
+            signal_type="semantic_recall" if reason.startswith("向量召回") else "rule_match",
             detail=reason,
             score=item.score,
         )

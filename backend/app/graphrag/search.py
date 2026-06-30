@@ -1,3 +1,5 @@
+from collections.abc import Mapping
+
 from app.kg.builder import build_exhibit_kg_snapshot
 from app.kg.models import KGEvidence, KGSnapshot
 from app.repository import ExhibitRepository
@@ -12,11 +14,22 @@ def search_graph_rag(
     snapshot: KGSnapshot | None = None,
     filters: GraphRAGFilters | None = None,
     top_k: int = 5,
+    semantic_scores: Mapping[str, float] | None = None,
 ) -> GraphRAGSearchResponse:
     active_snapshot = snapshot or build_exhibit_kg_snapshot(exhibits)
     filtered = _apply_filters(exhibits, filters)
     hits = [
-        hit for exhibit in filtered if (hit := _score_exhibit(query, exhibit, active_snapshot)) is not None
+        hit
+        for exhibit in filtered
+        if (
+            hit := _score_exhibit(
+                query,
+                exhibit,
+                active_snapshot,
+                semantic_score=(semantic_scores or {}).get(exhibit.id, 0.0),
+            )
+        )
+        is not None
     ]
     hits.sort(key=lambda item: (-item.score, item.exhibit.id))
     items = hits[:top_k]
@@ -53,6 +66,7 @@ def _score_exhibit(
     query: str,
     exhibit: ExhibitResponse,
     snapshot: KGSnapshot,
+    semantic_score: float = 0.0,
 ) -> GraphRAGHit | None:
     tokens = _query_tokens(query)
     fields = {
@@ -91,6 +105,10 @@ def _score_exhibit(
         if matched:
             score += len(set(matched)) * weights[label]
             reasons.append(f"matched {label}")
+
+    if semantic_score >= 0.2:
+        score += semantic_score * 6
+        reasons.append(f"向量召回：语义相似度 {semantic_score:.2f}")
 
     if score <= 0:
         return None

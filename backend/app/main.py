@@ -402,6 +402,7 @@ def graphrag_search(payload: GraphRagSearchRequest) -> GraphRagSearchResponse:
         repository.list_exhibits(),
         top_k=payload.top_k,
         filters=payload.filters,
+        semantic_scores=semantic_scores_for_query(payload.query, payload.top_k),
     )
 
 
@@ -412,4 +413,5 @@ def graphrag_answer(payload: GraphRagAnswerRequest) -> GraphRagAnswerResponse:
         repository.list_exhibits(),
         top_k=payload.top_k,
         filters=payload.filters,
+        semantic_scores=semantic_scores_for_query(payload.query, payload.top_k),
     )
