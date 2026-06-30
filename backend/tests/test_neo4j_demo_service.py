@@ -63,3 +63,13 @@ def test_service_build_query_exposes_cypher_for_review():
     query = service.build_query("lever-play")
 
     assert "MATCH (center:Exhibit {id: $exhibit_id})" in query
+
+
+def test_service_fallback_supports_space_dome_demo_exhibit():
+    service = Neo4jDemoGraphService(client=EmptyClient())
+
+    result = service.get_exhibit_graph("space-dome")
+
+    assert isinstance(result, GraphResponse)
+    assert any(node.id == "exhibit:space-dome" for node in result.nodes)
+    assert any(edge.type == "belongs_to_project" for edge in result.edges)

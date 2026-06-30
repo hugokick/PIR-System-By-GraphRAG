@@ -1,10 +1,10 @@
 from collections.abc import Iterable
 from typing import Any
 
-from app.repository import seed_exhibits
 from app.schemas import ExhibitResponse, GraphResponse
 from app.services.graph import build_exhibit_graph
 
+from .demo_data import neo4j_demo_exhibits
 from .query import build_exhibit_graph_cypher, map_neo4j_records_to_graph_response
 
 
@@ -28,7 +28,7 @@ class Neo4jDemoGraphService:
         exhibits: Iterable[ExhibitResponse] | None = None,
     ):
         self.client = client
-        self.exhibits = list(exhibits or seed_exhibits)
+        self.exhibits = list(exhibits or neo4j_demo_exhibits)
 
     def build_query(self, exhibit_id: str) -> str:
         return build_exhibit_graph_cypher(exhibit_id)

@@ -6,6 +6,9 @@
 
 ## 当前产物
 
+- `backend/app/neo4j_demo/demo_data.py`
+  - `neo4j_demo_exhibits`: Neo4j demo 专用的 4 案例演示数据源
+  - 当前覆盖：`杠杆乐园`、`滑轮挑战墙`、`城市水循环沙盘`、`星际穹幕影院`
 - `backend/app/neo4j_demo/seed.py`
   - `build_demo_seed_statements()`: 生成 Neo4j Cypher 语句列表
   - `build_demo_seed_script()`: 生成可直接粘贴到 Neo4j Browser 的完整脚本
@@ -34,20 +37,44 @@ docker run --name neo4j-demo ^
 
 ## 如何导入演示数据
 
-当前不直接附带主线导入任务，也不与 PostgreSQL 做同步。演示数据来源于当前后端的 `seed_exhibits`。
+当前不直接附带主线导入任务，也不与 PostgreSQL 做同步。演示数据来源于 Neo4j demo 独立数据源 `neo4j_demo_exhibits`，这样可以在不修改主线 CRUD 和主线种子数据的前提下，覆盖前端 4 个演示案例。
 
 在项目根目录执行下面的 Python 命令，可打印完整的 Neo4j seed script：
 
 ```bash
-python -c "from app.neo4j_demo.seed import build_demo_seed_script; from app.repository import seed_exhibits; print(build_demo_seed_script(seed_exhibits))"
+python -c "from app.neo4j_demo.seed import build_demo_seed_script; from app.neo4j_demo.demo_data import neo4j_demo_exhibits; print(build_demo_seed_script(neo4j_demo_exhibits))"
 ```
 
 将输出结果复制到 Neo4j Browser 中执行即可完成导入。
+
+当前默认覆盖的 4 个演示案例为：
+
+- `lever-play` / `杠杆乐园`
+- `pulley-wall` / `滑轮挑战墙`
+- `water-cycle` / `城市水循环沙盘`
+- `space-dome` / `星际穹幕影院`
 
 导入后的演示图谱覆盖这些实体与关系：
 
 - 实体：`Exhibit`、`Project`、`Owner`、`Supplier`、`Material`、`Theme`、`Interaction`、`Document`
 - 关系：`BELONGS_TO_PROJECT`、`OWNED_BY`、`SUPPLIED_BY`、`USES_MATERIAL`、`HAS_THEME`、`HAS_INTERACTION`、`HAS_DOCUMENT`、`SIMILAR_TO`
+
+## 中文字段展示
+
+为了增强演示效果，Neo4j seed 在保留技术字段 `id / name / label` 的同时，也为演示节点写入中文展示属性。
+
+以 `Exhibit` 节点为例，当前会写入：
+
+- `名称`
+- `类别`
+- `主题`
+- `馆型`
+- `供应商名称`
+- `业主名称`
+- `状态`
+- `项目年份`
+
+这样在 Neo4j Browser 中直接查看节点属性时，就能看到更适合汇报和演示的中文字段。
 
 ## 如何接入现有 `/api/exhibits/{id}/graph`
 
