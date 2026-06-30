@@ -2,7 +2,7 @@
 
 ## 当前目标
 
-本阶段先建立 GraphRAG 的后端 API 契约和最小可运行链路，不直接接入 LLM、embedding 或 Neo4j。当前实现使用展项结构化字段和轻量图谱邻域生成可解释检索结果，后续可在不改前端/调用方契约的前提下替换召回和答案生成策略。
+本阶段先建立 GraphRAG 的后端 API 契约和最小可运行链路。当前 GraphRAG 问答仍不直接接入 LLM；检索侧已经具备结构化字段、轻量图谱邻域、文档 chunk、确定性本地 embedding 与 pgvector 召回的 MVP 基座，后续可在不改前端/调用方契约的前提下替换为真实 embedding 模型和 LLM 答案生成策略。
 
 ## 已提供接口
 
@@ -67,22 +67,28 @@ POST /api/graphrag/answer
 
 暂不负责：
 
-- embedding 生成
-- pgvector 相似度检索
+- 外部 embedding 模型接入和 embedding 生命周期调度
 - LLM 答案生成
 - Neo4j/Cypher
 - 自动知识图谱抽取
+
+已具备：
+
+- `backend/app/services/embeddings.py` 提供确定性本地 embedding，维度与 pgvector schema 保持 `1536`
+- `PostgresExhibitRepository` 初始化 `vector` 扩展、`search_embeddings` 表和 ivfflat 索引
+- 展项新增/更新时同步展项正文和文档 chunk embedding
+- `/api/search/hybrid` 可读取 repository 的 pgvector 相似度分数，并合并到混合排序和匹配原因中
 
 ## 后续替换点
 
 后续开发 GraphRAG 时优先替换以下内部函数，而不是改 API 契约：
 
 - `search_graphrag_context`
-  - 加入结构化过滤、关键词检索、pgvector 召回和图谱邻域扩展
+  - 将当前规则匹配逐步替换为结构化过滤、关键词检索、pgvector 召回和图谱邻域扩展的统一召回器
 - `answer_from_graphrag_context`
   - 接入 LLM，根据 `items` 和 `citations` 生成带来源答案
 - `backend/app/services/documents.py`
-  - 将当前内嵌 `DocumentAsset.chunks` 升级为独立持久化 chunk、embedding 与引用定位
+  - 将当前内嵌 `DocumentAsset.chunks` 升级为独立持久化 chunk 与引用定位
 
 ## 并行开发约束
 

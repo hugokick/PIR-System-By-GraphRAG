@@ -381,7 +381,18 @@ def hybrid_search(payload: HybridSearchRequest) -> HybridSearchResponse:
         repository.list_exhibits(),
         limit=payload.limit,
         filters=payload.filters,
+        semantic_scores=semantic_scores_for_query(payload.query, payload.limit),
     )
+
+
+def semantic_scores_for_query(query: str, limit: int) -> dict[str, float]:
+    scorer = getattr(repository, "semantic_scores", None)
+    if not callable(scorer):
+        return {}
+    try:
+        return scorer(query, limit=max(limit * 5, 20))
+    except Exception:
+        return {}
 
 
 @app.post("/api/graphrag/search", response_model=GraphRagSearchResponse)

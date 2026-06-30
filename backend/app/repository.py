@@ -6,6 +6,12 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .schemas import AuditLogEntry, DocumentAsset, EntityRef, ExhibitResponse, MediaAsset
+from .services.embeddings import (
+    embedding_text_for_document_chunk,
+    embedding_text_for_exhibit,
+    stable_embedding,
+    vector_literal,
+)
 
 
 seed_exhibits = [
@@ -277,6 +283,8 @@ class PostgresExhibitRepository:
     @staticmethod
     def schema_sql() -> str:
         return """
+        CREATE EXTENSION IF NOT EXISTS vector;
+
         CREATE TABLE IF NOT EXISTS exhibit_records (
           id TEXT PRIMARY KEY,
           payload JSONB NOT NULL,
@@ -287,6 +295,26 @@ class PostgresExhibitRepository:
 
         CREATE INDEX IF NOT EXISTS idx_exhibit_records_payload
           ON exhibit_records USING GIN (payload);
+
+        ALTER TABLE exhibit_records
+          ADD COLUMN IF NOT EXISTS embedding vector(1536);
+
+        CREATE TABLE IF NOT EXISTS search_embeddings (
+          id TEXT PRIMARY KEY,
+          owner_type TEXT NOT NULL,
+          owner_id TEXT NOT NULL,
+          chunk_id TEXT,
+          text TEXT NOT NULL,
+          embedding vector(1536) NOT NULL,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_search_embeddings_owner
+          ON search_embeddings (owner_type, owner_id);
+
+        CREATE INDEX IF NOT EXISTS idx_search_embeddings_embedding
+          ON search_embeddings USING ivfflat (embedding vector_cosine_ops)
+          WITH (lists = 100);
 
         CREATE TABLE IF NOT EXISTS audit_log_entries (
           id TEXT PRIMARY KEY,
@@ -312,6 +340,8 @@ class PostgresExhibitRepository:
                 if count == 0:
                     for exhibit in seed_exhibits:
                         self._insert_or_restore(cursor, exhibit)
+                else:
+                    self._backfill_search_embeddings(cursor)
 
     def _connect(self):
         import psycopg
@@ -320,17 +350,94 @@ class PostgresExhibitRepository:
         return psycopg.connect(self.database_url, row_factory=dict_row)
 
     def _insert_or_restore(self, cursor: Any, exhibit: ExhibitResponse) -> None:
+        exhibit_embedding = vector_literal(stable_embedding(embedding_text_for_exhibit(exhibit)))
         cursor.execute(
             """
-            INSERT INTO exhibit_records (id, payload, deleted_at, updated_at)
-            VALUES (%s, %s::jsonb, NULL, now())
+            INSERT INTO exhibit_records (id, payload, embedding, deleted_at, updated_at)
+            VALUES (%s, %s::jsonb, %s::vector, NULL, now())
             ON CONFLICT (id) DO UPDATE
             SET payload = EXCLUDED.payload,
+                embedding = EXCLUDED.embedding,
                 deleted_at = NULL,
                 updated_at = now()
             """,
-            (exhibit.id, exhibit.model_dump_json()),
+            (exhibit.id, exhibit.model_dump_json(), exhibit_embedding),
         )
+        self._sync_search_embeddings(cursor, exhibit, exhibit_embedding)
+
+    def _sync_search_embeddings(
+        self,
+        cursor: Any,
+        exhibit: ExhibitResponse,
+        exhibit_embedding: str | None = None,
+    ) -> None:
+        cursor.execute(
+            """
+            DELETE FROM search_embeddings
+            WHERE owner_type = %s AND owner_id = %s
+            """,
+            ("exhibit", exhibit.id),
+        )
+
+        exhibit_text = embedding_text_for_exhibit(exhibit)
+        self._insert_search_embedding(
+            cursor,
+            embedding_id=f"exhibit:{exhibit.id}",
+            owner_type="exhibit",
+            owner_id=exhibit.id,
+            chunk_id=None,
+            text=exhibit_text,
+            embedding=exhibit_embedding or vector_literal(stable_embedding(exhibit_text)),
+        )
+
+        for document in exhibit.documents:
+            for chunk in document.chunks:
+                chunk_text = embedding_text_for_document_chunk(exhibit, document, chunk)
+                self._insert_search_embedding(
+                    cursor,
+                    embedding_id=f"exhibit:{exhibit.id}:chunk:{chunk.id}",
+                    owner_type="exhibit",
+                    owner_id=exhibit.id,
+                    chunk_id=chunk.id,
+                    text=chunk_text,
+                    embedding=vector_literal(stable_embedding(chunk_text)),
+                )
+
+    def _insert_search_embedding(
+        self,
+        cursor: Any,
+        *,
+        embedding_id: str,
+        owner_type: str,
+        owner_id: str,
+        chunk_id: str | None,
+        text: str,
+        embedding: str,
+    ) -> None:
+        cursor.execute(
+            """
+            INSERT INTO search_embeddings
+              (id, owner_type, owner_id, chunk_id, text, embedding, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s::vector, now())
+            ON CONFLICT (id) DO UPDATE
+            SET text = EXCLUDED.text,
+                embedding = EXCLUDED.embedding,
+                updated_at = now()
+            """,
+            (embedding_id, owner_type, owner_id, chunk_id, text, embedding),
+        )
+
+    def _backfill_search_embeddings(self, cursor: Any) -> None:
+        cursor.execute(
+            """
+            SELECT payload
+            FROM exhibit_records
+            WHERE deleted_at IS NULL
+            ORDER BY created_at ASC
+            """
+        )
+        for row in cursor.fetchall():
+            self._sync_search_embeddings(cursor, self.exhibit_from_row(row))
 
     def exhibit_from_row(self, row: Mapping[str, Any] | tuple[Any, ...]) -> ExhibitResponse:
         payload = row["payload"] if isinstance(row, Mapping) else row[0]
@@ -435,6 +542,30 @@ class PostgresExhibitRepository:
                 budget_max=budget_max,
             )
         ]
+
+    def semantic_scores(self, query: str, limit: int = 20) -> dict[str, float]:
+        query_embedding = vector_literal(stable_embedding(query))
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT owner_id, MAX(1 - (embedding <=> %s::vector)) AS score
+                    FROM search_embeddings
+                    WHERE owner_type = 'exhibit'
+                    GROUP BY owner_id
+                    ORDER BY score DESC
+                    LIMIT %s
+                    """,
+                    (query_embedding, limit),
+                )
+                rows = cursor.fetchall()
+        scores: dict[str, float] = {}
+        for row in rows:
+            owner_id = row["owner_id"] if isinstance(row, Mapping) else row[0]
+            score = row["score"] if isinstance(row, Mapping) else row[1]
+            if score is not None and float(score) > 0:
+                scores[owner_id] = float(score)
+        return scores
 
     def add_audit_log(
         self,

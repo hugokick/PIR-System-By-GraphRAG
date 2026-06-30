@@ -1,4 +1,5 @@
 import re
+from collections.abc import Mapping
 
 from app.repository import ExhibitRepository
 from app.schemas import (
@@ -9,18 +10,26 @@ from app.schemas import (
 )
 
 
+SEMANTIC_RECALL_THRESHOLD = 0.2
+
+
 def search_hybrid_exhibits(
     query: str,
     exhibits: list[ExhibitResponse],
     *,
     limit: int = 5,
     filters: HybridSearchFilters | None = None,
+    semantic_scores: Mapping[str, float] | None = None,
 ) -> HybridSearchResponse:
     filtered = _apply_filters(exhibits, filters)
     hits: list[tuple[int, HybridSearchHit]] = []
 
     for index, exhibit in enumerate(filtered):
         score, reasons = _score_exhibit(query, exhibit, filters)
+        semantic_score = (semantic_scores or {}).get(exhibit.id, 0.0)
+        if semantic_score >= SEMANTIC_RECALL_THRESHOLD:
+            score += semantic_score * 6
+            reasons.append(f"向量召回：语义相似度 {semantic_score:.2f}")
         if score > 0:
             hits.append(
                 (

@@ -30,3 +30,13 @@ def test_postgres_schema_enables_pgvector_for_future_semantic_search():
 
     assert "CREATE EXTENSION IF NOT EXISTS vector" in sql
     assert "embedding vector(1536)" in sql
+
+
+def test_postgres_schema_defines_search_embedding_table_for_runtime_vector_recall():
+    sql = schema_sql.read_text(encoding="utf-8")
+
+    assert "CREATE TABLE IF NOT EXISTS search_embeddings" in sql
+    assert "owner_type TEXT NOT NULL" in sql
+    assert "chunk_id TEXT" in sql
+    assert "embedding vector(1536) NOT NULL" in sql
+    assert "idx_search_embeddings_embedding" in sql

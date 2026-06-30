@@ -122,8 +122,22 @@ CREATE TABLE IF NOT EXISTS exhibit_relations (
   CHECK (source_exhibit_id <> target_exhibit_id)
 );
 
+CREATE TABLE IF NOT EXISTS search_embeddings (
+  id TEXT PRIMARY KEY,
+  owner_type TEXT NOT NULL,
+  owner_id TEXT NOT NULL,
+  chunk_id TEXT,
+  text TEXT NOT NULL,
+  embedding vector(1536) NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE INDEX IF NOT EXISTS idx_exhibits_project_id ON exhibits(project_id);
 CREATE INDEX IF NOT EXISTS idx_exhibits_theme_id ON exhibits(theme_id);
 CREATE INDEX IF NOT EXISTS idx_exhibits_supplier_id ON exhibits(supplier_id);
 CREATE INDEX IF NOT EXISTS idx_exhibit_relations_source ON exhibit_relations(source_exhibit_id);
 CREATE INDEX IF NOT EXISTS idx_exhibit_relations_target ON exhibit_relations(target_exhibit_id);
+CREATE INDEX IF NOT EXISTS idx_search_embeddings_owner ON search_embeddings(owner_type, owner_id);
+CREATE INDEX IF NOT EXISTS idx_search_embeddings_embedding
+  ON search_embeddings USING ivfflat (embedding vector_cosine_ops)
+  WITH (lists = 100);

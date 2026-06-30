@@ -1,4 +1,5 @@
 from app.repository import ExhibitRepository, seed_exhibits
+from app.schemas import DocumentChunk
 
 
 class FakePostgresRepository:
@@ -36,6 +37,18 @@ def test_postgres_repository_schema_uses_jsonb_payload_and_soft_delete():
     assert "idx_exhibit_records_payload" in schema_sql
 
 
+def test_postgres_repository_schema_initializes_pgvector_search_embeddings():
+    from app.repository import PostgresExhibitRepository
+
+    schema_sql = PostgresExhibitRepository.schema_sql()
+
+    assert "CREATE EXTENSION IF NOT EXISTS vector" in schema_sql
+    assert "ADD COLUMN IF NOT EXISTS embedding vector(1536)" in schema_sql
+    assert "CREATE TABLE IF NOT EXISTS search_embeddings" in schema_sql
+    assert "embedding vector(1536) NOT NULL" in schema_sql
+    assert "idx_search_embeddings_embedding" in schema_sql
+
+
 def test_postgres_repository_maps_json_payload_rows_to_exhibits():
     from app.repository import PostgresExhibitRepository
 
@@ -47,3 +60,65 @@ def test_postgres_repository_maps_json_payload_rows_to_exhibits():
     assert exhibit.id == "lever-play"
     assert exhibit.theme.name == "力学"
     assert exhibit.related_exhibit_ids == ["pulley-wall"]
+
+
+def test_postgres_repository_syncs_exhibit_and_document_chunk_embeddings():
+    from app.repository import PostgresExhibitRepository
+
+    class RecordingCursor:
+        def __init__(self):
+            self.calls = []
+
+        def execute(self, query, params=None):
+            self.calls.append((" ".join(query.split()), params))
+
+    document = seed_exhibits[0].documents[0].model_copy(
+        update={
+            "chunks": [
+                DocumentChunk(
+                    id="lever-brief:chunk-1",
+                    text="低龄儿童通过配重理解杠杆原理。",
+                    sequence=1,
+                )
+            ]
+        }
+    )
+    exhibit = seed_exhibits[0].model_copy(update={"documents": [document]})
+    cursor = RecordingCursor()
+    repository = PostgresExhibitRepository("postgresql://example", initialize=False)
+
+    repository._insert_or_restore(cursor, exhibit)
+
+    delete_calls = [call for call in cursor.calls if "DELETE FROM search_embeddings" in call[0]]
+    insert_calls = [call for call in cursor.calls if "INSERT INTO search_embeddings" in call[0]]
+
+    assert delete_calls
+    assert delete_calls[0][1] == ("exhibit", "lever-play")
+    assert len(insert_calls) == 2
+    owner_ids = [params[2] for _, params in insert_calls]
+    chunk_ids = [params[3] for _, params in insert_calls]
+    assert owner_ids == ["lever-play", "lever-play"]
+    assert chunk_ids == [None, "lever-brief:chunk-1"]
+    assert all(str(params[5]).startswith("[") for _, params in insert_calls)
+
+
+def test_postgres_repository_backfills_search_embeddings_for_existing_records():
+    from app.repository import PostgresExhibitRepository
+
+    class RecordingCursor:
+        def __init__(self):
+            self.calls = []
+
+        def execute(self, query, params=None):
+            self.calls.append((" ".join(query.split()), params))
+
+        def fetchall(self):
+            return [{"payload": seed_exhibits[0].model_dump(mode="json")}]
+
+    cursor = RecordingCursor()
+    repository = PostgresExhibitRepository("postgresql://example", initialize=False)
+
+    repository._backfill_search_embeddings(cursor)
+
+    assert any("SELECT payload FROM exhibit_records" in query for query, _ in cursor.calls)
+    assert any("INSERT INTO search_embeddings" in query for query, _ in cursor.calls)
