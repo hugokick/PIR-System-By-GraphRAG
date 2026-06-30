@@ -13,10 +13,10 @@ import {
   Trash2
 } from 'lucide-react';
 import { buildGraph, graphStats } from '../lib/graph';
-import { createExhibit, deleteExhibit, fetchExhibits, updateExhibit } from '../lib/api';
+import { createExhibit, deleteExhibit, fetchExhibitGraph, fetchExhibits, updateExhibit } from '../lib/api';
 import { filterExhibits, formatBudget, semanticSearch } from '../lib/search';
 import { loadExhibits, resetExhibits, saveExhibits } from '../lib/storage';
-import type { Exhibit, ExhibitFilters, ExhibitStatus, MediaAsset } from '../types';
+import type { Exhibit, ExhibitFilters, ExhibitStatus, GraphEdge, GraphNode, MediaAsset } from '../types';
 
 const statuses: ExhibitStatus[] = ['概念方案', '深化设计', '制作中', '已落地', '维护中'];
 const emptyFilters: ExhibitFilters = {
@@ -94,6 +94,11 @@ export function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [remoteGraph, setRemoteGraph] = useState<{
+    exhibitId: string;
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -140,8 +145,31 @@ export function App() {
   const semanticResults = useMemo(() => semanticSearch(items, semanticQuery).slice(0, 4), [items, semanticQuery]);
   const selected = items.find((item) => item.id === selectedId) ?? filteredItems[0] ?? items[0];
   const editingItem = editingId ? items.find((item) => item.id === editingId) : undefined;
-  const graph = selected ? buildGraph(selected, items) : { nodes: [], edges: [] };
+  const fallbackGraph = useMemo(() => (selected ? buildGraph(selected, items) : { nodes: [], edges: [] }), [selected, items]);
+  const graph = remoteGraph?.exhibitId === selected?.id ? remoteGraph : fallbackGraph;
   const stats = useMemo(() => graphStats(items), [items]);
+
+  useEffect(() => {
+    if (!selected) {
+      setRemoteGraph(null);
+      return;
+    }
+
+    let cancelled = false;
+    fetchExhibitGraph(selected.id)
+      .then((nextGraph) => {
+        if (cancelled) return;
+        setRemoteGraph({ exhibitId: selected.id, ...nextGraph });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setRemoteGraph(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selected?.id]);
 
   const updateFilter = (key: keyof ExhibitFilters, value: string) => {
     setFilters((current) => ({ ...current, [key]: value }));

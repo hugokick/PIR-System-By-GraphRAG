@@ -48,6 +48,34 @@ afterEach(() => {
 });
 
 describe('App exhibit management', () => {
+  it('renders graph nodes from the backend graph API', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.endsWith('/api/exhibits/magnet-maze/graph')) {
+        return okJson({
+          nodes: [
+            { id: 'exhibit:magnet-maze', label: '磁力迷宫', type: 'exhibit' },
+            { id: 'material:backend-only', label: '后端图谱材料', type: 'material' }
+          ],
+          edges: [
+            {
+              source: 'exhibit:magnet-maze',
+              target: 'material:backend-only',
+              label: '使用材料',
+              type: 'uses_material'
+            }
+          ]
+        });
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText('后端图谱材料')).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8000/api/exhibits/magnet-maze/graph');
+  });
+
   it('prefills the selected exhibit and submits edits through the backend API', async () => {
     let updatedPayload: ApiExhibit | undefined;
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) => {
