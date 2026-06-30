@@ -106,6 +106,41 @@ def test_editor_can_create_and_update_but_cannot_delete():
     assert client.get("/api/exhibits/editor-permission-demo").status_code == 200
 
 
+def test_only_admin_can_update_review_status_and_audit_it():
+    create_response = client.post(
+        "/api/exhibits",
+        json=exhibit_payload("review-workflow-demo"),
+        headers=ADMIN_HEADERS,
+    )
+    assert create_response.status_code == 201
+    assert create_response.json()["review_status"] != "已审核"
+
+    editor_response = client.patch(
+        "/api/exhibits/review-workflow-demo/review-status",
+        json={"review_status": "已审核"},
+        headers=EDITOR_HEADERS,
+    )
+    assert editor_response.status_code == 403
+
+    admin_response = client.patch(
+        "/api/exhibits/review-workflow-demo/review-status",
+        json={"review_status": "已审核"},
+        headers=ADMIN_HEADERS,
+    )
+    assert admin_response.status_code == 200
+    assert admin_response.json()["review_status"] == "已审核"
+
+    audit_response = client.get("/api/admin/audit-logs", headers=ADMIN_HEADERS)
+    entries = audit_response.json()["items"]
+    assert any(
+        entry["actor_role"] == "admin"
+        and entry["action"] == "update_review_status"
+        and entry["resource_id"] == "review-workflow-demo"
+        and "已审核" in entry["summary"]
+        for entry in entries
+    )
+
+
 def test_admin_can_delete_and_audit_log_records_mutations():
     create_response = client.post(
         "/api/exhibits",

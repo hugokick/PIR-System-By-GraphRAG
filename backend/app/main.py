@@ -24,6 +24,7 @@ from .schemas import (
     HybridSearchRequest,
     HybridSearchResponse,
     MediaAsset,
+    ReviewStatusUpdateRequest,
 )
 from .services.assets import file_extension, file_path, media_type_from_upload, save_upload_file
 from .services.auth import authenticate_demo_user, issue_access_token, verify_access_token
@@ -274,6 +275,27 @@ def update_exhibit(
         raise not_found(exhibit_id)
     write_audit(role, "update_exhibit", exhibit_id, f"Updated exhibit {exhibit_id}")
     return updated
+
+
+@app.patch("/api/exhibits/{exhibit_id}/review-status", response_model=ExhibitResponse)
+def update_exhibit_review_status(
+    exhibit_id: str,
+    payload: ReviewStatusUpdateRequest,
+    role: str = Depends(require_roles("admin")),
+) -> ExhibitResponse:
+    exhibit = repository.get_exhibit(exhibit_id)
+    if exhibit is None:
+        raise not_found(exhibit_id)
+
+    updated = exhibit.model_copy(update={"review_status": payload.review_status})
+    saved = repository.update_exhibit(exhibit_id, updated) or updated
+    write_audit(
+        role,
+        "update_review_status",
+        exhibit_id,
+        f"Updated review status for {exhibit_id} to {payload.review_status}",
+    )
+    return saved
 
 
 @app.delete("/api/exhibits/{exhibit_id}", status_code=status.HTTP_204_NO_CONTENT)

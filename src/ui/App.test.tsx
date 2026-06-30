@@ -342,6 +342,33 @@ describe('App exhibit management', () => {
     expect(screen.getByText('退回 1')).toBeTruthy();
   });
 
+  it('lets admins approve the selected exhibit from the detail panel', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/api/exhibits/magnet-maze/review-status') && init?.method === 'PATCH') {
+        expect(init.body).toBe(JSON.stringify({ review_status: '已审核' }));
+        return okJson(apiExhibit({ ...frontendExhibit, reviewStatus: '已审核' }));
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: '磁力迷宫' });
+    fireEvent.click(screen.getByRole('button', { name: '通过审核' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://127.0.0.1:8000/api/exhibits/magnet-maze/review-status',
+        expect.objectContaining({
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'X-User-Role': 'admin' }
+        })
+      );
+    });
+    expect(screen.getAllByText('已审核').length).toBeGreaterThan(0);
+  });
+
   it('shows budget bands and hot themes in the dashboard', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
       okJson({

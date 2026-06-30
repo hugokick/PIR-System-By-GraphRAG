@@ -47,6 +47,7 @@ button {
 .top-actions,
 .semantic-input,
 .media-row,
+.review-actions,
 .upload,
 .import-upload {
   display: flex;
@@ -119,6 +120,7 @@ textarea:focus {
 .semantic-results button,
 .secondary-action,
 .danger-action,
+.review-actions button,
 .upload,
 .import-upload,
 .template-download {
@@ -228,10 +230,25 @@ textarea:focus {
   color: #8f2d1e;
 }
 
+.review-actions {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.review-actions button {
+  background: #0f6c5f;
+}
+
+.review-actions .review-reject {
+  background: #fff2d8;
+  color: #8d5c12;
+}
+
 .create-form button:disabled,
 .top-actions button:disabled,
 .secondary-action:disabled,
-.danger-action:disabled {
+.danger-action:disabled,
+.review-actions button:disabled {
   cursor: not-allowed;
   opacity: 0.65;
 }

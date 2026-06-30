@@ -15,6 +15,7 @@ import {
   setApiRole,
   setApiSession,
   updateExhibit,
+  updateExhibitReviewStatus,
   uploadExhibitAsset,
   type ApiExhibit
 } from './api';
@@ -389,6 +390,30 @@ describe('updateExhibit', () => {
       })
     );
     expect(result.name).toBe('磁力迷宫 Pro');
+  });
+});
+
+describe('updateExhibitReviewStatus', () => {
+  it('patches only the exhibit review status and maps the updated record', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ...apiExhibit,
+        review_status: '已审核'
+      })
+    } as Response);
+
+    const result = await updateExhibitReviewStatus('lever-play', '已审核');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/exhibits/lever-play/review-status',
+      expect.objectContaining({
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-User-Role': 'admin' },
+        body: JSON.stringify({ review_status: '已审核' })
+      })
+    );
+    expect(result.reviewStatus).toBe('已审核');
   });
 });
 

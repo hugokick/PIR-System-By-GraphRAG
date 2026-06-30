@@ -1,6 +1,7 @@
 import { FormEvent, Suspense, SyntheticEvent, lazy, useEffect, useMemo, useState } from 'react';
 import {
   BarChart3,
+  Check,
   Database,
   Download,
   FilePlus2,
@@ -32,6 +33,7 @@ import {
   setApiRole,
   setApiSession,
   updateExhibit,
+  updateExhibitReviewStatus,
   uploadExhibitAsset,
   type ExhibitImportResult,
   type UserRole
@@ -193,6 +195,7 @@ export function App() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isReviewing, setIsReviewing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importPreview, setImportPreview] = useState<{ file: File; result: ExhibitImportResult } | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
@@ -272,6 +275,7 @@ export function App() {
   const stats = useMemo(() => graphStats(items), [items]);
   const canWrite = role !== 'viewer';
   const canDelete = role === 'admin';
+  const canReview = role === 'admin';
 
   useEffect(() => {
     if (session) {
@@ -563,6 +567,24 @@ export function App() {
       setLoadError('后端删除失败，已仅从本地列表移除');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const changeReviewStatus = async (reviewStatus: ReviewStatus) => {
+    if (!canReview || !selected || isReviewing || selected.reviewStatus === reviewStatus) return;
+    setIsReviewing(true);
+
+    try {
+      const updatedExhibit = await updateExhibitReviewStatus(selected.id, reviewStatus);
+      const updated = items.map((item) => (item.id === updatedExhibit.id ? updatedExhibit : item));
+      setItems(updated);
+      setSelectedId(updatedExhibit.id);
+      setDataSource('api');
+      setLoadError(null);
+    } catch {
+      setLoadError('审核状态更新失败，请检查权限或网络连接');
+    } finally {
+      setIsReviewing(false);
     }
   };
 
@@ -1051,6 +1073,28 @@ export function App() {
                   <Trash2 size={18} />
                   {isDeleting ? '删除中' : '删除档案'}
                 </button>
+                {canReview && (
+                  <div className="review-actions" aria-label="审核操作">
+                    <button
+                      type="button"
+                      className="review-approve"
+                      onClick={() => changeReviewStatus('已审核')}
+                      disabled={isReviewing || selected.reviewStatus === '已审核'}
+                    >
+                      <Check size={18} />
+                      通过审核
+                    </button>
+                    <button
+                      type="button"
+                      className="review-reject"
+                      onClick={() => changeReviewStatus('已退回')}
+                      disabled={isReviewing || selected.reviewStatus === '已退回'}
+                    >
+                      <RotateCcw size={18} />
+                      退回
+                    </button>
+                  </div>
+                )}
                 <label className="upload">
                   <ImageIcon size={18} />
                   上传媒体

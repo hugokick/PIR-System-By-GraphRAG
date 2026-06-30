@@ -1,4 +1,9 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
+
+
+ReviewStatusValue = Literal["草稿", "待审核", "已审核", "已退回"]
 
 
 class EntityRef(BaseModel):
@@ -78,6 +83,10 @@ class ExhibitWriteRequest(BaseModel):
 
     def to_response(self) -> ExhibitResponse:
         return ExhibitResponse(**self.model_dump())
+
+
+class ReviewStatusUpdateRequest(BaseModel):
+    review_status: ReviewStatusValue
 
 
 class ExhibitListResponse(BaseModel):
