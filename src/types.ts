@@ -8,6 +8,14 @@ export type MediaAsset = {
   note?: string;
 };
 
+export type DocumentAsset = {
+  id: string;
+  name: string;
+  fileType: string;
+  url: string;
+  sourceNote?: string;
+};
+
 export type Exhibit = {
   id: string;
   name: string;
@@ -26,6 +34,7 @@ export type Exhibit = {
   description: string;
   tags: string[];
   media: MediaAsset[];
+  documents: DocumentAsset[];
   relatedProjectIds: string[];
   relatedExhibitIds: string[];
 };

@@ -73,6 +73,7 @@ const frontendExhibit: Exhibit = {
   description: '通过磁铁和轨道迷宫演示磁力吸引与排斥。',
   tags: ['低龄儿童', '电磁学'],
   media: [],
+  documents: [],
   relatedProjectIds: ['qinghe-2024'],
   relatedExhibitIds: ['lever-play']
 };
@@ -107,6 +108,13 @@ describe('mapApiExhibit', () => {
       url: 'https://picsum.photos/seed/exhibit-lever/900/600',
       note: '示意图'
     });
+    expect(mapped.documents[0]).toEqual({
+      id: 'lever-brief',
+      name: '杠杆乐园展项说明',
+      fileType: 'pdf',
+      url: '/files/lever-brief.pdf',
+      sourceNote: '样例文档'
+    });
   });
 });
 
@@ -129,6 +137,7 @@ describe('mapExhibitToApiPayload', () => {
     });
     expect(payload.materials).toEqual([{ id: 'yake-li', name: '亚克力' }]);
     expect(payload.interactions).toEqual([{ id: 'dongshou-shiyan', name: '动手实验' }]);
+    expect(payload.documents).toEqual([]);
   });
 
   it('keeps manually curated similar exhibit relationships in write payloads', () => {
@@ -330,6 +339,40 @@ describe('uploadExhibitAsset', () => {
       name: 'scene.png',
       url: '/api/files/uploaded',
       note: '现场照片'
+    });
+  });
+
+  it('uploads document files as document assets and maps the returned documents', async () => {
+    const updatedPayload = {
+      ...mapExhibitToApiPayload(frontendExhibit),
+      documents: [
+        {
+          id: 'document-uploaded',
+          name: 'quote.pdf',
+          file_type: 'pdf',
+          url: '/api/files/uploaded-document',
+          source_note: '报价资料'
+        }
+      ]
+    };
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => updatedPayload
+    } as Response);
+    const file = new File(['fake pdf bytes'], 'quote.pdf', { type: 'application/pdf' });
+
+    const result = await uploadExhibitAsset('magnet-maze', file, 'document', '报价资料');
+
+    const body = fetchMock.mock.calls[0][1]?.body as FormData;
+    expect(body.get('asset_kind')).toBe('document');
+    expect(body.get('note')).toBe('报价资料');
+    expect(body.get('file')).toBe(file);
+    expect(result.documents[0]).toEqual({
+      id: 'document-uploaded',
+      name: 'quote.pdf',
+      fileType: 'pdf',
+      url: '/api/files/uploaded-document',
+      sourceNote: '报价资料'
     });
   });
 });

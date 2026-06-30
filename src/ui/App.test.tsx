@@ -28,6 +28,7 @@ const frontendExhibit: Exhibit = {
   description: '通过磁铁和轨道迷宫演示磁力吸引与排斥。',
   tags: ['低龄儿童', '电磁学'],
   media: [],
+  documents: [],
   relatedProjectIds: ['qinghe-2024'],
   relatedExhibitIds: ['lever-play']
 };
@@ -176,6 +177,27 @@ describe('App exhibit management', () => {
     );
   });
 
+  it('renders document assets returned by the backend', async () => {
+    const withDocument = {
+      ...apiExhibit(),
+      documents: [
+        {
+          id: 'quote-doc',
+          name: '报价清单.pdf',
+          file_type: 'pdf',
+          url: '/api/files/quote-doc',
+          source_note: '报价资料'
+        }
+      ]
+    };
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [withDocument] }));
+
+    render(<App />);
+
+    expect(await screen.findByRole('link', { name: '报价清单.pdf' })).toBeTruthy();
+    expect(screen.getByText('报价资料')).toBeTruthy();
+  });
+
   it('uploads selected media through the backend and renders the returned asset link', async () => {
     const updated = {
       ...apiExhibit(),
@@ -208,6 +230,45 @@ describe('App exhibit management', () => {
     fireEvent.change(input, { target: { files: [file] } });
 
     expect(await screen.findByRole('link', { name: 'scene.png' })).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/exhibits/magnet-maze/assets',
+      expect.objectContaining({ method: 'POST' })
+    );
+  });
+
+  it('uploads PDF files as document assets and renders the returned document link', async () => {
+    const updated = {
+      ...apiExhibit(),
+      documents: [
+        {
+          id: 'document-uploaded',
+          name: 'quote.pdf',
+          file_type: 'pdf',
+          url: '/api/files/uploaded-document',
+          source_note: '报价资料'
+        }
+      ]
+    };
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/api/exhibits/magnet-maze/assets')) {
+        expect(init?.method).toBe('POST');
+        expect(init?.body).toBeInstanceOf(FormData);
+        const body = init?.body as FormData;
+        expect(body.get('asset_kind')).toBe('document');
+        return okJson(updated);
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: '磁力迷宫' });
+    const input = document.querySelector('.upload input') as HTMLInputElement;
+    const file = new File(['fake pdf bytes'], 'quote.pdf', { type: 'application/pdf' });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    expect(await screen.findByRole('link', { name: 'quote.pdf' })).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledWith(
       'http://127.0.0.1:8000/api/exhibits/magnet-maze/assets',
       expect.objectContaining({ method: 'POST' })

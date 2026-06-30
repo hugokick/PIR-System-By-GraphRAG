@@ -27,6 +27,7 @@ export const seedExhibits: Exhibit[] = [
         note: '示意图，后续替换为项目实拍'
       }
     ],
+    documents: [],
     relatedProjectIds: ['qinghe-2024'],
     relatedExhibitIds: ['pulley-wall']
   },
@@ -55,6 +56,7 @@ export const seedExhibits: Exhibit[] = [
         url: 'https://picsum.photos/seed/exhibit-pulley/900/600'
       }
     ],
+    documents: [],
     relatedProjectIds: ['qinghe-2024'],
     relatedExhibitIds: ['lever-play']
   },
@@ -83,6 +85,7 @@ export const seedExhibits: Exhibit[] = [
         url: 'https://picsum.photos/seed/exhibit-water/900/600'
       }
     ],
+    documents: [],
     relatedProjectIds: ['jiangbei-2022'],
     relatedExhibitIds: []
   },
@@ -111,6 +114,7 @@ export const seedExhibits: Exhibit[] = [
         url: 'https://picsum.photos/seed/exhibit-space/900/600'
       }
     ],
+    documents: [],
     relatedProjectIds: ['jiangbei-2023'],
     relatedExhibitIds: []
   }

@@ -3,6 +3,7 @@ import {
   BarChart3,
   Database,
   FilePlus2,
+  FileText,
   Filter,
   GitBranch,
   ImageIcon,
@@ -25,7 +26,7 @@ import {
 } from '../lib/api';
 import { filterExhibits, formatBudget, semanticSearch } from '../lib/search';
 import { loadExhibits, resetExhibits, saveExhibits } from '../lib/storage';
-import type { Exhibit, ExhibitFilters, ExhibitStatus, GraphEdge, GraphNode, GraphRagAnswer, MediaAsset } from '../types';
+import type { DocumentAsset, Exhibit, ExhibitFilters, ExhibitStatus, GraphEdge, GraphNode, GraphRagAnswer, MediaAsset } from '../types';
 
 const statuses: ExhibitStatus[] = ['概念方案', '深化设计', '制作中', '已落地', '维护中'];
 const emptyFilters: ExhibitFilters = {
@@ -37,6 +38,8 @@ const emptyFilters: ExhibitFilters = {
   interaction: '',
   status: ''
 };
+
+const documentExtensions = new Set(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'ppt', 'pptx']);
 
 function graphNodePosition(index: number, total: number) {
   if (index === 0) return { left: '50%', top: '50%' };
@@ -59,6 +62,15 @@ function imageFallback(event: SyntheticEvent<HTMLImageElement>) {
 
 function uniqueValues(items: Exhibit[], getter: (item: Exhibit) => string | string[]) {
   return [...new Set(items.flatMap((item) => getter(item)))].filter(Boolean).sort();
+}
+
+function fileExtension(fileName: string) {
+  return fileName.split('.').pop()?.toLowerCase() ?? 'file';
+}
+
+function assetKindForFile(file: File): 'media' | 'document' {
+  if (file.type.startsWith('image/') || file.type.startsWith('video/')) return 'media';
+  return documentExtensions.has(fileExtension(file.name)) ? 'document' : 'media';
 }
 
 function makeExhibitFromForm(form: HTMLFormElement, existingItem?: Exhibit): Exhibit {
@@ -87,6 +99,7 @@ function makeExhibitFromForm(form: HTMLFormElement, existingItem?: Exhibit): Exh
     description: String(data.get('description') ?? '').trim(),
     tags: list('tags'),
     media: existingItem?.media ?? [],
+    documents: existingItem?.documents ?? [],
     relatedProjectIds: list('relatedProjectIds'),
     relatedExhibitIds: list('relatedExhibitIds')
   };
@@ -225,17 +238,40 @@ export function App() {
   const attachMedia = async (event: FormEvent<HTMLInputElement>) => {
     if (!selected || !event.currentTarget.files?.length) return;
     const file = event.currentTarget.files[0];
+    const assetKind = assetKindForFile(file);
     try {
-      const updatedExhibit = await uploadExhibitAsset(selected.id, file, 'media');
+      const updatedExhibit = await uploadExhibitAsset(selected.id, file, assetKind);
       const updated = items.map((item) => (item.id === selected.id ? updatedExhibit : item));
       setItems(updated);
       setDataSource('api');
       setLoadError(null);
     } catch {
       const url = URL.createObjectURL(file);
+      if (assetKind === 'document') {
+        const document: DocumentAsset = {
+          id: `document-${Date.now()}`,
+          name: file.name,
+          fileType: fileExtension(file.name),
+          url,
+          sourceNote: '本地临时文件'
+        };
+        const updated = items.map((item) =>
+          item.id === selected.id
+            ? {
+                ...item,
+                documents: [document, ...item.documents]
+              }
+            : item
+        );
+        setItems(updated);
+        saveExhibits(updated);
+        setDataSource('local');
+        setLoadError('后端上传失败，文件已临时保存在本地会话');
+        return;
+      }
       const asset: MediaAsset = {
         id: `media-${Date.now()}`,
-        type: file.type.startsWith('image/') ? 'image' : 'document',
+        type: file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'document',
         name: file.name,
         url
       };
@@ -556,6 +592,26 @@ export function App() {
                   </a>
                 ))}
               </div>
+
+              {selected.documents.length > 0 && (
+                <div className="document-list">
+                  <div className="panel-title">
+                    <FileText size={18} />
+                    <span>资料文档</span>
+                  </div>
+                  <div className="document-items">
+                    {selected.documents.map((document) => (
+                      <div className="document-item" key={document.id}>
+                        <a href={document.url} target="_blank" rel="noreferrer">
+                          <FileText size={16} />
+                          <span>{document.name}</span>
+                        </a>
+                        {document.sourceNote && <small>{document.sourceNote}</small>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <section className="graph">
                 <div className="panel-title">

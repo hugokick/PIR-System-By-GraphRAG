@@ -21,6 +21,7 @@ const fixtures: Exhibit[] = [
     description: '面向低龄儿童的力学互动展项，通过推拉、配重和跷跷板结构理解杠杆原理。',
     tags: ['低龄儿童', '力学', '预算适中'],
     media: [],
+    documents: [],
     relatedProjectIds: ['qinghe-2024'],
     relatedExhibitIds: ['pulley-wall']
   },
@@ -42,6 +43,7 @@ const fixtures: Exhibit[] = [
     description: '沉浸式球幕内容播放空间，适合天文科普课程。',
     tags: ['沉浸式', '天文'],
     media: [],
+    documents: [],
     relatedProjectIds: ['jiangbei-2023'],
     relatedExhibitIds: []
   }

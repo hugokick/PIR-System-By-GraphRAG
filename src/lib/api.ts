@@ -143,6 +143,13 @@ export function mapApiExhibit(item: ApiExhibit): Exhibit {
       url: asset.url,
       note: asset.note ?? undefined
     })),
+    documents: (item.documents ?? []).map((document) => ({
+      id: document.id,
+      name: document.name,
+      fileType: document.file_type,
+      url: document.url,
+      sourceNote: document.source_note ?? undefined
+    })),
     relatedProjectIds: [item.project.id],
     relatedExhibitIds: item.related_exhibit_ids
   };
@@ -179,7 +186,13 @@ export function mapExhibitToApiPayload(item: Exhibit): ApiExhibit {
       url: asset.url,
       note: asset.note ?? null
     })),
-    documents: [],
+    documents: (item.documents ?? []).map((document) => ({
+      id: document.id,
+      name: document.name,
+      file_type: document.fileType,
+      url: document.url,
+      source_note: document.sourceNote ?? null
+    })),
     related_exhibit_ids: item.relatedExhibitIds
   };
 }
