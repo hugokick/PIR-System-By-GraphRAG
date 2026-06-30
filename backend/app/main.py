@@ -17,6 +17,7 @@ from .schemas import (
     MediaAsset,
 )
 from .services.assets import file_extension, file_path, media_type_from_upload, save_upload_file
+from .services.documents import extract_document_chunks
 from .services.graphrag import answer_from_graphrag_context, search_graphrag_context
 from .services.graph import build_exhibit_graph
 from .services.imports import build_import_items, parse_import_file
@@ -163,12 +164,16 @@ def upload_exhibit_asset(
     file_id, filename = save_upload_file(file)
     url = f"/api/files/{file_id}"
     if asset_kind == "document":
+        document_id = f"document-{file_id}"
+        extension = file_extension(filename)
+        path = file_path(file_id)
         document = DocumentAsset(
-            id=f"document-{file_id}",
+            id=document_id,
             name=filename,
-            file_type=file_extension(filename),
+            file_type=extension,
             url=url,
             source_note=note,
+            chunks=extract_document_chunks(document_id, path, extension) if path else [],
         )
         updated = exhibit.model_copy(update={"documents": [*exhibit.documents, document]})
     else:

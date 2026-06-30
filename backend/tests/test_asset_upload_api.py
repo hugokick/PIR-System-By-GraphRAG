@@ -46,6 +46,42 @@ def test_upload_document_asset_attaches_document_source(monkeypatch, tmp_path):
     assert document["url"].startswith("/api/files/")
 
 
+def test_uploaded_text_document_is_chunked_and_available_to_graphrag(monkeypatch, tmp_path):
+    monkeypatch.setenv("FILE_STORAGE_ROOT", str(tmp_path))
+
+    upload_response = client.post(
+        "/api/exhibits/lever-play/assets",
+        data={"asset_kind": "document", "note": "气流演示说明"},
+        files={
+            "file": (
+                "airflow-note.txt",
+                "伯努利气流环道用于解释低龄儿童可观察的气压差现象。".encode(),
+                "text/plain",
+            )
+        },
+    )
+
+    assert upload_response.status_code == 201
+    document = upload_response.json()["documents"][-1]
+    assert document["chunks"]
+    assert document["chunks"][0]["text"].startswith("伯努利气流环道")
+
+    search_response = client.post(
+        "/api/graphrag/search",
+        json={"query": "伯努利气流环道", "top_k": 1},
+    )
+
+    assert search_response.status_code == 200
+    hit = search_response.json()["items"][0]
+    assert hit["exhibit"]["id"] == "lever-play"
+    assert any(
+        citation["source_id"] == document["id"]
+        and citation["source_type"] == "document"
+        and "伯努利气流环道" in citation["snippet"]
+        for citation in hit["citations"]
+    )
+
+
 def test_upload_asset_returns_404_for_unknown_exhibit(monkeypatch, tmp_path):
     monkeypatch.setenv("FILE_STORAGE_ROOT", str(tmp_path))
 

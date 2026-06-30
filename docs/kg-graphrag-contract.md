@@ -11,6 +11,7 @@
 - `backend/app/kg/models.py`：图谱节点、边、证据与快照模型。
 - `backend/app/kg/builder.py`：从展项档案构建轻量 KG 快照。
 - `backend/app/kg/sync.py`：为后续新增、编辑、删除展项后的图谱同步保留入口。
+- `backend/app/services/documents.py`：文本类上传资料的轻量文本抽取与切片。
 - `backend/app/graphrag/contract.py`：主线共享查询契约。
 - `backend/app/services/graphrag.py`：现有 API 服务薄封装，委托给合同层。
 
@@ -98,14 +99,17 @@ result = query_subgraph_by_exhibit_id(
 
 现有服务层 `backend/app/services/graphrag.py` 不再维护独立 GraphRAG 核心逻辑，而是作为薄封装调用 `backend/app/graphrag/contract.py`。这样可以避免主线和并行 KG/GraphRAG 工作产生两套查询语义。
 
-## 暂不接入 document_chunks.py
+## 文档切片边界
 
-`document_chunks.py` 后续应挂到 documents / file upload / text extraction / RAG citation 链路之后，再作为文档级证据进入 GraphRAG。当前主线已经有 `DocumentAsset` 的轻量引用来源，先不引入第二套 chunk 生命周期，避免和文件上传、文档解析、引用定位的后续实现冲突。
+当前主线已在 `DocumentAsset` 内接入轻量 `chunks` 字段。上传 `txt`、`md`、`csv`、`tsv`、`json`、`log` 等文本类资料时，后端会抽取文本、归一化并生成 chunk；KG evidence 和 GraphRAG 检索会使用这些 chunk，citation 仍指回原始 `document.id`。
+
+本阶段仍不引入独立 `document_chunks` 表或模块，也不做 PDF / Word / CAD 的深度解析。后续当文档解析、对象存储、引用定位和 embedding 生命周期稳定后，再把 chunk 从 `DocumentAsset` 内嵌字段升级为独立持久化资源。
 
 ## 验收标准
 
 - 可按展项 ID 返回中心子图。
 - 可按自然语言文本返回候选展项、图谱上下文、引用来源和推理信号。
+- 上传的文本类资料可作为 GraphRAG 检索文本，并返回文档 citation。
 - 可叠加主题、材质、互动方式、场馆类型、状态、预算区间过滤。
 - 合同层不依赖 FastAPI 响应对象。
 - 主线 API 服务层只做请求/响应适配，不重复实现 GraphRAG 核心逻辑。

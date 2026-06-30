@@ -21,6 +21,11 @@ type ApiDocumentAsset = {
   file_type: string;
   url: string;
   source_note?: string | null;
+  chunks?: {
+    id: string;
+    text: string;
+    sequence: number;
+  }[];
 };
 
 export type ApiExhibit = {
@@ -165,15 +170,26 @@ export function mapApiExhibit(item: ApiExhibit): Exhibit {
       url: asset.url,
       note: asset.note ?? undefined
     })),
-    documents: (item.documents ?? []).map((document) => ({
-      id: document.id,
-      name: document.name,
-      fileType: document.file_type,
-      url: document.url,
-      sourceNote: document.source_note ?? undefined
-    })),
+    documents: (item.documents ?? []).map(mapApiDocument),
     relatedProjectIds: [item.project.id],
     relatedExhibitIds: item.related_exhibit_ids
+  };
+}
+
+function mapApiDocument(document: ApiDocumentAsset) {
+  const mapped = {
+    id: document.id,
+    name: document.name,
+    fileType: document.file_type,
+    url: document.url,
+    sourceNote: document.source_note ?? undefined
+  };
+  if (!document.chunks?.length) {
+    return mapped;
+  }
+  return {
+    ...mapped,
+    chunks: document.chunks
   };
 }
 
@@ -213,7 +229,8 @@ export function mapExhibitToApiPayload(item: Exhibit): ApiExhibit {
       name: document.name,
       file_type: document.fileType,
       url: document.url,
-      source_note: document.sourceNote ?? null
+      source_note: document.sourceNote ?? null,
+      chunks: document.chunks ?? []
     })),
     related_exhibit_ids: item.relatedExhibitIds
   };

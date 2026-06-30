@@ -14,12 +14,19 @@ class MediaAsset(BaseModel):
     note: str | None = None
 
 
+class DocumentChunk(BaseModel):
+    id: str
+    text: str
+    sequence: int
+
+
 class DocumentAsset(BaseModel):
     id: str
     name: str
     file_type: str
     url: str
     source_note: str | None = None
+    chunks: list[DocumentChunk] = Field(default_factory=list)
 
 
 class ExhibitResponse(BaseModel):

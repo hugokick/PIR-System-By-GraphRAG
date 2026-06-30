@@ -32,15 +32,32 @@ def exhibit_evidence(exhibit: ExhibitResponse) -> KGEvidence:
 
 
 def document_evidences(exhibit: ExhibitResponse) -> list[KGEvidence]:
-    return [
-        KGEvidence(
-            evidence_id=f"evidence:document:{document.id}",
-            source_type="document",
-            source_id=document.id,
-            title=document.name,
-            snippet=document.source_note or document.url,
-            linked_node_ids=[f"exhibit:{exhibit.id}", f"document:{document.id}"],
-            linked_edge_ids=[f"exhibit:{exhibit.id}:has_document:document:{document.id}"],
+    evidences: list[KGEvidence] = []
+    for document in exhibit.documents:
+        if document.chunks:
+            evidences.extend(
+                KGEvidence(
+                    evidence_id=f"evidence:{chunk.id}",
+                    source_type="document",
+                    source_id=document.id,
+                    title=f"{document.name} #{chunk.sequence}",
+                    snippet=chunk.text,
+                    linked_node_ids=[f"exhibit:{exhibit.id}", f"document:{document.id}"],
+                    linked_edge_ids=[f"exhibit:{exhibit.id}:has_document:document:{document.id}"],
+                )
+                for chunk in document.chunks
+            )
+            continue
+
+        evidences.append(
+            KGEvidence(
+                evidence_id=f"evidence:document:{document.id}",
+                source_type="document",
+                source_id=document.id,
+                title=document.name,
+                snippet=document.source_note or document.url,
+                linked_node_ids=[f"exhibit:{exhibit.id}", f"document:{document.id}"],
+                linked_edge_ids=[f"exhibit:{exhibit.id}:has_document:document:{document.id}"],
+            )
         )
-        for document in exhibit.documents
-    ]
+    return evidences

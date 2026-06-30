@@ -64,7 +64,11 @@ def _score_exhibit(
         "documents": [
             value
             for document in exhibit.documents
-            for value in [document.name, document.source_note or ""]
+            for value in [
+                document.name,
+                document.source_note or "",
+                *[chunk.text for chunk in document.chunks],
+            ]
             if value
         ],
         "description": [exhibit.description],

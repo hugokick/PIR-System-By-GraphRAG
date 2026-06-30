@@ -14,6 +14,11 @@ export type DocumentAsset = {
   fileType: string;
   url: string;
   sourceNote?: string;
+  chunks?: {
+    id: string;
+    text: string;
+    sequence: number;
+  }[];
 };
 
 export type Exhibit = {
