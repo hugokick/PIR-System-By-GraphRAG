@@ -49,9 +49,11 @@ afterEach(() => {
 
 describe('App exhibit management', () => {
   it('prefills the selected exhibit and submits edits through the backend API', async () => {
+    let updatedPayload: ApiExhibit | undefined;
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) => {
       if (init && init.method === 'PUT') {
         const body = JSON.parse(String(init.body));
+        updatedPayload = body;
         return okJson(body);
       }
       return okJson({ total: 1, items: [apiExhibit()] });
@@ -62,6 +64,7 @@ describe('App exhibit management', () => {
     await screen.findByRole('heading', { name: '磁力迷宫' });
     fireEvent.click(screen.getByRole('button', { name: /编辑档案/ }));
     fireEvent.change(screen.getByPlaceholderText('展项名称'), { target: { value: '磁力迷宫 Pro' } });
+    fireEvent.change(screen.getByPlaceholderText('相似展项 ID，用逗号分隔'), { target: { value: 'lever-play,water-cycle' } });
     fireEvent.click(screen.getByRole('button', { name: '保存修改' }));
 
     await waitFor(() => {
@@ -73,6 +76,7 @@ describe('App exhibit management', () => {
         })
       );
     });
+    expect(updatedPayload?.related_exhibit_ids).toEqual(['lever-play', 'water-cycle']);
   });
 
   it('deletes the selected exhibit through the backend API', async () => {

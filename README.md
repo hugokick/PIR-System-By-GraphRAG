@@ -58,6 +58,18 @@ npm audit --audit-level=high
 
 [docs/部署与测试环境建议.md](docs/部署与测试环境建议.md)
 
+云服务器测试环境：
+
+```bash
+docker compose -f docker-compose.cloud.yml up -d --build
+```
+
+默认入口：
+
+```text
+http://<服务器公网 IP>:18080/
+```
+
 ## 后续建议
 
 - 用 FastAPI/NestJS + PostgreSQL 持久化展项、项目、媒体、关系数据

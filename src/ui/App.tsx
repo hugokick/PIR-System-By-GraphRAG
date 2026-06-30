@@ -79,7 +79,7 @@ function makeExhibitFromForm(form: HTMLFormElement, existingItem?: Exhibit): Exh
     tags: list('tags'),
     media: existingItem?.media ?? [],
     relatedProjectIds: list('relatedProjectIds'),
-    relatedExhibitIds: existingItem?.relatedExhibitIds ?? []
+    relatedExhibitIds: list('relatedExhibitIds')
   };
 }
 
@@ -349,6 +349,11 @@ export function App() {
             </select>
             <input name="tags" placeholder="标签，用逗号分隔" defaultValue={editingItem?.tags.join(',') ?? ''} />
             <input name="relatedProjectIds" placeholder="项目编号，用逗号分隔" defaultValue={editingItem?.relatedProjectIds.join(',') ?? ''} />
+            <input
+              name="relatedExhibitIds"
+              placeholder="相似展项 ID，用逗号分隔"
+              defaultValue={editingItem?.relatedExhibitIds.join(',') ?? ''}
+            />
             <textarea name="description" placeholder="展项说明" defaultValue={editingItem?.description ?? ''} required />
             <button type="submit" disabled={isSaving}>{isSaving ? '保存中' : editingId ? '保存修改' : '保存档案'}</button>
           </form>

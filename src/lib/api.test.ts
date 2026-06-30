@@ -128,6 +128,15 @@ describe('mapExhibitToApiPayload', () => {
     expect(payload.materials).toEqual([{ id: 'yake-li', name: '亚克力' }]);
     expect(payload.interactions).toEqual([{ id: 'dongshou-shiyan', name: '动手实验' }]);
   });
+
+  it('keeps manually curated similar exhibit relationships in write payloads', () => {
+    const payload = mapExhibitToApiPayload({
+      ...frontendExhibit,
+      relatedExhibitIds: ['lever-play', 'water-cycle']
+    });
+
+    expect(payload.related_exhibit_ids).toEqual(['lever-play', 'water-cycle']);
+  });
 });
 
 describe('buildExhibitQuery', () => {

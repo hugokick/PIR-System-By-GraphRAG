@@ -1,0 +1,20 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: exhibit-atlas-api
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: deploy/frontend.Dockerfile
+      args:
+        VITE_API_BASE_URL: ""
+    container_name: exhibit-atlas-web
+    depends_on:
+      - backend
+    ports:
+      - "18080:80"
+    restart: unless-stopped

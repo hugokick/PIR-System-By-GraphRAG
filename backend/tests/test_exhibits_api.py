@@ -127,6 +127,30 @@ def test_update_exhibit_replaces_existing_record():
     assert response.json()["materials"] == [{"id": "steel", "name": "钢结构"}]
 
 
+def test_update_exhibit_relationships_refreshes_graph_edges():
+    payload = client.get("/api/exhibits/lever-play").json()
+    payload["related_exhibit_ids"] = ["water-cycle"]
+
+    response = client.put("/api/exhibits/lever-play", json=payload)
+    assert response.status_code == 200
+
+    graph_response = client.get("/api/exhibits/lever-play/graph")
+    similar_edges = [
+        edge
+        for edge in graph_response.json()["edges"]
+        if edge["type"] == "similar_to"
+    ]
+
+    assert similar_edges == [
+        {
+            "source": "exhibit:lever-play",
+            "target": "exhibit:water-cycle",
+            "label": "相似展项",
+            "type": "similar_to",
+        }
+    ]
+
+
 def test_delete_exhibit_soft_removes_from_list_and_detail():
     create_payload = client.get("/api/exhibits/pulley-wall").json()
     create_payload["id"] = "delete-me"
