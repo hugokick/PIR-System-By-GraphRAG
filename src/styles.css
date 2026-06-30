@@ -1104,6 +1104,7 @@ textarea:focus {
 .graph {
   border-top: 1px solid #e0e7e3;
   padding-top: 14px;
+  container-type: inline-size;
 }
 
 .graph-mode-switch,
@@ -1159,7 +1160,7 @@ textarea:focus {
 
 .graph-enhanced {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 330px);
+  grid-template-columns: minmax(420px, 1fr) minmax(240px, 320px);
   gap: 12px;
   align-items: stretch;
 }
@@ -1178,6 +1179,29 @@ textarea:focus {
 
 .nvl-canvas > div {
   min-height: 420px;
+}
+
+.nvl-stage {
+  position: relative;
+  min-height: 420px;
+}
+
+.nvl-stage > div:first-child {
+  min-height: 420px;
+}
+
+.nvl-minimap {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 132px;
+  height: 92px;
+  border: 1px solid rgba(79, 136, 255, 0.34);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 12px 32px rgba(32, 59, 57, 0.14);
+  overflow: hidden;
+  pointer-events: none;
 }
 
 .nvl-test-fallback {
@@ -1303,6 +1327,12 @@ textarea:focus {
   padding: 6px 9px;
 }
 
+@container (max-width: 780px) {
+  .graph-enhanced {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 1080px) {
   .app-shell,
   .workspace,
@@ -1352,8 +1382,17 @@ textarea:focus {
 
   .nvl-canvas,
   .nvl-canvas > div,
+  .nvl-stage,
+  .nvl-stage > div:first-child,
   .nvl-test-fallback {
     min-height: 320px;
+  }
+
+  .nvl-minimap {
+    width: 104px;
+    height: 72px;
+    right: 8px;
+    bottom: 8px;
   }
 
   .graph-node-list {

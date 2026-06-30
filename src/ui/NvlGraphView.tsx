@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef } from 'react';
-import type { Layout, Node as NvlNode, Relationship as NvlRelationship } from '@neo4j-nvl/base';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Layout } from '@neo4j-nvl/base';
 import { InteractiveNvlWrapper } from '@neo4j-nvl/react';
 import type { GraphEdge, GraphNode } from '../types';
+import { buildNvlGraphData, nvlGraphStyling } from './nvlGraphData';
 
 type NvlGraphViewProps = {
   graph: {
@@ -11,7 +12,7 @@ type NvlGraphViewProps = {
   selectedNodeId: string | null;
   layoutVersion: number;
   nodeColors: Record<string, string>;
-  onNodeSelect: (nodeId: string) => void;
+  onNodeSelect: (nodeId: string | null) => void;
 };
 
 const nvlForceDirectedLayout = 'forceDirected' as Layout;
@@ -22,55 +23,12 @@ function nvlCanUseDomRenderer() {
   return true;
 }
 
-function collectGraphNeighborIds(graph: { nodes: GraphNode[]; edges: GraphEdge[] }, selectedNodeId: string | null) {
-  const ids = new Set<string>();
-  if (!selectedNodeId) return ids;
-  ids.add(selectedNodeId);
-  graph.edges.forEach((edge) => {
-    if (edge.source === selectedNodeId) ids.add(edge.target);
-    if (edge.target === selectedNodeId) ids.add(edge.source);
-  });
-  return ids;
-}
-
-function buildNvlGraphData(
-  graph: { nodes: GraphNode[]; edges: GraphEdge[] },
-  selectedNodeId: string | null,
-  nodeColors: Record<string, string>
-) {
-  const neighborIds = collectGraphNeighborIds(graph, selectedNodeId);
-  const nodes: NvlNode[] = graph.nodes.map((node) => ({
-    id: node.id,
-    caption: node.label,
-    color: nodeColors[node.kind] ?? '#607d75',
-    size: node.id === selectedNodeId ? 44 : 34,
-    selected: node.id === selectedNodeId,
-    disabled: Boolean(selectedNodeId) && !neighborIds.has(node.id),
-    captions: [
-      {
-        value: node.label,
-        styles: ['bold']
-      },
-      {
-        value: node.kind
-      }
-    ]
-  }));
-  const rels: NvlRelationship[] = graph.edges.map((edge) => ({
-    id: `${edge.source}->${edge.target}:${edge.type ?? edge.label}`,
-    from: edge.source,
-    to: edge.target,
-    type: edge.type ?? edge.label,
-    caption: edge.type ?? edge.label,
-    color: Boolean(selectedNodeId) && (edge.source === selectedNodeId || edge.target === selectedNodeId) ? '#4361a8' : '#9aaba5',
-    width: Boolean(selectedNodeId) && (edge.source === selectedNodeId || edge.target === selectedNodeId) ? 3 : 2,
-    disabled: Boolean(selectedNodeId) && edge.source !== selectedNodeId && edge.target !== selectedNodeId
-  }));
-  return { nodes, rels };
-}
-
 export function NvlGraphView({ graph, selectedNodeId, layoutVersion, nodeColors, onNodeSelect }: NvlGraphViewProps) {
   const graphRef = useRef<any>(null);
+  const [minimapContainer, setMinimapContainer] = useState<HTMLDivElement | null>(null);
+  const handleMinimapRef = useCallback((node: HTMLDivElement | null) => {
+    setMinimapContainer(node);
+  }, []);
   const graphData = useMemo(() => buildNvlGraphData(graph, selectedNodeId, nodeColors), [graph, nodeColors, selectedNodeId]);
 
   useEffect(() => {
@@ -84,7 +42,15 @@ export function NvlGraphView({ graph, selectedNodeId, layoutVersion, nodeColors,
   useEffect(() => {
     if (!nvlCanUseDomRenderer()) return;
     graphRef.current?.setLayout?.(nvlForceDirectedLayout);
-    graphRef.current?.restart?.();
+    graphRef.current?.setLayoutOptions?.({ enableCytoscape: true });
+    graphRef.current?.restart?.(
+      {
+        layout: nvlForceDirectedLayout,
+        layoutOptions: { enableCytoscape: true },
+        styling: nvlGraphStyling
+      },
+      false
+    );
     graphRef.current?.fit?.(graph.nodes.map((node) => node.id));
   }, [layoutVersion, graph.nodes]);
 
@@ -93,30 +59,42 @@ export function NvlGraphView({ graph, selectedNodeId, layoutVersion, nodeColors,
   }
 
   return (
-    <InteractiveNvlWrapper
-      key={`nvl-${layoutVersion}`}
-      ref={graphRef}
-      nodes={graphData.nodes}
-      rels={graphData.rels}
-      layout={nvlForceDirectedLayout}
-      nvlOptions={{
-        disableTelemetry: true,
-        renderer: 'canvas',
-        minZoom: 0.2,
-        maxZoom: 4
-      }}
-      mouseEventCallbacks={{
-        onNodeClick: (node) => onNodeSelect(node.id),
-        onNodeDoubleClick: (node) => {
-          onNodeSelect(node.id);
-          graphRef.current?.fit?.([node.id]);
-        },
-        onDrag: true,
-        onPan: true,
-        onZoom: true
-      }}
-      interactionOptions={{ selectOnClick: true }}
-    />
+    <div className="nvl-stage">
+      <InteractiveNvlWrapper
+        key={`nvl-${layoutVersion}`}
+        ref={graphRef}
+        nodes={graphData.nodes}
+        rels={graphData.rels}
+        layout={nvlForceDirectedLayout}
+        nvlOptions={{
+          disableTelemetry: true,
+          renderer: 'canvas',
+          minZoom: 0.12,
+          maxZoom: 4.5,
+          initialZoom: 0.7,
+          allowDynamicMinZoom: true,
+          layoutOptions: { enableCytoscape: true },
+          minimapContainer,
+          styling: nvlGraphStyling
+        }}
+        mouseEventCallbacks={{
+          onNodeClick: (node) => onNodeSelect(node.id),
+          onNodeDoubleClick: (node) => {
+            onNodeSelect(node.id);
+            graphRef.current?.fit?.([node.id], { outOnly: false });
+          },
+          onCanvasClick: () => {
+            onNodeSelect(null);
+            graphRef.current?.fit?.(graph.nodes.map((node) => node.id), { outOnly: true });
+          },
+          onDrag: true,
+          onPan: true,
+          onZoom: true
+        }}
+        interactionOptions={{ selectOnClick: true }}
+      />
+      <div className="nvl-minimap" ref={handleMinimapRef} aria-hidden="true" />
+    </div>
   );
 }
 
