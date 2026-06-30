@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 import { mapExhibitToApiPayload, type ApiExhibit } from '../lib/api';
@@ -600,13 +600,84 @@ describe('App exhibit management', () => {
     fireEvent.click(screen.getByRole('button', { name: '确认导入' }));
 
     expect(await screen.findByRole('heading', { name: 'Imported Demo' })).toBeTruthy();
-    expect(screen.getByText('已导入 1 条展项')).toBeTruthy();
+    expect(screen.getByText('导入完成：已选中新展项，可在当前展项图谱核验关系')).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledWith(
       'http://127.0.0.1:8000/api/exhibits/import',
       expect.objectContaining({ method: 'POST' })
     );
     const committedImportCalls = fetchMock.mock.calls.filter(([input]) => String(input).endsWith('/api/exhibits/import'));
     expect((committedImportCalls[1][1]?.body as FormData).get('commit')).toBe('true');
+  });
+
+  it('switches back to the current exhibit graph after committing an import', async () => {
+    const importedExhibit = {
+      ...frontendExhibit,
+      id: 'imported-graph-demo',
+      name: 'Imported Graph Demo',
+      materials: ['Imported Graph Material'],
+      relatedExhibitIds: ['magnet-maze']
+    };
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/api/neo4j-demo/graph')) {
+        return okJson({
+          nodes: [{ id: 'exhibit:demo-only', label: 'Full Demo Only', type: 'exhibit' }],
+          edges: []
+        });
+      }
+      if (url.endsWith('/api/exhibits/imported-graph-demo/graph')) {
+        return okJson({
+          nodes: [
+            { id: 'exhibit:imported-graph-demo', label: 'Imported Graph Demo', type: 'exhibit' },
+            { id: 'material:imported-graph-material', label: 'Imported Graph Material', type: 'material' }
+          ],
+          edges: [
+            {
+              source: 'exhibit:imported-graph-demo',
+              target: 'material:imported-graph-material',
+              label: 'material',
+              type: 'uses_material'
+            }
+          ]
+        });
+      }
+      if (url.endsWith('/api/exhibits/magnet-maze/graph')) {
+        return okJson({
+          nodes: [{ id: 'exhibit:magnet-maze', label: '磁力迷宫', type: 'exhibit' }],
+          edges: []
+        });
+      }
+      if (url.endsWith('/api/exhibits/import')) {
+        const commit = (init?.body as FormData).get('commit');
+        return okJson({
+          total_rows: 1,
+          valid_rows: 1,
+          imported_count: commit === 'true' ? 1 : 0,
+          errors: [],
+          items: [apiExhibit(importedExhibit)]
+        });
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: '磁力迷宫' });
+    fireEvent.click(screen.getByRole('button', { name: '全库演示' }));
+    expect((await screen.findAllByText('Full Demo Only')).length).toBeGreaterThan(0);
+
+    const input = document.querySelector('.import-upload input') as HTMLInputElement;
+    const file = new File(['id,name\nimported-graph-demo,Imported Graph Demo'], 'exhibits.csv', { type: 'text/csv' });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    expect(await screen.findByText('导入预览')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '确认导入' }));
+
+    expect(await screen.findByRole('heading', { name: 'Imported Graph Demo' })).toBeTruthy();
+    expect(await within(screen.getByLabelText('graph nodes')).findByText('Imported Graph Material')).toBeTruthy();
+    expect(screen.getByText('导入完成：已选中新展项，可在当前展项图谱核验关系')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '当前展项' }).className).toBe('active');
+    expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8000/api/exhibits/imported-graph-demo/graph');
   });
 
   it('shows a spreadsheet template download entry near the import control', async () => {

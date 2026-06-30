@@ -566,10 +566,13 @@ export function App() {
         const updated = mergeImportedExhibits(items, result.items);
         setItems(updated);
         setSelectedId(result.items[0].id);
+        setGraphMode('current');
+        setSelectedGraphNodeId(null);
+        setGraphLayoutVersion((value) => value + 1);
       }
       setImportPreview(null);
       setDataSource('api');
-      setLoadError(`已导入 ${result.importedCount} 条展项`);
+      setLoadError('导入完成：已选中新展项，可在当前展项图谱核验关系');
     } catch {
       setDataSource('local');
       setLoadError('表格导入失败，请检查字段模板和网络连接');
