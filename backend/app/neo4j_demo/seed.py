@@ -7,11 +7,21 @@ def _quote(value: str) -> str:
     return value.replace("\\", "\\\\").replace("'", "\\'")
 
 
-def _merge_node_statement(alias: str, label: str, node_id: str, name: str) -> str:
-    return (
-        f"MERGE ({alias}:{label} {{id: '{_quote(node_id)}'}}) "
-        f"SET {alias}.name = '{_quote(name)}', {alias}.label = '{_quote(name)}'"
-    )
+def _merge_node_statement(
+    alias: str,
+    label: str,
+    node_id: str,
+    name: str,
+    extra_fields: dict[str, str] | None = None,
+) -> str:
+    assignments = [
+        f"{alias}.name = '{_quote(name)}'",
+        f"{alias}.label = '{_quote(name)}'",
+        f"{alias}.名称 = '{_quote(name)}'",
+    ]
+    for key, value in (extra_fields or {}).items():
+        assignments.append(f"{alias}.{key} = '{_quote(value)}'")
+    return f"MERGE ({alias}:{label} {{id: '{_quote(node_id)}'}}) SET " + ", ".join(assignments)
 
 
 def _merge_edge_statement(
@@ -35,7 +45,21 @@ def build_demo_seed_statements(exhibits: Iterable[ExhibitResponse]) -> list[str]
     for exhibit in exhibits:
         statements.extend(
             [
-                _merge_node_statement("e", "Exhibit", exhibit.id, exhibit.name),
+                _merge_node_statement(
+                    "e",
+                    "Exhibit",
+                    exhibit.id,
+                    exhibit.name,
+                    {
+                        "类别": exhibit.category,
+                        "主题": exhibit.theme.name,
+                        "馆型": exhibit.venue_type,
+                        "供应商名称": exhibit.supplier.name,
+                        "业主名称": exhibit.owner.name,
+                        "状态": exhibit.status,
+                        "项目年份": str(exhibit.project_year),
+                    },
+                ),
                 _merge_node_statement("p", "Project", exhibit.project.id, exhibit.project.name),
                 _merge_node_statement("o", "Owner", exhibit.owner.id, exhibit.owner.name),
                 _merge_node_statement("s", "Supplier", exhibit.supplier.id, exhibit.supplier.name),

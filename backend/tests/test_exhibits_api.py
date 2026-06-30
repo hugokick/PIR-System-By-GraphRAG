@@ -91,6 +91,32 @@ def test_get_exhibit_graph_can_use_neo4j_demo_service(monkeypatch):
     ]
 
 
+def test_get_exhibit_graph_allows_demo_only_exhibit(monkeypatch):
+    from app import main
+    from app.schemas import GraphNode, GraphResponse
+
+    class StubNeo4jService:
+        def get_exhibit_graph(self, exhibit_id: str) -> GraphResponse:
+            if exhibit_id == "space-dome":
+                return GraphResponse(
+                    nodes=[GraphNode(id="exhibit:space-dome", label="星际穹幕影院", type="exhibit")],
+                    edges=[],
+                )
+            return GraphResponse(nodes=[], edges=[])
+
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setattr(main, "create_neo4j_demo_graph_service", lambda exhibits: StubNeo4jService())
+
+    response = client.get("/api/exhibits/space-dome/graph")
+
+    assert response.status_code == 200
+    assert response.json()["nodes"] == [
+        {"id": "exhibit:space-dome", "label": "星际穹幕影院", "type": "exhibit"}
+    ]
+
+
 def test_unknown_exhibit_returns_404():
     response = client.get("/api/exhibits/not-found")
 

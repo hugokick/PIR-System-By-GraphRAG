@@ -55,6 +55,16 @@ def test_service_falls_back_when_client_returns_no_rows():
     assert any(node.id == "exhibit:lever-play" for node in result.nodes)
 
 
+def test_service_default_fallback_uses_demo_exhibits():
+    service = Neo4jDemoGraphService(client=EmptyClient())
+
+    result = service.get_exhibit_graph("space-dome")
+
+    assert isinstance(result, GraphResponse)
+    assert any(node.id == "exhibit:space-dome" for node in result.nodes)
+    assert any(edge.type == "has_document" for edge in result.edges)
+
+
 def test_service_prefers_neo4j_rows_when_available():
     service = Neo4jDemoGraphService(client=HappyClient())
 

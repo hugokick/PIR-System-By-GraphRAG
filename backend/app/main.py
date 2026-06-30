@@ -292,13 +292,14 @@ def download_file(file_id: str) -> FileResponse:
 @app.get("/api/exhibits/{exhibit_id}/graph", response_model=GraphResponse)
 def get_exhibit_graph(exhibit_id: str) -> GraphResponse:
     exhibit = repository.get_exhibit(exhibit_id)
-    if exhibit is None:
-        raise not_found(exhibit_id)
     service = create_neo4j_demo_graph_service(repository.list_exhibits())
     try:
-        return service.get_exhibit_graph(exhibit.id)
+        graph = service.get_exhibit_graph(exhibit.id if exhibit else exhibit_id)
     finally:
         service.close()
+    if exhibit is None and not graph.nodes:
+        raise not_found(exhibit_id)
+    return graph
 
 
 @app.post("/api/graphrag/search", response_model=GraphRagSearchResponse)

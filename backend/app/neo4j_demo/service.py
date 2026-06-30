@@ -2,10 +2,10 @@ import os
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-from app.repository import seed_exhibits
 from app.schemas import ExhibitResponse, GraphResponse
 from app.services.graph import build_exhibit_graph
 
+from .demo_data import neo4j_demo_exhibits
 from .query import build_exhibit_graph_cypher, map_neo4j_records_to_graph_response
 from .seed import build_demo_seed_statements
 
@@ -43,7 +43,7 @@ class Neo4jDemoGraphService:
         auto_seed: bool = False,
     ):
         self.client = client
-        self.exhibits = list(exhibits or seed_exhibits)
+        self.exhibits = list(exhibits or neo4j_demo_exhibits)
         self.auto_seed = auto_seed
 
     def build_query(self, exhibit_id: str) -> str:
@@ -101,17 +101,17 @@ def create_neo4j_demo_graph_service(
     password = source.get("NEO4J_PASSWORD")
     user = source.get("NEO4J_USER", "neo4j")
     if not uri or not password:
-        return Neo4jDemoGraphService(exhibits=exhibits)
+        return Neo4jDemoGraphService()
 
     try:
         from neo4j import GraphDatabase
     except ImportError:
-        return Neo4jDemoGraphService(exhibits=exhibits)
+        return Neo4jDemoGraphService()
 
     driver = GraphDatabase.driver(uri, auth=(user, password))
     auto_seed = source.get("NEO4J_DEMO_AUTO_SEED", "").strip().lower() in TRUTHY_VALUES
     return Neo4jDemoGraphService(
         client=Neo4jBoltGraphClient(driver),
-        exhibits=exhibits,
+        exhibits=neo4j_demo_exhibits,
         auto_seed=auto_seed,
     )

@@ -1,3 +1,4 @@
+from app.neo4j_demo import neo4j_demo_exhibits
 from app.neo4j_demo.seed import build_demo_seed_script, build_demo_seed_statements
 from app.repository import seed_exhibits
 
@@ -17,6 +18,8 @@ def test_build_demo_seed_statements_contains_expected_labels_and_relationships()
     assert "MATCH (source:Exhibit" in script
     assert "MERGE (source)-[:BELONGS_TO_PROJECT" in script
     assert "SIMILAR_TO" in script
+    assert ".名称 =" in script
+    assert ".供应商名称 =" in script
 
 
 def test_build_demo_seed_script_returns_browser_ready_cypher():
@@ -26,3 +29,10 @@ def test_build_demo_seed_script_returns_browser_ready_cypher():
     assert "MERGE (e:Exhibit" in script
     assert "MATCH (source:Exhibit" in script
     assert script.endswith("\n")
+
+
+def test_demo_seed_includes_space_dome_exhibit():
+    script = build_demo_seed_script(neo4j_demo_exhibits)
+
+    assert "space-dome" in script
+    assert "astronomy" in script
