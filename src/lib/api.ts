@@ -91,6 +91,28 @@ type ApiGraphRagAnswerResponse = {
   items: ApiGraphRagHit[];
 };
 
+type ApiExhibitImportError = {
+  row: number;
+  field: string;
+  message: string;
+};
+
+type ApiExhibitImportResponse = {
+  total_rows: number;
+  valid_rows: number;
+  imported_count: number;
+  errors: ApiExhibitImportError[];
+  items: ApiExhibit[];
+};
+
+export type ExhibitImportResult = {
+  totalRows: number;
+  validRows: number;
+  importedCount: number;
+  errors: ApiExhibitImportError[];
+  items: Exhibit[];
+};
+
 const slugMap: Record<string, string> = {
   电磁学: 'dianci-xue',
   亚克力: 'yake-li',
@@ -326,6 +348,28 @@ export async function uploadExhibitAsset(
   }
   const payload = (await response.json()) as ApiExhibit;
   return mapApiExhibit(payload);
+}
+
+export async function importExhibits(file: File, commit = true): Promise<ExhibitImportResult> {
+  const form = new FormData();
+  form.set('commit', String(commit));
+  form.set('file', file);
+
+  const response = await fetch(`${apiBaseUrl}/api/exhibits/import`, {
+    method: 'POST',
+    body: form
+  });
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+  }
+  const payload = (await response.json()) as ApiExhibitImportResponse;
+  return {
+    totalRows: payload.total_rows,
+    validRows: payload.valid_rows,
+    importedCount: payload.imported_count,
+    errors: payload.errors,
+    items: payload.items.map(mapApiExhibit)
+  };
 }
 
 export async function fetchExhibitGraph(exhibitId: string) {

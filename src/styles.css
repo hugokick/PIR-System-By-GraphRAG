@@ -47,7 +47,8 @@ button {
 .top-actions,
 .semantic-input,
 .media-row,
-.upload {
+.upload,
+.import-upload {
   display: flex;
   align-items: center;
 }
@@ -118,7 +119,8 @@ textarea:focus {
 .semantic-results button,
 .secondary-action,
 .danger-action,
-.upload {
+.upload,
+.import-upload {
   border: 0;
   border-radius: 6px;
   background: #0f8b78;
@@ -134,6 +136,11 @@ textarea:focus {
 .secondary-action {
   background: #e7eeeb;
   color: #24514b;
+}
+
+.import-upload {
+  cursor: pointer;
+  margin-bottom: 0;
 }
 
 .danger-action {
@@ -524,11 +531,13 @@ textarea:focus {
   flex-wrap: wrap;
 }
 
-.upload {
+.upload,
+.import-upload {
   position: relative;
 }
 
-.upload input {
+.upload input,
+.import-upload input {
   position: absolute;
   inset: 0;
   opacity: 0;

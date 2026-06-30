@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .repository import create_repository
 from .schemas import (
     DocumentAsset,
+    ExhibitImportResponse,
     ExhibitListResponse,
     ExhibitResponse,
     ExhibitWriteRequest,
@@ -18,6 +19,7 @@ from .schemas import (
 from .services.assets import file_extension, file_path, media_type_from_upload, save_upload_file
 from .services.graphrag import answer_from_graphrag_context, search_graphrag_context
 from .services.graph import build_exhibit_graph
+from .services.imports import build_import_items, parse_import_file
 
 app = FastAPI(
     title="Exhibit Atlas API",
@@ -87,6 +89,32 @@ def list_exhibits(
         budget_max=budget_max,
     )
     return ExhibitListResponse(total=len(items), items=items)
+
+
+@app.post("/api/exhibits/import", response_model=ExhibitImportResponse)
+def import_exhibits(
+    commit: bool = Form(default=False),
+    file: UploadFile = File(...),
+) -> ExhibitImportResponse:
+    rows = parse_import_file(file)
+    items, errors = build_import_items(rows)
+    imported: list[ExhibitResponse] = []
+
+    if commit and not errors:
+        for item in items:
+            existing = repository.get_exhibit(item.id)
+            if existing is None:
+                imported.append(repository.create_exhibit(item))
+            else:
+                imported.append(repository.update_exhibit(item.id, item) or item)
+
+    return ExhibitImportResponse(
+        total_rows=len(rows),
+        valid_rows=len(items),
+        imported_count=len(imported),
+        errors=errors,
+        items=imported if commit and not errors else items,
+    )
 
 
 @app.get("/api/exhibits/{exhibit_id}", response_model=ExhibitResponse)

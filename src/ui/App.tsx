@@ -12,7 +12,8 @@ import {
   RotateCcw,
   Search,
   Sparkles,
-  Trash2
+  Trash2,
+  Upload
 } from 'lucide-react';
 import { buildGraph, graphStats } from '../lib/graph';
 import {
@@ -21,6 +22,7 @@ import {
   deleteExhibit,
   fetchExhibitGraph,
   fetchExhibits,
+  importExhibits,
   updateExhibit,
   uploadExhibitAsset
 } from '../lib/api';
@@ -73,6 +75,11 @@ function assetKindForFile(file: File): 'media' | 'document' {
   return documentExtensions.has(fileExtension(file.name)) ? 'document' : 'media';
 }
 
+function mergeImportedExhibits(currentItems: Exhibit[], importedItems: Exhibit[]) {
+  const importedIds = new Set(importedItems.map((item) => item.id));
+  return [...importedItems, ...currentItems.filter((item) => !importedIds.has(item.id))];
+}
+
 function makeExhibitFromForm(form: HTMLFormElement, existingItem?: Exhibit): Exhibit {
   const data = new FormData(form);
   const list = (key: string) =>
@@ -119,6 +126,7 @@ export function App() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [remoteGraph, setRemoteGraph] = useState<{
     exhibitId: string;
@@ -346,6 +354,34 @@ export function App() {
     setLoadError('已恢复本地样例数据');
   };
 
+  const importSpreadsheet = async (event: FormEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    if (!file || isImporting) return;
+    setIsImporting(true);
+    try {
+      const result = await importExhibits(file, true);
+      if (result.errors.length > 0) {
+        setDataSource('api');
+        setLoadError(`导入校验发现 ${result.errors.length} 个问题，未写入数据`);
+        return;
+      }
+      if (result.items.length > 0) {
+        const updated = mergeImportedExhibits(items, result.items);
+        setItems(updated);
+        setSelectedId(result.items[0].id);
+      }
+      setDataSource('api');
+      setLoadError(`已导入 ${result.importedCount} 条展项`);
+    } catch {
+      setDataSource('local');
+      setLoadError('表格导入失败，请检查字段模板和网络连接');
+    } finally {
+      setIsImporting(false);
+      input.value = '';
+    }
+  };
+
   return (
     <main className="app-shell">
       <aside className="sidebar">
@@ -432,6 +468,11 @@ export function App() {
               <RotateCcw size={18} />
               恢复样例
             </button>
+            <label className="import-upload">
+              <Upload size={18} />
+              {isImporting ? '导入中' : '导入表格'}
+              <input type="file" accept=".csv,.xlsx" onChange={importSpreadsheet} disabled={isImporting} />
+            </label>
           </div>
         </header>
 

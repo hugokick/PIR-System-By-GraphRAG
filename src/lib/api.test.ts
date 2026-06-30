@@ -4,6 +4,7 @@ import {
   buildExhibitQuery,
   createExhibit,
   deleteExhibit,
+  importExhibits,
   mapApiExhibit,
   mapApiGraph,
   mapExhibitToApiPayload,
@@ -374,5 +375,37 @@ describe('uploadExhibitAsset', () => {
       url: '/api/files/uploaded-document',
       sourceNote: '报价资料'
     });
+  });
+});
+
+describe('importExhibits', () => {
+  it('uploads spreadsheet files and maps imported exhibit rows', async () => {
+    const importedPayload = {
+      total_rows: 1,
+      valid_rows: 1,
+      imported_count: 1,
+      errors: [],
+      items: [mapExhibitToApiPayload(frontendExhibit)]
+    };
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => importedPayload
+    } as Response);
+    const file = new File(['id,name\nmagnet-maze,磁力迷宫'], 'exhibits.csv', { type: 'text/csv' });
+
+    const result = await importExhibits(file, true);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/exhibits/import',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.any(FormData)
+      })
+    );
+    const body = fetchMock.mock.calls[0][1]?.body as FormData;
+    expect(body.get('commit')).toBe('true');
+    expect(body.get('file')).toBe(file);
+    expect(result.importedCount).toBe(1);
+    expect(result.items[0].id).toBe('magnet-maze');
   });
 });

@@ -76,6 +76,20 @@ class ExhibitListResponse(BaseModel):
     items: list[ExhibitResponse]
 
 
+class ExhibitImportError(BaseModel):
+    row: int
+    field: str
+    message: str
+
+
+class ExhibitImportResponse(BaseModel):
+    total_rows: int
+    valid_rows: int
+    imported_count: int
+    errors: list[ExhibitImportError]
+    items: list[ExhibitResponse]
+
+
 class GraphNode(BaseModel):
     id: str
     label: str

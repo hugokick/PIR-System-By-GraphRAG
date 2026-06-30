@@ -274,4 +274,74 @@ describe('App exhibit management', () => {
       expect.objectContaining({ method: 'POST' })
     );
   });
+
+  it('imports spreadsheet rows through the backend and renders the imported exhibit', async () => {
+    const importedExhibit = {
+      ...frontendExhibit,
+      id: 'imported-demo',
+      name: 'Imported Demo',
+      theme: 'Mechanics',
+      materials: ['Metal'],
+      interactions: ['Hands-on'],
+      relatedExhibitIds: ['magnet-maze']
+    };
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/api/exhibits/import')) {
+        expect(init?.method).toBe('POST');
+        expect(init?.body).toBeInstanceOf(FormData);
+        const body = init?.body as FormData;
+        expect(body.get('commit')).toBe('true');
+        return okJson({
+          total_rows: 1,
+          valid_rows: 1,
+          imported_count: 1,
+          errors: [],
+          items: [apiExhibit(importedExhibit)]
+        });
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: '磁力迷宫' });
+    const input = document.querySelector('.import-upload input') as HTMLInputElement;
+    const file = new File(['id,name\nimported-demo,Imported Demo'], 'exhibits.csv', { type: 'text/csv' });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    expect(await screen.findByRole('heading', { name: 'Imported Demo' })).toBeTruthy();
+    expect(screen.getByText('已导入 1 条展项')).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/exhibits/import',
+      expect.objectContaining({ method: 'POST' })
+    );
+  });
+
+  it('shows import validation errors without changing the selected exhibit', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/api/exhibits/import')) {
+        expect(init?.method).toBe('POST');
+        return okJson({
+          total_rows: 1,
+          valid_rows: 0,
+          imported_count: 0,
+          errors: [{ row: 2, field: 'budget_min', message: 'Must be an integer' }],
+          items: []
+        });
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: '磁力迷宫' });
+    const input = document.querySelector('.import-upload input') as HTMLInputElement;
+    const file = new File(['bad csv'], 'bad.csv', { type: 'text/csv' });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    expect(await screen.findByText('导入校验发现 1 个问题，未写入数据')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: '磁力迷宫' })).toBeTruthy();
+  });
 });
