@@ -196,6 +196,16 @@ textarea:focus {
   font-weight: 700;
 }
 
+.budget-range {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.budget-range label {
+  min-width: 0;
+}
+
 .import-upload {
   cursor: pointer;
   margin-bottom: 0;

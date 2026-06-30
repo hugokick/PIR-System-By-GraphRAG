@@ -266,6 +266,24 @@ describe('App exhibit management', () => {
     });
   });
 
+  it('filters exhibits by budget range through backend query parameters', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [apiExhibit()] }));
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: '磁力迷宫' });
+    fireEvent.change(screen.getByLabelText('最低造价'), { target: { value: '200000' } });
+    fireEvent.change(screen.getByLabelText('最高造价'), { target: { value: '500000' } });
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([input]) =>
+          String(input).includes('/api/exhibits?budget_min=200000&budget_max=500000')
+        )
+      ).toBe(true);
+    });
+  });
+
   it('disables write controls after switching to viewer role', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [apiExhibit()] }));
 

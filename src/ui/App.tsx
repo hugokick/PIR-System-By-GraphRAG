@@ -169,6 +169,8 @@ export function App() {
     return initialRole;
   });
   const [filters, setFilters] = useState<ExhibitFilters>(emptyFilters);
+  const [budgetMinInput, setBudgetMinInput] = useState('');
+  const [budgetMaxInput, setBudgetMaxInput] = useState('');
   const [semanticQuery, setSemanticQuery] = useState('找几个适合低龄儿童、预算不高、互动性强的力学展项');
   const [remoteSemanticResults, setRemoteSemanticResults] = useState<SearchResult[] | null>(null);
   const [isSemanticSearching, setIsSemanticSearching] = useState(false);
@@ -387,6 +389,27 @@ export function App() {
 
   const updateFilter = (key: keyof ExhibitFilters, value: string) => {
     setFilters((current) => ({ ...current, [key]: value }));
+  };
+
+  const updateBudgetFilter = (nextMin: string, nextMax: string) => {
+    setBudgetMinInput(nextMin);
+    setBudgetMaxInput(nextMax);
+    const min = Number(nextMin);
+    const max = Number(nextMax);
+    setFilters((current) => {
+      const next = { ...current };
+      delete next.budgetRange;
+      if (nextMin.trim() && nextMax.trim() && Number.isFinite(min) && Number.isFinite(max) && min >= 0 && max >= min) {
+        return { ...next, budgetRange: [min, max] };
+      }
+      return next;
+    });
+  };
+
+  const resetFilters = () => {
+    setBudgetMinInput('');
+    setBudgetMaxInput('');
+    setFilters(emptyFilters);
   };
 
   const submitLogin = async (event: FormEvent<HTMLFormElement>) => {
@@ -653,8 +676,30 @@ export function App() {
           <Select label="材料" value={filters.material} values={options.materials} onChange={(value) => updateFilter('material', value)} />
           <Select label="交互方式" value={filters.interaction} values={options.interactions} onChange={(value) => updateFilter('interaction', value)} />
           <Select label="状态" value={filters.status} values={statuses} onChange={(value) => updateFilter('status', value)} />
+          <div className="budget-range">
+            <label>
+              最低造价
+              <input
+                type="number"
+                min="0"
+                value={budgetMinInput}
+                onChange={(event) => updateBudgetFilter(event.target.value, budgetMaxInput)}
+                placeholder="如 200000"
+              />
+            </label>
+            <label>
+              最高造价
+              <input
+                type="number"
+                min="0"
+                value={budgetMaxInput}
+                onChange={(event) => updateBudgetFilter(budgetMinInput, event.target.value)}
+                placeholder="如 500000"
+              />
+            </label>
+          </div>
           <div className="filter-actions">
-            <button type="button" onClick={() => setFilters(emptyFilters)}>
+            <button type="button" onClick={resetFilters}>
               <RotateCcw size={16} />
               重置
             </button>
