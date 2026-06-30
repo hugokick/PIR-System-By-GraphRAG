@@ -1,4 +1,4 @@
-import type { AuditLogEntry, Exhibit, ExhibitFilters, GraphEdge, GraphNode, GraphRagAnswer, MediaAsset, UserSession } from '../types';
+import type { AuditLogEntry, Exhibit, ExhibitFilters, GraphEdge, GraphNode, GraphRagAnswer, MediaAsset, SearchResult, UserSession } from '../types';
 
 export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
 export const importTemplateUrl = `${apiBaseUrl}/api/exhibits/import-template`;
@@ -111,6 +111,18 @@ type ApiGraphRagAnswerResponse = {
   answer: string;
   citations: ApiGraphRagCitation[];
   items: ApiGraphRagHit[];
+};
+
+type ApiHybridSearchHit = {
+  exhibit: ApiExhibit;
+  score: number;
+  reasons: string[];
+};
+
+type ApiHybridSearchResponse = {
+  query: string;
+  total: number;
+  items: ApiHybridSearchHit[];
 };
 
 type ApiExhibitImportError = {
@@ -521,4 +533,39 @@ export async function askGraphRag(query: string, topK = 3): Promise<GraphRagAnsw
     body: JSON.stringify({ query, top_k: topK })
   });
   return mapApiGraphRagAnswer(payload);
+}
+
+export async function hybridSearchExhibits(
+  query: string,
+  filters: ExhibitFilters = {},
+  limit = 4
+): Promise<SearchResult[]> {
+  const payload = await sendJson<ApiHybridSearchResponse>('/api/search/hybrid', {
+    method: 'POST',
+    body: JSON.stringify({
+      query,
+      limit,
+      filters: mapHybridSearchFilters(filters)
+    })
+  });
+  return payload.items.map((item) => ({
+    item: mapApiExhibit(item.exhibit),
+    score: item.score,
+    matchedSignals: item.reasons
+  }));
+}
+
+function mapHybridSearchFilters(filters: ExhibitFilters) {
+  const payload: Record<string, string | number> = {};
+  if (filters.category) payload.category = filters.category;
+  if (filters.theme) payload.theme = filters.theme;
+  if (filters.material) payload.material = filters.material;
+  if (filters.interaction) payload.interaction = filters.interaction;
+  if (filters.venueType) payload.venue_type = filters.venueType;
+  if (filters.status) payload.status = filters.status;
+  if (filters.budgetRange) {
+    payload.budget_min = filters.budgetRange[0];
+    payload.budget_max = filters.budgetRange[1];
+  }
+  return payload;
 }

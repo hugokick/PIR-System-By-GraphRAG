@@ -414,8 +414,24 @@ textarea:focus {
   gap: 10px;
 }
 
+.semantic-input input {
+  min-width: 0;
+  flex: 1;
+}
+
+.semantic-input small {
+  color: #607d75;
+  white-space: nowrap;
+}
+
 .semantic-input svg {
   color: #0f8b78;
+}
+
+.semantic-error {
+  margin: 8px 0 0;
+  color: #9b4b21;
+  font-size: 13px;
 }
 
 .semantic-results {

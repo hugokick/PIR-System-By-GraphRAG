@@ -152,6 +152,35 @@ class GraphRagSearchResponse(BaseModel):
     items: list[GraphRagSearchHit]
 
 
+class HybridSearchFilters(BaseModel):
+    category: str | None = None
+    theme: str | None = None
+    material: str | None = None
+    interaction: str | None = None
+    venue_type: str | None = None
+    status: str | None = None
+    budget_min: int | None = Field(default=None, ge=0)
+    budget_max: int | None = Field(default=None, ge=0)
+
+
+class HybridSearchRequest(BaseModel):
+    query: str = Field(min_length=1)
+    limit: int = Field(default=5, ge=1, le=20)
+    filters: HybridSearchFilters | None = None
+
+
+class HybridSearchHit(BaseModel):
+    exhibit: ExhibitResponse
+    score: float
+    reasons: list[str]
+
+
+class HybridSearchResponse(BaseModel):
+    query: str
+    total: int
+    items: list[HybridSearchHit]
+
+
 class GraphRagAnswerRequest(BaseModel):
     query: str = Field(min_length=1)
     top_k: int = Field(default=3, ge=1, le=10)

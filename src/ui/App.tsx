@@ -25,6 +25,7 @@ import {
   fetchDemoGraph,
   fetchExhibitGraph,
   fetchExhibits,
+  hybridSearchExhibits,
   importTemplateUrl,
   importExhibits,
   login,
@@ -47,6 +48,7 @@ import type {
   GraphNode,
   GraphRagAnswer,
   MediaAsset,
+  SearchResult,
   UserSession
 } from '../types';
 
@@ -168,6 +170,9 @@ export function App() {
   });
   const [filters, setFilters] = useState<ExhibitFilters>(emptyFilters);
   const [semanticQuery, setSemanticQuery] = useState('找几个适合低龄儿童、预算不高、互动性强的力学展项');
+  const [remoteSemanticResults, setRemoteSemanticResults] = useState<SearchResult[] | null>(null);
+  const [isSemanticSearching, setIsSemanticSearching] = useState(false);
+  const [semanticError, setSemanticError] = useState<string | null>(null);
   const [graphRagQuery, setGraphRagQuery] = useState('pulley-wall');
   const [graphRagAnswer, setGraphRagAnswer] = useState<GraphRagAnswer | null>(null);
   const [graphRagError, setGraphRagError] = useState<string | null>(null);
@@ -242,7 +247,8 @@ export function App() {
   );
 
   const filteredItems = useMemo(() => filterExhibits(items, filters), [items, filters]);
-  const semanticResults = useMemo(() => semanticSearch(items, semanticQuery).slice(0, 4), [items, semanticQuery]);
+  const localSemanticResults = useMemo(() => semanticSearch(items, semanticQuery).slice(0, 4), [items, semanticQuery]);
+  const semanticResults = remoteSemanticResults ?? localSemanticResults;
   const selected = items.find((item) => item.id === selectedId) ?? filteredItems[0] ?? items[0];
   const editingItem = editingId ? items.find((item) => item.id === editingId) : undefined;
   const fallbackGraph = useMemo(() => (selected ? buildGraph(selected, items) : { nodes: [], edges: [] }), [selected, items]);
@@ -293,6 +299,38 @@ export function App() {
       cancelled = true;
     };
   }, [role]);
+
+  useEffect(() => {
+    const query = semanticQuery.trim();
+    if (!query) {
+      setRemoteSemanticResults([]);
+      setSemanticError(null);
+      setIsSemanticSearching(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsSemanticSearching(true);
+    hybridSearchExhibits(query, filters, 4)
+      .then((results) => {
+        if (cancelled) return;
+        setRemoteSemanticResults(results);
+        setSemanticError(null);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setRemoteSemanticResults(null);
+        setSemanticError('后端混合检索暂不可用，已使用本地语义召回');
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setIsSemanticSearching(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [semanticQuery, filters]);
 
   useEffect(() => {
     if (!selected) {
@@ -831,7 +869,9 @@ export function App() {
           <div className="semantic-input">
             <Sparkles size={20} />
             <input value={semanticQuery} onChange={(event) => setSemanticQuery(event.target.value)} />
+            {isSemanticSearching && <small>检索中</small>}
           </div>
+          {semanticError && <p className="semantic-error">{semanticError}</p>}
           <div className="semantic-results">
             {semanticResults.map((result) => (
               <button type="button" key={result.item.id} onClick={() => setSelectedId(result.item.id)}>

@@ -423,6 +423,36 @@ describe('App exhibit management', () => {
     );
   });
 
+  it('renders backend hybrid search reasons in semantic recommendations', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/api/search/hybrid')) {
+        expect(init?.method).toBe('POST');
+        expect(JSON.parse(String(init?.body)).query).toContain('低龄儿童');
+        return okJson({
+          query: '找几个适合低龄儿童、预算不高、互动性强的力学展项',
+          total: 1,
+          items: [
+            {
+              exhibit: apiExhibit(),
+              score: 14,
+              reasons: ['匹配人群：低龄儿童', '筛选互动：机械互动']
+            }
+          ]
+        });
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText(/筛选互动：机械互动/)).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/search/hybrid',
+      expect.objectContaining({ method: 'POST' })
+    );
+  });
+
   it('renders document assets returned by the backend', async () => {
     const withDocument = {
       ...apiExhibit(),

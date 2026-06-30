@@ -6,6 +6,7 @@ import {
   deleteExhibit,
   fetchAuditLogs,
   fetchDemoGraph,
+  hybridSearchExhibits,
   importExhibits,
   login,
   mapApiExhibit,
@@ -482,6 +483,55 @@ describe('askGraphRag', () => {
     expect(result.answer).toBe('Based on exhibit records and graph context.');
     expect(result.items[0].exhibit.id).toBe('lever-play');
     expect(result.citations[0].sourceId).toBe('lever-play');
+  });
+});
+
+describe('hybridSearchExhibits', () => {
+  it('posts hybrid search requests and maps scored exhibit hits', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        query: '低龄儿童 力学 互动',
+        total: 1,
+        items: [
+          {
+            exhibit: apiExhibit,
+            score: 14,
+            reasons: ['匹配人群：低龄儿童', '筛选互动：机械互动']
+          }
+        ]
+      })
+    } as Response);
+
+    const result = await hybridSearchExhibits('低龄儿童 力学 互动', {
+      venueType: '儿童科技馆',
+      theme: '力学',
+      material: '金属',
+      interaction: '机械互动',
+      budgetRange: [0, 350000]
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/search/hybrid',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Role': 'admin' }
+      })
+    );
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
+      query: '低龄儿童 力学 互动',
+      limit: 4,
+      filters: {
+        venue_type: '儿童科技馆',
+        theme: '力学',
+        material: '金属',
+        interaction: '机械互动',
+        budget_min: 0,
+        budget_max: 350000
+      }
+    });
+    expect(result[0].item.id).toBe('lever-play');
+    expect(result[0].matchedSignals).toEqual(['匹配人群：低龄儿童', '筛选互动：机械互动']);
   });
 });
 

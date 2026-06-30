@@ -21,12 +21,15 @@ from .schemas import (
     GraphRagAnswerResponse,
     GraphRagSearchRequest,
     GraphRagSearchResponse,
+    HybridSearchRequest,
+    HybridSearchResponse,
     MediaAsset,
 )
 from .services.assets import file_extension, file_path, media_type_from_upload, save_upload_file
 from .services.auth import authenticate_demo_user, issue_access_token, verify_access_token
 from .services.documents import extract_document_chunks
 from .services.graphrag import answer_from_graphrag_context, search_graphrag_context
+from .services.hybrid_search import search_hybrid_exhibits
 from .services.imports import build_import_items, build_import_template_xlsx, parse_import_file
 
 app = FastAPI(
@@ -369,6 +372,16 @@ def get_neo4j_demo_graph() -> GraphResponse:
         return service.get_demo_graph()
     finally:
         service.close()
+
+
+@app.post("/api/search/hybrid", response_model=HybridSearchResponse)
+def hybrid_search(payload: HybridSearchRequest) -> HybridSearchResponse:
+    return search_hybrid_exhibits(
+        payload.query,
+        repository.list_exhibits(),
+        limit=payload.limit,
+        filters=payload.filters,
+    )
 
 
 @app.post("/api/graphrag/search", response_model=GraphRagSearchResponse)
