@@ -651,6 +651,112 @@ textarea:focus {
   opacity: 0;
 }
 
+.import-preview {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #d7e4de;
+  border-radius: 8px;
+  padding: 14px;
+  background: #fbfcfa;
+}
+
+.import-preview-header,
+.import-preview-actions,
+.import-preview-stats,
+.import-preview-errors div,
+.import-preview-items button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.import-preview-header {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.import-preview-header div:first-child {
+  display: grid;
+  gap: 4px;
+  min-width: 180px;
+}
+
+.import-preview-header strong {
+  overflow-wrap: anywhere;
+}
+
+.import-preview-header span,
+.import-preview-stats span,
+.import-preview-errors span,
+.import-preview-items span {
+  color: #60766f;
+  font-size: 0.86rem;
+}
+
+.import-preview-actions button,
+.import-preview-items button {
+  border: 1px solid #cbdad4;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #174d44;
+}
+
+.import-preview-actions button {
+  padding: 8px 12px;
+}
+
+.import-preview-actions button:first-child {
+  background: #0f8b78;
+  border-color: #0f8b78;
+  color: #ffffff;
+}
+
+.import-preview-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.import-preview-stats {
+  flex-wrap: wrap;
+}
+
+.import-preview-stats span {
+  border: 1px solid #dce7e2;
+  border-radius: 999px;
+  padding: 5px 10px;
+  background: #ffffff;
+}
+
+.import-preview-errors,
+.import-preview-items {
+  display: grid;
+  gap: 8px;
+}
+
+.import-preview-errors div {
+  justify-content: flex-start;
+  border: 1px solid #efd8d5;
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: #fff7f6;
+}
+
+.import-preview-errors em {
+  color: #9b3d33;
+  font-style: normal;
+}
+
+.import-preview-items button {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  padding: 10px;
+  text-align: left;
+}
+
+.import-preview-items button:disabled {
+  cursor: default;
+}
+
 .media-row a {
   color: #0f6c5f;
   background: #eef7f2;

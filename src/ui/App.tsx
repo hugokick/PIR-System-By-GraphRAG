@@ -30,6 +30,7 @@ import {
   setApiSession,
   updateExhibit,
   uploadExhibitAsset,
+  type ExhibitImportResult,
   type UserRole
 } from '../lib/api';
 import { filterExhibits, formatBudget, semanticSearch } from '../lib/search';
@@ -179,6 +180,7 @@ export function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [importPreview, setImportPreview] = useState<{ file: File; result: ExhibitImportResult } | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [auditError, setAuditError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -529,8 +531,31 @@ export function App() {
     if (!canWrite || !file || isImporting) return;
     setIsImporting(true);
     try {
-      const result = await importExhibits(file, true);
+      const result = await importExhibits(file, false);
+      setImportPreview({ file, result });
       if (result.errors.length > 0) {
+        setDataSource('api');
+        setLoadError(`导入校验发现 ${result.errors.length} 个问题，未写入数据`);
+        return;
+      }
+      setDataSource('api');
+      setLoadError(`导入预览完成：确认后写入 ${result.validRows} 条展项`);
+    } catch {
+      setDataSource('local');
+      setLoadError('表格导入失败，请检查字段模板和网络连接');
+    } finally {
+      setIsImporting(false);
+      input.value = '';
+    }
+  };
+
+  const confirmImportPreview = async () => {
+    if (!importPreview || importPreview.result.errors.length > 0 || importPreview.result.validRows === 0 || isImporting) return;
+    setIsImporting(true);
+    try {
+      const result = await importExhibits(importPreview.file, true);
+      if (result.errors.length > 0) {
+        setImportPreview({ file: importPreview.file, result });
         setDataSource('api');
         setLoadError(`导入校验发现 ${result.errors.length} 个问题，未写入数据`);
         return;
@@ -540,6 +565,7 @@ export function App() {
         setItems(updated);
         setSelectedId(result.items[0].id);
       }
+      setImportPreview(null);
       setDataSource('api');
       setLoadError(`已导入 ${result.importedCount} 条展项`);
     } catch {
@@ -547,7 +573,6 @@ export function App() {
       setLoadError('表格导入失败，请检查字段模板和网络连接');
     } finally {
       setIsImporting(false);
-      input.value = '';
     }
   };
 
@@ -715,6 +740,51 @@ export function App() {
             </label>
           </div>
         </header>
+
+        {importPreview && (
+          <section className="import-preview">
+            <div className="import-preview-header">
+              <div>
+                <span>导入预览</span>
+                <strong>{importPreview.file.name}</strong>
+              </div>
+              <div className="import-preview-actions">
+                <button type="button" onClick={confirmImportPreview} disabled={isImporting || importPreview.result.errors.length > 0 || importPreview.result.validRows === 0}>
+                  确认导入
+                </button>
+                <button type="button" onClick={() => setImportPreview(null)} disabled={isImporting}>
+                  取消
+                </button>
+              </div>
+            </div>
+            <div className="import-preview-stats">
+              <span>总行数 {importPreview.result.totalRows}</span>
+              <span>有效 {importPreview.result.validRows}</span>
+              <span>错误 {importPreview.result.errors.length}</span>
+            </div>
+            {importPreview.result.errors.length > 0 && (
+              <div className="import-preview-errors">
+                {importPreview.result.errors.map((error) => (
+                  <div key={`${error.row}-${error.field}-${error.message}`}>
+                    <span>第 {error.row} 行</span>
+                    <strong>{error.field}</strong>
+                    <em>{error.message}</em>
+                  </div>
+                ))}
+              </div>
+            )}
+            {importPreview.result.items.length > 0 && (
+              <div className="import-preview-items">
+                {importPreview.result.items.slice(0, 5).map((item) => (
+                  <button type="button" key={item.id} onClick={() => setSelectedId(item.id)} disabled={!items.some((current) => current.id === item.id)}>
+                    <strong>{item.name}</strong>
+                    <span>{item.category} / {item.theme} / {formatBudget(item)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         {showForm && (
           <form key={editingId ?? 'new-exhibit'} className="create-form" onSubmit={addExhibit}>

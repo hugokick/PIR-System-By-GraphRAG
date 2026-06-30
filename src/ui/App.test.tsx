@@ -550,7 +550,7 @@ describe('App exhibit management', () => {
     );
   });
 
-  it('imports spreadsheet rows through the backend and renders the imported exhibit', async () => {
+  it('previews spreadsheet rows before committing the import', async () => {
     const importedExhibit = {
       ...frontendExhibit,
       id: 'imported-demo',
@@ -566,11 +566,12 @@ describe('App exhibit management', () => {
         expect(init?.method).toBe('POST');
         expect(init?.body).toBeInstanceOf(FormData);
         const body = init?.body as FormData;
-        expect(body.get('commit')).toBe('true');
+        const commit = body.get('commit');
+        expect(commit === 'false' || commit === 'true').toBe(true);
         return okJson({
           total_rows: 1,
           valid_rows: 1,
-          imported_count: 1,
+          imported_count: commit === 'true' ? 1 : 0,
           errors: [],
           items: [apiExhibit(importedExhibit)]
         });
@@ -585,19 +586,35 @@ describe('App exhibit management', () => {
     const file = new File(['id,name\nimported-demo,Imported Demo'], 'exhibits.csv', { type: 'text/csv' });
     fireEvent.change(input, { target: { files: [file] } });
 
+    expect(await screen.findByText('导入预览')).toBeTruthy();
+    expect(screen.getByText('总行数 1')).toBeTruthy();
+    expect(screen.getByText('有效 1')).toBeTruthy();
+    expect(screen.getByText('Imported Demo')).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/exhibits/import',
+      expect.objectContaining({ method: 'POST' })
+    );
+    const importCalls = fetchMock.mock.calls.filter(([input]) => String(input).endsWith('/api/exhibits/import'));
+    expect((importCalls[0][1]?.body as FormData).get('commit')).toBe('false');
+
+    fireEvent.click(screen.getByRole('button', { name: '确认导入' }));
+
     expect(await screen.findByRole('heading', { name: 'Imported Demo' })).toBeTruthy();
     expect(screen.getByText('已导入 1 条展项')).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledWith(
       'http://127.0.0.1:8000/api/exhibits/import',
       expect.objectContaining({ method: 'POST' })
     );
+    const committedImportCalls = fetchMock.mock.calls.filter(([input]) => String(input).endsWith('/api/exhibits/import'));
+    expect((committedImportCalls[1][1]?.body as FormData).get('commit')).toBe('true');
   });
 
-  it('shows import validation errors without changing the selected exhibit', async () => {
+  it('shows import validation preview errors without changing the selected exhibit', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = String(input);
       if (url.endsWith('/api/exhibits/import')) {
         expect(init?.method).toBe('POST');
+        expect((init?.body as FormData).get('commit')).toBe('false');
         return okJson({
           total_rows: 1,
           valid_rows: 0,
@@ -617,6 +634,11 @@ describe('App exhibit management', () => {
     fireEvent.change(input, { target: { files: [file] } });
 
     expect(await screen.findByText('导入校验发现 1 个问题，未写入数据')).toBeTruthy();
+    expect(screen.getByText('导入预览')).toBeTruthy();
+    expect(screen.getByText('第 2 行')).toBeTruthy();
+    expect(screen.getByText('budget_min')).toBeTruthy();
+    expect(screen.getByText('Must be an integer')).toBeTruthy();
+    expect((screen.getByRole('button', { name: '确认导入' }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByRole('heading', { name: '磁力迷宫' })).toBeTruthy();
   });
 });
