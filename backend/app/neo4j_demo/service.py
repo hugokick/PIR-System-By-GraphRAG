@@ -77,8 +77,11 @@ class Neo4jDemoGraphService:
             return self._fallback(exhibit_id)
 
         graph = map_neo4j_records_to_graph_response(rows)
+        fallback = self._fallback(exhibit_id)
         if not graph.nodes:
-            return self._fallback(exhibit_id)
+            return fallback
+        if not graph.edges and fallback.edges:
+            return fallback
         return graph
 
     def get_demo_graph(self) -> GraphResponse:

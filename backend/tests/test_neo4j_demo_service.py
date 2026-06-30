@@ -1,4 +1,5 @@
 from app.neo4j_demo.service import Neo4jDemoGraphService
+from app.repository import seed_exhibits
 from app.schemas import GraphResponse
 
 
@@ -10,6 +11,20 @@ class FailingClient:
 class EmptyClient:
     def fetch_exhibit_graph(self, exhibit_id: str):
         return []
+
+
+class CenterOnlyClient:
+    def fetch_exhibit_graph(self, exhibit_id: str):
+        return [
+            {
+                "center": {"id": exhibit_id, "name": "Source Exhibit"},
+                "center_labels": ["Exhibit"],
+                "neighbor": None,
+                "neighbor_labels": None,
+                "rel_type": None,
+                "rel_label": None,
+            }
+        ]
 
 
 class HappyClient:
@@ -73,6 +88,16 @@ def test_service_falls_back_when_client_returns_no_rows():
     assert isinstance(result, GraphResponse)
     assert result.nodes
     assert any(node.id == "exhibit:lever-play" for node in result.nodes)
+
+
+def test_service_falls_back_when_neo4j_returns_center_without_relationships():
+    source = seed_exhibits[0].model_copy(update={"id": "source-demo", "related_exhibit_ids": ["target-demo"]})
+    target = seed_exhibits[1].model_copy(update={"id": "target-demo", "related_exhibit_ids": []})
+    service = Neo4jDemoGraphService(client=CenterOnlyClient(), exhibits=[source, target])
+
+    result = service.get_exhibit_graph("source-demo")
+
+    assert any(edge.type == "similar_to" and edge.target == "exhibit:target-demo" for edge in result.edges)
 
 
 def test_service_default_fallback_uses_demo_exhibits():
