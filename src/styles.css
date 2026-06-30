@@ -272,6 +272,20 @@ textarea:focus {
   font-size: 13px;
 }
 
+.dashboard-group {
+  margin-top: 13px;
+}
+
+.dashboard-group h3 {
+  margin: 0;
+  color: #53615d;
+  font-size: 12px;
+}
+
+.dashboard-group .mini-bars {
+  margin-top: 8px;
+}
+
 .mini-bars span {
   display: flex;
   align-items: center;

@@ -2,15 +2,19 @@ import { describe, expect, it } from 'vitest';
 import { graphStats } from './graph';
 import type { Exhibit } from '../types';
 
-function exhibit(id: string, reviewStatus: Exhibit['reviewStatus']): Exhibit {
+function exhibit(
+  id: string,
+  reviewStatus: Exhibit['reviewStatus'],
+  overrides: Partial<Pick<Exhibit, 'theme' | 'budgetMin' | 'budgetMax'>> = {}
+): Exhibit {
   return {
     id,
     name: id,
     category: id === 'water-cycle' ? '生态环境' : '基础科学',
-    theme: '力学',
+    theme: overrides.theme ?? '力学',
     venueType: '儿童科技馆',
-    budgetMin: 100000,
-    budgetMax: 300000,
+    budgetMin: overrides.budgetMin ?? 100000,
+    budgetMax: overrides.budgetMax ?? 300000,
     materials: ['金属'],
     dimensions: '1000x1000x1000mm',
     interactions: ['机械互动'],
@@ -43,5 +47,23 @@ describe('graphStats', () => {
     ]);
     expect(stats.pendingReview).toBe(1);
     expect(stats.rejectedReview).toBe(1);
+  });
+
+  it('summarizes budget bands and hot themes for the dashboard', () => {
+    const stats = graphStats([
+      exhibit('hands-on-low', '已审核', { theme: '力学', budgetMin: 80000, budgetMax: 120000 }),
+      exhibit('pulley-mid', '待审核', { theme: '力学', budgetMin: 200000, budgetMax: 500000 }),
+      exhibit('space-high', '已审核', { theme: '天文', budgetMin: 900000, budgetMax: 1600000 })
+    ]);
+
+    expect(stats.budgetBands).toEqual([
+      ['20万以下', 1],
+      ['20-50万', 1],
+      ['50万以上', 1]
+    ]);
+    expect(stats.themes).toEqual([
+      ['力学', 2],
+      ['天文', 1]
+    ]);
   });
 });

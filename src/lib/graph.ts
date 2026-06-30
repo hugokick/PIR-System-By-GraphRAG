@@ -43,11 +43,24 @@ export function graphStats(items: Exhibit[]) {
   const categories = new Map<string, number>();
   const themes = new Map<string, number>();
   const reviewStatuses = new Map<string, number>();
+  const budgetBands = new Map([
+    ['20万以下', 0],
+    ['20-50万', 0],
+    ['50万以上', 0]
+  ]);
 
   items.forEach((item) => {
     categories.set(item.category, (categories.get(item.category) ?? 0) + 1);
     themes.set(item.theme, (themes.get(item.theme) ?? 0) + 1);
     reviewStatuses.set(item.reviewStatus, (reviewStatuses.get(item.reviewStatus) ?? 0) + 1);
+    const averageBudget = (item.budgetMin + item.budgetMax) / 2;
+    if (averageBudget < 200000) {
+      budgetBands.set('20万以下', (budgetBands.get('20万以下') ?? 0) + 1);
+    } else if (averageBudget <= 500000) {
+      budgetBands.set('20-50万', (budgetBands.get('20-50万') ?? 0) + 1);
+    } else {
+      budgetBands.set('50万以上', (budgetBands.get('50万以上') ?? 0) + 1);
+    }
   });
 
   return {
@@ -59,6 +72,7 @@ export function graphStats(items: Exhibit[]) {
       items.reduce((sum, item) => sum + (item.budgetMin + item.budgetMax) / 2, 0) / Math.max(items.length, 1) / 10000
     ),
     categories: [...categories.entries()],
+    budgetBands: [...budgetBands.entries()].filter(([, count]) => count > 0),
     themes: [...themes.entries()].sort((a, b) => b[1] - a[1]),
     reviewStatuses: [...reviewStatuses.entries()]
   };

@@ -342,6 +342,51 @@ describe('App exhibit management', () => {
     expect(screen.getByText('退回 1')).toBeTruthy();
   });
 
+  it('shows budget bands and hot themes in the dashboard', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
+      okJson({
+        total: 3,
+        items: [
+          apiExhibit({
+            ...frontendExhibit,
+            id: 'low-budget-demo',
+            name: '低预算展项',
+            theme: '力学',
+            budgetMin: 80000,
+            budgetMax: 120000
+          }),
+          apiExhibit({
+            ...frontendExhibit,
+            id: 'mid-budget-demo',
+            name: '中预算展项',
+            theme: '力学',
+            budgetMin: 200000,
+            budgetMax: 500000
+          }),
+          apiExhibit({
+            ...frontendExhibit,
+            id: 'high-budget-demo',
+            name: '高预算展项',
+            theme: '天文',
+            budgetMin: 900000,
+            budgetMax: 1600000
+          })
+        ]
+      })
+    );
+
+    render(<App />);
+
+    expect((await screen.findAllByText('低预算展项')).length).toBeGreaterThan(0);
+    expect(screen.getByText('预算区间')).toBeTruthy();
+    expect(screen.getByText('20万以下 1')).toBeTruthy();
+    expect(screen.getByText('20-50万 1')).toBeTruthy();
+    expect(screen.getByText('50万以上 1')).toBeTruthy();
+    expect(screen.getByText('热门主题')).toBeTruthy();
+    expect(screen.getByText('力学 2')).toBeTruthy();
+    expect(screen.getByText('天文 1')).toBeTruthy();
+  });
+
   it('disables write controls after switching to viewer role', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [apiExhibit()] }));
 

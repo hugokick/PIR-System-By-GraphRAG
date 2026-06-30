@@ -728,15 +728,10 @@ export function App() {
             <span>待审 {stats.pendingReview}</span>
             <span>退回 {stats.rejectedReview}</span>
           </div>
+          <DashboardBars title="类别分布" items={stats.categories} />
+          <DashboardBars title="预算区间" items={stats.budgetBands} />
+          <DashboardBars title="热门主题" items={stats.themes.slice(0, 4)} />
           <div className="mini-bars">
-            {stats.categories.map(([label, count]) => (
-              <span key={label}>
-                <i style={{ width: `${Math.max(count * 34, 18)}px` }} />
-                {label} {count}
-              </span>
-            ))}
-          </div>
-          <div className="mini-bars review-bars">
             {stats.reviewStatuses.map(([label, count]) => (
               <span key={label}>
                 <i style={{ width: `${Math.max(count * 34, 18)}px` }} />
@@ -1241,6 +1236,23 @@ function Metric({ label, value }: { label: string; value: string | number }) {
     <div>
       <strong>{value}</strong>
       <span>{label}</span>
+    </div>
+  );
+}
+
+function DashboardBars({ title, items }: { title: string; items: Array<[string, number]> }) {
+  if (items.length === 0) return null;
+  return (
+    <div className="dashboard-group">
+      <h3>{title}</h3>
+      <div className="mini-bars">
+        {items.map(([label, count]) => (
+          <span key={label}>
+            <i style={{ width: `${Math.max(count * 34, 18)}px` }} />
+            {label} {count}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
