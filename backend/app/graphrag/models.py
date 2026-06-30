@@ -1,0 +1,26 @@
+from pydantic import BaseModel, Field
+
+from app.kg.models import KGEvidence, KGSnapshot
+from app.schemas import ExhibitResponse
+
+
+class GraphRAGFilters(BaseModel):
+    theme: str | None = None
+    material: str | None = None
+    interaction: str | None = None
+    venue_type: str | None = None
+    status: str | None = None
+
+
+class GraphRAGHit(BaseModel):
+    exhibit: ExhibitResponse
+    score: float
+    reasons: list[str] = Field(default_factory=list)
+    citations: list[KGEvidence] = Field(default_factory=list)
+    neighborhood: KGSnapshot
+
+
+class GraphRAGSearchResponse(BaseModel):
+    query: str
+    total: int
+    items: list[GraphRAGHit] = Field(default_factory=list)
