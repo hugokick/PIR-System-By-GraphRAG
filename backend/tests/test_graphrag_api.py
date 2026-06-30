@@ -29,6 +29,43 @@ def test_graphrag_search_returns_ranked_hits_with_graph_context_and_citations():
     assert "has_theme" in edge_types
 
 
+def test_graphrag_search_applies_structured_filters():
+    response = client.post(
+        "/api/graphrag/search",
+        json={
+            "query": "力学",
+            "top_k": 5,
+            "filters": {
+                "theme": "力学",
+                "status": "已落地",
+                "budget_min": 100000,
+                "budget_max": 400000,
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["exhibit"]["id"] == "lever-play"
+
+
+def test_graphrag_search_keeps_document_citations_with_their_exhibit():
+    response = client.post(
+        "/api/graphrag/search",
+        json={"query": "力学", "top_k": 2, "filters": {"theme": "力学"}},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    items_by_id = {item["exhibit"]["id"]: item for item in payload["items"]}
+    lever_citation_ids = {citation["source_id"] for citation in items_by_id["lever-play"]["citations"]}
+    pulley_citation_ids = {citation["source_id"] for citation in items_by_id["pulley-wall"]["citations"]}
+
+    assert "lever-brief" in lever_citation_ids
+    assert "lever-brief" not in pulley_citation_ids
+
+
 def test_graphrag_answer_uses_search_hits_and_returns_citations():
     response = client.post(
         "/api/graphrag/answer",

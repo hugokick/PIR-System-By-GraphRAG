@@ -213,6 +213,7 @@ def graphrag_search(payload: GraphRagSearchRequest) -> GraphRagSearchResponse:
         payload.query,
         repository.list_exhibits(),
         top_k=payload.top_k,
+        filters=payload.filters,
     )
 
 
@@ -222,4 +223,5 @@ def graphrag_answer(payload: GraphRagAnswerRequest) -> GraphRagAnswerResponse:
         payload.query,
         repository.list_exhibits(),
         top_k=payload.top_k,
+        filters=payload.filters,
     )

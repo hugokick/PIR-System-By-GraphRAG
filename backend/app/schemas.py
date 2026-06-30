@@ -108,9 +108,20 @@ class GraphResponse(BaseModel):
     edges: list[GraphEdge]
 
 
+class GraphRagRequestFilters(BaseModel):
+    theme: str | None = None
+    material: str | None = None
+    interaction: str | None = None
+    venue_type: str | None = None
+    status: str | None = None
+    budget_min: int | None = Field(default=None, ge=0)
+    budget_max: int | None = Field(default=None, ge=0)
+
+
 class GraphRagSearchRequest(BaseModel):
     query: str = Field(min_length=1)
     top_k: int = Field(default=5, ge=1, le=20)
+    filters: GraphRagRequestFilters | None = None
 
 
 class GraphRagCitation(BaseModel):
@@ -137,6 +148,7 @@ class GraphRagSearchResponse(BaseModel):
 class GraphRagAnswerRequest(BaseModel):
     query: str = Field(min_length=1)
     top_k: int = Field(default=3, ge=1, le=10)
+    filters: GraphRagRequestFilters | None = None
 
 
 class GraphRagAnswerResponse(BaseModel):
