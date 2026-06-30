@@ -131,6 +131,10 @@ function isPdfDocument(document: DocumentAsset) {
   return document.fileType.toLowerCase() === 'pdf';
 }
 
+function canPreviewMedia(asset: MediaAsset) {
+  return asset.type === 'image' || asset.type === 'video';
+}
+
 function mergeImportedExhibits(currentItems: Exhibit[], importedItems: Exhibit[]) {
   const importedIds = new Set(importedItems.map((item) => item.id));
   return [...importedItems, ...currentItems.filter((item) => !importedIds.has(item.id))];
@@ -1216,12 +1220,43 @@ export function App() {
                   上传媒体
                   <input type="file" accept="image/*,.pdf,.doc,.docx,.xlsx" onChange={attachMedia} disabled={!canWrite} />
                 </label>
-                {selected.media.map((asset) => (
-                  <a key={asset.id} href={asset.url} target="_blank" rel="noreferrer">
-                    {asset.name}
-                  </a>
-                ))}
               </div>
+
+              {selected.media.length > 0 && (
+                <section className="media-gallery" aria-label="媒体档案">
+                  <div className="panel-title">
+                    <ImageIcon size={18} />
+                    <span>媒体档案</span>
+                  </div>
+                  <div className="media-gallery-grid">
+                    {selected.media.map((asset) => (
+                      <article key={asset.id} className={canPreviewMedia(asset) ? 'media-card previewable' : 'media-card'}>
+                        {asset.type === 'image' && <img src={asset.url} alt={asset.name} onError={imageFallback} />}
+                        {asset.type === 'video' && (
+                          <video src={asset.url} controls aria-label={`${asset.name} 视频预览`} />
+                        )}
+                        {!canPreviewMedia(asset) && (
+                          <a className="media-file-link" href={asset.url} target="_blank" rel="noreferrer">
+                            <FileText size={22} />
+                            <span>{asset.name}</span>
+                          </a>
+                        )}
+                        <div>
+                          {canPreviewMedia(asset) ? (
+                            <a className="media-title-link" href={asset.url} target="_blank" rel="noreferrer">
+                              {asset.name}
+                            </a>
+                          ) : (
+                            <strong>{asset.name}</strong>
+                          )}
+                          <span>{asset.type}</span>
+                          {asset.note && <small>{asset.note}</small>}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              )}
 
               {selected.documents.length > 0 && (
                 <div className="document-list">
