@@ -2,7 +2,17 @@ from fastapi import FastAPI, HTTPException, Query, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from .repository import create_repository
-from .schemas import ExhibitListResponse, ExhibitResponse, ExhibitWriteRequest, GraphResponse
+from .schemas import (
+    ExhibitListResponse,
+    ExhibitResponse,
+    ExhibitWriteRequest,
+    GraphResponse,
+    GraphRagAnswerRequest,
+    GraphRagAnswerResponse,
+    GraphRagSearchRequest,
+    GraphRagSearchResponse,
+)
+from .services.graphrag import answer_from_graphrag_context, search_graphrag_context
 from .services.graph import build_exhibit_graph
 
 app = FastAPI(
@@ -113,3 +123,21 @@ def get_exhibit_graph(exhibit_id: str) -> GraphResponse:
     if exhibit is None:
         raise not_found(exhibit_id)
     return build_exhibit_graph(exhibit, repository.list_exhibits())
+
+
+@app.post("/api/graphrag/search", response_model=GraphRagSearchResponse)
+def graphrag_search(payload: GraphRagSearchRequest) -> GraphRagSearchResponse:
+    return search_graphrag_context(
+        payload.query,
+        repository.list_exhibits(),
+        top_k=payload.top_k,
+    )
+
+
+@app.post("/api/graphrag/answer", response_model=GraphRagAnswerResponse)
+def graphrag_answer(payload: GraphRagAnswerRequest) -> GraphRagAnswerResponse:
+    return answer_from_graphrag_context(
+        payload.query,
+        repository.list_exhibits(),
+        top_k=payload.top_k,
+    )

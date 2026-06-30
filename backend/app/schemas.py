@@ -92,3 +92,41 @@ class GraphEdge(BaseModel):
 class GraphResponse(BaseModel):
     nodes: list[GraphNode]
     edges: list[GraphEdge]
+
+
+class GraphRagSearchRequest(BaseModel):
+    query: str = Field(min_length=1)
+    top_k: int = Field(default=5, ge=1, le=20)
+
+
+class GraphRagCitation(BaseModel):
+    source_id: str
+    source_type: str
+    title: str
+    snippet: str
+
+
+class GraphRagSearchHit(BaseModel):
+    exhibit: ExhibitResponse
+    score: float
+    reasons: list[str]
+    citations: list[GraphRagCitation]
+    graph: GraphResponse
+
+
+class GraphRagSearchResponse(BaseModel):
+    query: str
+    total: int
+    items: list[GraphRagSearchHit]
+
+
+class GraphRagAnswerRequest(BaseModel):
+    query: str = Field(min_length=1)
+    top_k: int = Field(default=3, ge=1, le=10)
+
+
+class GraphRagAnswerResponse(BaseModel):
+    query: str
+    answer: str
+    citations: list[GraphRagCitation]
+    items: list[GraphRagSearchHit]
