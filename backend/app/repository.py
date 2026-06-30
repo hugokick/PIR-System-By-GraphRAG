@@ -201,6 +201,7 @@ class ExhibitRepository:
         venue_type: str | None = None,
         category: str | None = None,
         theme: str | None = None,
+        project_id: str | None = None,
         material: str | None = None,
         interaction: str | None = None,
         status: str | None = None,
@@ -217,6 +218,7 @@ class ExhibitRepository:
                 venue_type=venue_type,
                 category=category,
                 theme=theme,
+                project_id=project_id,
                 material=material,
                 interaction=interaction,
                 status=status,
@@ -232,6 +234,7 @@ class ExhibitRepository:
         venue_type: str | None,
         category: str | None,
         theme: str | None,
+        project_id: str | None,
         material: str | None,
         interaction: str | None,
         status: str | None,
@@ -260,6 +263,8 @@ class ExhibitRepository:
         if category and item.category != category:
             return False
         if theme and item.theme.name != theme:
+            return False
+        if project_id and item.project.id != project_id:
             return False
         if material and material not in [entity.name for entity in item.materials]:
             return False
@@ -506,6 +511,7 @@ class PostgresExhibitRepository:
         venue_type: str | None = None,
         category: str | None = None,
         theme: str | None = None,
+        project_id: str | None = None,
         material: str | None = None,
         interaction: str | None = None,
         status: str | None = None,
@@ -535,6 +541,7 @@ class PostgresExhibitRepository:
                 venue_type=venue_type,
                 category=category,
                 theme=theme,
+                project_id=project_id,
                 material=material,
                 interaction=interaction,
                 status=status,

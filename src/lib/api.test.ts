@@ -191,6 +191,7 @@ describe('buildExhibitQuery', () => {
     const query = buildExhibitQuery({
       keyword: '力学',
       venueType: '儿童科技馆',
+      projectId: 'qinghe-2024',
       material: '金属',
       interaction: '机械互动',
       budgetRange: [200000, 500000],
@@ -198,7 +199,7 @@ describe('buildExhibitQuery', () => {
     });
 
     expect(query.toString()).toBe(
-      'keyword=%E5%8A%9B%E5%AD%A6&venue_type=%E5%84%BF%E7%AB%A5%E7%A7%91%E6%8A%80%E9%A6%86&material=%E9%87%91%E5%B1%9E&interaction=%E6%9C%BA%E6%A2%B0%E4%BA%92%E5%8A%A8&status=%E5%B7%B2%E8%90%BD%E5%9C%B0&budget_min=200000&budget_max=500000'
+      'keyword=%E5%8A%9B%E5%AD%A6&venue_type=%E5%84%BF%E7%AB%A5%E7%A7%91%E6%8A%80%E9%A6%86&project_id=qinghe-2024&material=%E9%87%91%E5%B1%9E&interaction=%E6%9C%BA%E6%A2%B0%E4%BA%92%E5%8A%A8&status=%E5%B7%B2%E8%90%BD%E5%9C%B0&budget_min=200000&budget_max=500000'
     );
   });
 });

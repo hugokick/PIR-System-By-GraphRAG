@@ -155,6 +155,7 @@ class GraphRagSearchResponse(BaseModel):
 class HybridSearchFilters(BaseModel):
     category: str | None = None
     theme: str | None = None
+    project_id: str | None = None
     material: str | None = None
     interaction: str | None = None
     venue_type: str | None = None

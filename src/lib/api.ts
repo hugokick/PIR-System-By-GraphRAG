@@ -303,6 +303,7 @@ export function buildExhibitQuery(filters: ExhibitFilters) {
   if (filters.venueType) query.set('venue_type', filters.venueType);
   if (filters.category) query.set('category', filters.category);
   if (filters.theme) query.set('theme', filters.theme);
+  if (filters.projectId) query.set('project_id', filters.projectId);
   if (filters.material) query.set('material', filters.material);
   if (filters.interaction) query.set('interaction', filters.interaction);
   if (filters.status) query.set('status', filters.status);
@@ -559,6 +560,7 @@ function mapHybridSearchFilters(filters: ExhibitFilters) {
   const payload: Record<string, string | number> = {};
   if (filters.category) payload.category = filters.category;
   if (filters.theme) payload.theme = filters.theme;
+  if (filters.projectId) payload.project_id = filters.projectId;
   if (filters.material) payload.material = filters.material;
   if (filters.interaction) payload.interaction = filters.interaction;
   if (filters.venueType) payload.venue_type = filters.venueType;

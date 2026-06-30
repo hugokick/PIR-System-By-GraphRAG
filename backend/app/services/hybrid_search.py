@@ -64,6 +64,7 @@ def _apply_filters(
             venue_type=filters.venue_type,
             category=filters.category,
             theme=filters.theme,
+            project_id=filters.project_id,
             material=filters.material,
             interaction=filters.interaction,
             status=filters.status,
@@ -138,6 +139,8 @@ def _filter_reasons(
         reasons.append(f"筛选类别：{filters.category}")
     if filters.theme:
         reasons.append(f"筛选主题：{filters.theme}")
+    if filters.project_id:
+        reasons.append(f"筛选项目：{filters.project_id}")
     if filters.material:
         reasons.append(f"筛选材料：{filters.material}")
     if filters.interaction:

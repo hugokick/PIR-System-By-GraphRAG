@@ -48,6 +48,7 @@ export type ExhibitFilters = {
   keyword?: string;
   category?: string;
   theme?: string;
+  projectId?: string;
   venueType?: string;
   budgetRange?: [number, number];
   material?: string;

@@ -57,6 +57,7 @@ const emptyFilters: ExhibitFilters = {
   keyword: '',
   category: '',
   theme: '',
+  projectId: '',
   venueType: '',
   material: '',
   interaction: '',
@@ -241,6 +242,7 @@ export function App() {
     () => ({
       categories: uniqueValues(items, (item) => item.category),
       themes: uniqueValues(items, (item) => item.theme),
+      projects: uniqueValues(items, (item) => item.relatedProjectIds),
       venueTypes: uniqueValues(items, (item) => item.venueType),
       materials: uniqueValues(items, (item) => item.materials),
       interactions: uniqueValues(items, (item) => item.interactions)
@@ -673,6 +675,7 @@ export function App() {
           <Select label="场馆类型" value={filters.venueType} values={options.venueTypes} onChange={(value) => updateFilter('venueType', value)} />
           <Select label="类别" value={filters.category} values={options.categories} onChange={(value) => updateFilter('category', value)} />
           <Select label="主题" value={filters.theme} values={options.themes} onChange={(value) => updateFilter('theme', value)} />
+          <Select label="项目案例" value={filters.projectId} values={options.projects} onChange={(value) => updateFilter('projectId', value)} />
           <Select label="材料" value={filters.material} values={options.materials} onChange={(value) => updateFilter('material', value)} />
           <Select label="交互方式" value={filters.interaction} values={options.interactions} onChange={(value) => updateFilter('interaction', value)} />
           <Select label="状态" value={filters.status} values={statuses} onChange={(value) => updateFilter('status', value)} />

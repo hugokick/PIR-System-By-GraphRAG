@@ -34,6 +34,21 @@ def test_list_exhibits_supports_structured_filters():
     assert [item["id"] for item in payload["items"]] == ["lever-play", "pulley-wall"]
 
 
+def test_list_exhibits_supports_project_case_filter():
+    qinghe_response = client.get("/api/exhibits", params={"project_id": "qinghe-2024"})
+    jiangbei_response = client.get("/api/exhibits", params={"project_id": "jiangbei-2022"})
+
+    assert qinghe_response.status_code == 200
+    qinghe_payload = qinghe_response.json()
+    assert qinghe_payload["total"] == 2
+    assert [item["id"] for item in qinghe_payload["items"]] == ["lever-play", "pulley-wall"]
+
+    assert jiangbei_response.status_code == 200
+    jiangbei_payload = jiangbei_response.json()
+    assert jiangbei_payload["total"] == 1
+    assert jiangbei_payload["items"][0]["id"] == "water-cycle"
+
+
 def test_get_exhibit_detail_includes_documents_and_media():
     response = client.get("/api/exhibits/lever-play")
 

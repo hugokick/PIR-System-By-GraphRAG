@@ -53,6 +53,7 @@ def _apply_filters(
             venue_type=filters.venue_type,
             category=None,
             theme=filters.theme,
+            project_id=None,
             material=filters.material,
             interaction=filters.interaction,
             status=filters.status,
