@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from .repository import create_repository
+from .neo4j_demo.service import create_neo4j_demo_graph_service
 from .schemas import (
     AuditLogListResponse,
     DocumentAsset,
@@ -22,7 +23,6 @@ from .schemas import (
 from .services.assets import file_extension, file_path, media_type_from_upload, save_upload_file
 from .services.documents import extract_document_chunks
 from .services.graphrag import answer_from_graphrag_context, search_graphrag_context
-from .services.graph import build_exhibit_graph
 from .services.imports import build_import_items, parse_import_file
 
 app = FastAPI(
@@ -294,7 +294,11 @@ def get_exhibit_graph(exhibit_id: str) -> GraphResponse:
     exhibit = repository.get_exhibit(exhibit_id)
     if exhibit is None:
         raise not_found(exhibit_id)
-    return build_exhibit_graph(exhibit, repository.list_exhibits())
+    service = create_neo4j_demo_graph_service(repository.list_exhibits())
+    try:
+        return service.get_exhibit_graph(exhibit.id)
+    finally:
+        service.close()
 
 
 @app.post("/api/graphrag/search", response_model=GraphRagSearchResponse)

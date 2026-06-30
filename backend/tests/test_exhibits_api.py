@@ -64,6 +64,33 @@ def test_get_exhibit_graph_returns_nodes_and_edges_from_relationships():
     assert "similar_to" in edge_types
 
 
+def test_get_exhibit_graph_can_use_neo4j_demo_service(monkeypatch):
+    from app import main
+    from app.schemas import GraphNode, GraphResponse
+
+    class StubNeo4jService:
+        def __init__(self, exhibits):
+            self.exhibits = list(exhibits)
+
+        def get_exhibit_graph(self, exhibit_id: str) -> GraphResponse:
+            return GraphResponse(
+                nodes=[GraphNode(id=f"neo4j:{exhibit_id}", label="Neo4j graph", type="neo4j")],
+                edges=[],
+            )
+
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setattr(main, "create_neo4j_demo_graph_service", lambda exhibits: StubNeo4jService(exhibits))
+
+    response = client.get("/api/exhibits/lever-play/graph")
+
+    assert response.status_code == 200
+    assert response.json()["nodes"] == [
+        {"id": "neo4j:lever-play", "label": "Neo4j graph", "type": "neo4j"}
+    ]
+
+
 def test_unknown_exhibit_returns_404():
     response = client.get("/api/exhibits/not-found")
 
