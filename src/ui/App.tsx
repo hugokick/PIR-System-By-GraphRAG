@@ -72,7 +72,40 @@ const emptyFilters: ExhibitFilters = {
   reviewStatus: ''
 };
 
-const documentExtensions = new Set(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'ppt', 'pptx']);
+const documentExtensions = new Set([
+  'pdf',
+  'doc',
+  'docx',
+  'xls',
+  'xlsx',
+  'csv',
+  'tsv',
+  'ppt',
+  'pptx',
+  'txt',
+  'md',
+  'markdown',
+  'json',
+  'log'
+]);
+const uploadAcceptTypes = [
+  'image/*',
+  'video/*',
+  '.pdf',
+  '.doc',
+  '.docx',
+  '.xls',
+  '.xlsx',
+  '.csv',
+  '.tsv',
+  '.ppt',
+  '.pptx',
+  '.txt',
+  '.md',
+  '.markdown',
+  '.json',
+  '.log'
+].join(',');
 const userRoles: UserRole[] = ['admin', 'editor', 'viewer'];
 
 function readInitialRole(): UserRole {
@@ -1249,7 +1282,7 @@ export function App() {
                 <label className="upload">
                   <ImageIcon size={18} />
                   上传媒体
-                  <input type="file" accept="image/*,.pdf,.doc,.docx,.xlsx" onChange={attachMedia} disabled={!canWrite} />
+                  <input type="file" accept={uploadAcceptTypes} onChange={attachMedia} disabled={!canWrite} />
                 </label>
               </div>
 

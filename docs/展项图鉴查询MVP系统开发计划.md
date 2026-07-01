@@ -280,6 +280,7 @@ GET /api/exhibits/{id}/graph
 - 每个展项可绑定多份资料
 - 文件可预览或下载
 - 文件资料能作为后续 RAG 的来源
+- 前端上传入口应覆盖图片、视频、PDF、Office、Excel/CSV 与文本类资料；文本类资料按文档资料入库并进入 RAG 引用来源链路
 
 ### 阶段 5：Excel 导入
 

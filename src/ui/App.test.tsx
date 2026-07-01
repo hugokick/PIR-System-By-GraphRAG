@@ -959,6 +959,49 @@ describe('App exhibit management', () => {
     );
   });
 
+  it('uploads text files as document assets for RAG sources', async () => {
+    const updated = {
+      ...apiExhibit(),
+      documents: [
+        {
+          id: 'document-text-uploaded',
+          name: 'operation-note.txt',
+          file_type: 'txt',
+          url: '/api/files/uploaded-text-document',
+          source_note: 'RAG 资料'
+        }
+      ]
+    };
+    const uploadBodies: FormData[] = [];
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/api/exhibits/magnet-maze/assets')) {
+        expect(init?.method).toBe('POST');
+        expect(init?.body).toBeInstanceOf(FormData);
+        uploadBodies.push(init?.body as FormData);
+        return okJson(updated);
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: '磁力迷宫' });
+    const input = document.querySelector('.upload input') as HTMLInputElement;
+    expect(input.accept).toContain('video/*');
+    expect(input.accept).toContain('.txt');
+    const file = new File(['airflow citation note'], 'operation-note.txt', { type: 'text/plain' });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    expect(await screen.findByRole('link', { name: 'operation-note.txt' })).toBeTruthy();
+    expect(uploadBodies).toHaveLength(1);
+    expect(uploadBodies[0].get('asset_kind')).toBe('document');
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/exhibits/magnet-maze/assets',
+      expect.objectContaining({ method: 'POST' })
+    );
+  });
+
   it('previews spreadsheet rows before committing the import', async () => {
     const importedExhibit = {
       ...frontendExhibit,
