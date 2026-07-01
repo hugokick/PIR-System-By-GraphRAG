@@ -250,6 +250,23 @@ def test_create_exhibit_rejects_duplicate_id():
     assert response.json()["detail"]["error"] == "Conflict"
 
 
+def test_create_exhibit_rejects_unknown_related_exhibit_ids():
+    payload = client.get("/api/exhibits/pulley-wall").json()
+    payload["id"] = "invalid-create-relation-demo"
+    payload["related_exhibit_ids"] = ["missing-related-exhibit"]
+
+    response = client.post("/api/exhibits", json=payload, headers=EDITOR_HEADERS)
+
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert detail["error"] == "InvalidRelatedExhibits"
+    assert detail["details"] == {
+        "id": "invalid-create-relation-demo",
+        "invalid_ids": ["missing-related-exhibit"],
+    }
+    assert client.get("/api/exhibits/invalid-create-relation-demo").status_code == 404
+
+
 def test_update_exhibit_replaces_existing_record():
     payload = client.get("/api/exhibits/lever-play").json()
     payload["name"] = "杠杆乐园 Pro"
@@ -260,6 +277,22 @@ def test_update_exhibit_replaces_existing_record():
     assert response.status_code == 200
     assert response.json()["name"] == "杠杆乐园 Pro"
     assert response.json()["materials"] == [{"id": "steel", "name": "钢结构"}]
+
+
+def test_update_exhibit_rejects_self_and_unknown_related_exhibit_ids():
+    payload = client.get("/api/exhibits/pulley-wall").json()
+    payload["related_exhibit_ids"] = ["pulley-wall", "missing-related-exhibit"]
+
+    response = client.put("/api/exhibits/pulley-wall", json=payload, headers=EDITOR_HEADERS)
+
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert detail["error"] == "InvalidRelatedExhibits"
+    assert detail["details"] == {
+        "id": "pulley-wall",
+        "invalid_ids": ["pulley-wall", "missing-related-exhibit"],
+    }
+    assert "missing-related-exhibit" not in client.get("/api/exhibits/pulley-wall").json()["related_exhibit_ids"]
 
 
 def test_update_exhibit_relationships_refreshes_graph_edges():

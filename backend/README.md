@@ -1,14 +1,17 @@
 # 展项图鉴查询 MVP 后端
 
-阶段 2 后端骨架，使用 FastAPI 提供展项查询、详情和图谱查询 API。
+FastAPI 后端为展项数字档案、结构化检索、轻量图谱、Neo4j 演示图谱和 GraphRAG 问答提供 API。
 
 当前状态：
 
-- FastAPI 应用已初始化
-- 展项列表、详情、图谱查询 API 已具备测试
-- PostgreSQL + pgvector 初始化 SQL 已准备
-- Docker Compose 已提供 PostgreSQL 本地容器
-- API 暂时使用内存种子仓储，下一步切换为 PostgreSQL 持久化读写
+- 展项列表、详情、新增、编辑、删除、审核状态和相似展项关系 API 已具备测试
+- 未配置 `DATABASE_URL` 时使用内存种子仓储，配置后使用 PostgreSQL 持久化读写
+- PostgreSQL 仓储已支持 JSONB 档案、软删除、操作日志、pgvector 检索向量和文档 chunk embedding
+- 文件上传支持图片、视频、PDF、Office、Excel/CSV、文本资料，本地对象存储路径可通过 `FILE_STORAGE_ROOT` 配置
+- CSV / XLSX 导入支持预览、错误行提示、提交写入和相似展项引用校验
+- Neo4j 演示图谱支持当前展项子图和全库演示图谱查询
+- GraphRAG 检索 / 问答接口已返回编号引用来源，上传文本和 PDF 资料可进入引用链路
+- 管理员、编辑、访客角色权限和 Bearer token 演示登录已接入
 
 ## 建议使用虚拟环境
 
@@ -65,15 +68,31 @@ backend/sql/001_init.sql
 
 ```http
 GET /health
+POST /api/auth/login
+GET /api/auth/me
 GET /api/exhibits
 POST /api/exhibits
 GET /api/exhibits/{id}
 PUT /api/exhibits/{id}
 DELETE /api/exhibits/{id}
+PATCH /api/exhibits/{id}/review-status
+PATCH /api/exhibits/{id}/related-exhibits
+POST /api/exhibits/{id}/assets
+DELETE /api/exhibits/{id}/assets/{asset_id}
+GET /api/files/{file_id}
+GET /api/dashboard/summary
+POST /api/exhibits/import
+GET /api/exhibits/import-template
 GET /api/exhibits/{id}/graph
+GET /api/neo4j-demo/graph
+POST /api/search/hybrid
+POST /api/graphrag/search
+POST /api/graphrag/answer
+GET /api/admin/audit-logs
 ```
 
 ## 下一步
 
-- 增加 PostgreSQL 数据访问层
-- 前端从 localStorage 切换为调用后端 API
+- 将 PostgreSQL JSONB 档案逐步拆分为更标准的实体表 / 关系表，降低后续知识图谱同步成本
+- 接入真实 embedding 模型和 LLM 答案生成，同时保持现有 GraphRAG API 契约
+- 将本地文件存储替换或扩展为 MinIO / 云对象存储

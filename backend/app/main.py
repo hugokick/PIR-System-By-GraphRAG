@@ -159,6 +159,18 @@ def invalid_related_exhibits(exhibit_id: str, invalid_ids: list[str]) -> HTTPExc
     )
 
 
+def normalize_related_exhibit_ids(related_exhibit_ids: list[str]) -> list[str]:
+    return list(dict.fromkeys([item.strip() for item in related_exhibit_ids if item.strip()]))
+
+
+def invalid_related_exhibit_ids(exhibit_id: str, related_exhibit_ids: list[str]) -> list[str]:
+    return [
+        item
+        for item in related_exhibit_ids
+        if item == exhibit_id or repository.get_exhibit(item) is None
+    ]
+
+
 def current_role(
     authorization: str | None = Header(default=None, alias="Authorization"),
     x_user_role: str | None = Header(default=None, alias="X-User-Role"),
@@ -358,8 +370,15 @@ def create_exhibit(
     payload: ExhibitWriteRequest,
     role: str = Depends(require_roles("admin", "editor")),
 ) -> ExhibitResponse:
+    related_ids = normalize_related_exhibit_ids(payload.related_exhibit_ids)
+    invalid_ids = invalid_related_exhibit_ids(payload.id, related_ids)
+    if invalid_ids:
+        raise invalid_related_exhibits(payload.id, invalid_ids)
+
     try:
-        created = repository.create_exhibit(payload.to_response())
+        created = repository.create_exhibit(
+            payload.to_response().model_copy(update={"related_exhibit_ids": related_ids})
+        )
         write_audit(role, "create_exhibit", created.id, f"Created exhibit {created.id}")
         return created
     except ValueError:
@@ -372,7 +391,18 @@ def update_exhibit(
     payload: ExhibitWriteRequest,
     role: str = Depends(require_roles("admin", "editor")),
 ) -> ExhibitResponse:
-    updated = repository.update_exhibit(exhibit_id, payload.to_response())
+    if repository.get_exhibit(exhibit_id) is None:
+        raise not_found(exhibit_id)
+
+    related_ids = normalize_related_exhibit_ids(payload.related_exhibit_ids)
+    invalid_ids = invalid_related_exhibit_ids(exhibit_id, related_ids)
+    if invalid_ids:
+        raise invalid_related_exhibits(exhibit_id, invalid_ids)
+
+    updated = repository.update_exhibit(
+        exhibit_id,
+        payload.to_response().model_copy(update={"related_exhibit_ids": related_ids}),
+    )
     if updated is None:
         raise not_found(exhibit_id)
     write_audit(role, "update_exhibit", exhibit_id, f"Updated exhibit {exhibit_id}")
@@ -410,12 +440,8 @@ def update_exhibit_related_exhibits(
     if exhibit is None:
         raise not_found(exhibit_id)
 
-    related_ids = list(
-        dict.fromkeys([item.strip() for item in payload.related_exhibit_ids if item.strip()])
-    )
-    invalid_ids = [
-        item for item in related_ids if item == exhibit_id or repository.get_exhibit(item) is None
-    ]
+    related_ids = normalize_related_exhibit_ids(payload.related_exhibit_ids)
+    invalid_ids = invalid_related_exhibit_ids(exhibit_id, related_ids)
     if invalid_ids:
         raise invalid_related_exhibits(exhibit_id, invalid_ids)
 
