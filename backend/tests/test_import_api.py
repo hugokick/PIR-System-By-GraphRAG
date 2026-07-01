@@ -9,6 +9,7 @@ from app.main import app
 client = TestClient(app)
 
 EDITOR_HEADERS = {"X-User-Role": "editor"}
+ADMIN_HEADERS = {"X-User-Role": "admin"}
 
 
 CSV_HEADERS = [
@@ -280,6 +281,41 @@ def test_import_allows_related_exhibit_ids_from_same_batch():
     assert graph_response.status_code == 200
     edge_types = {edge["type"] for edge in graph_response.json()["edges"]}
     assert "similar_to" in edge_types
+
+
+def test_import_commit_records_batch_audit_summary():
+    first = valid_import_row("audit-batch-import-a")
+    first[-1] = "audit-batch-import-b"
+    second = valid_import_row("audit-batch-import-b")
+    second[-1] = "audit-batch-import-a"
+
+    response = client.post(
+        "/api/exhibits/import",
+        data={"commit": "true"},
+        files={
+            "file": (
+                "audit-batch.csv",
+                csv_bytes([first, second]),
+                "text/csv",
+            )
+        },
+        headers=EDITOR_HEADERS,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["imported_count"] == 2
+
+    audit_response = client.get("/api/admin/audit-logs", headers=ADMIN_HEADERS)
+    assert audit_response.status_code == 200
+    entries = audit_response.json()["items"]
+    assert any(
+        entry["actor_role"] == "editor"
+        and entry["action"] == "import_batch"
+        and entry["resource_id"] == "audit-batch.csv"
+        and "total_rows=2" in entry["summary"]
+        and "imported=2" in entry["summary"]
+        for entry in entries
+    )
 
 
 def test_import_accepts_basic_xlsx_files():

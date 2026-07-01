@@ -302,6 +302,13 @@ def import_exhibits(
             else:
                 imported.append(repository.update_exhibit(item.id, item) or item)
                 write_audit(role, "import_update_exhibit", item.id, f"Updated exhibit {item.id} from import")
+        filename = file.filename or "uploaded-file"
+        write_audit(
+            role,
+            "import_batch",
+            filename,
+            f"Imported spreadsheet {filename}: total_rows={len(rows)}, valid_rows={len(items)}, imported={len(imported)}",
+        )
 
     return ExhibitImportResponse(
         total_rows=len(rows),
