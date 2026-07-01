@@ -133,6 +133,16 @@ def test_uploaded_text_document_is_chunked_and_available_to_graphrag(monkeypatch
         for citation in hit["citations"]
     )
 
+    answer_response = client.post(
+        "/api/graphrag/answer",
+        json={"query": "伯努利气流环道", "top_k": 1},
+    )
+
+    assert answer_response.status_code == 200
+    answer_payload = answer_response.json()
+    assert any(citation["source_id"] == document["id"] for citation in answer_payload["citations"])
+    assert "伯努利气流环道用于解释低龄儿童可观察的气压差现象" in answer_payload["answer"]
+
 
 def test_uploaded_pdf_document_is_chunked_and_available_to_graphrag(monkeypatch, tmp_path):
     monkeypatch.setenv("FILE_STORAGE_ROOT", str(tmp_path))

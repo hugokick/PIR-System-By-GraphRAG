@@ -177,7 +177,7 @@ def _compose_grounded_answer(
 
     if citations:
         source_summaries = [
-            f"[{index}] {citation.title}"
+            _citation_source_summary(index, citation)
             for index, citation in enumerate(citations, start=1)
         ]
         lines.append("来源：" + "；".join(source_summaries))
@@ -185,6 +185,13 @@ def _compose_grounded_answer(
         lines.append("当前命中结果缺少可引用来源，请补充展项资料后再生成正式答复。")
 
     return "\n".join(lines)
+
+
+def _citation_source_summary(index: int, citation: GraphRagCitation) -> str:
+    snippet = citation.snippet.strip()
+    if len(snippet) > 90:
+        snippet = f"{snippet[:87]}..."
+    return f"[{index}] {citation.title}：{snippet}"
 
 
 def _first_reference_marker(
