@@ -185,3 +185,57 @@ def test_postgres_repository_update_refreshes_record_and_search_embeddings():
     assert delete_calls[0][1] == ("exhibit", "lever-play")
     assert insert_calls
     assert insert_calls[0][1][0] == "exhibit:lever-play"
+
+
+def test_postgres_repository_delete_removes_search_embeddings():
+    from app.repository import PostgresExhibitRepository
+
+    class RecordingCursor:
+        def __init__(self):
+            self.calls = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def execute(self, query, params=None):
+            self.calls.append((" ".join(query.split()), params))
+
+    class RecordingConnection:
+        def __init__(self, cursor):
+            self.cursor_instance = cursor
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def cursor(self):
+            return self.cursor_instance
+
+    class RecordingPostgresRepository(PostgresExhibitRepository):
+        def __init__(self):
+            super().__init__("postgresql://example", initialize=False)
+            self.cursor = RecordingCursor()
+
+        def get_exhibit(self, exhibit_id: str):
+            return seed_exhibits[0] if exhibit_id == "lever-play" else None
+
+        def _connect(self):
+            return RecordingConnection(self.cursor)
+
+    repository = RecordingPostgresRepository()
+
+    assert repository.delete_exhibit("lever-play") is True
+
+    soft_delete_calls = [call for call in repository.cursor.calls if "UPDATE exhibit_records" in call[0]]
+    embedding_delete_calls = [
+        call for call in repository.cursor.calls if "DELETE FROM search_embeddings" in call[0]
+    ]
+
+    assert soft_delete_calls
+    assert embedding_delete_calls
+    assert embedding_delete_calls[0][1] == ("exhibit", "lever-play")

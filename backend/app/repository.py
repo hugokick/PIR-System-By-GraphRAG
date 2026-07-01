@@ -514,6 +514,13 @@ class PostgresExhibitRepository:
                     """,
                     (exhibit_id,),
                 )
+                cursor.execute(
+                    """
+                    DELETE FROM search_embeddings
+                    WHERE owner_type = %s AND owner_id = %s
+                    """,
+                    ("exhibit", exhibit_id),
+                )
         return True
 
     def list_exhibits(
