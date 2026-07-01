@@ -1255,13 +1255,14 @@ textarea:focus {
 
 .graph-enhanced {
   display: grid;
-  grid-template-columns: minmax(460px, 1fr) minmax(250px, 330px);
+  grid-template-columns: 1fr;
   gap: 14px;
   align-items: start;
 }
 
 .nvl-canvas {
   height: var(--graph-viewport-height);
+  max-height: var(--graph-viewport-height);
   border-radius: 8px;
   border: 1px solid #1f2a3b;
   background:
@@ -1294,6 +1295,38 @@ textarea:focus {
   height: 100%;
 }
 
+.nvl-node-label,
+.nvl-relationship-label {
+  pointer-events: none;
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  max-width: 160px;
+  border-radius: 999px;
+  padding: 3px 7px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+}
+
+.nvl-node-label {
+  border: 1px solid rgba(104, 189, 246, 0.42);
+  background: rgba(15, 23, 42, 0.86);
+  color: #edf8ff;
+  transform: translateY(28px);
+}
+
+.nvl-relationship-label {
+  border: 1px solid rgba(247, 151, 103, 0.5);
+  background: rgba(255, 245, 238, 0.94);
+  color: #7a3f18;
+  font-size: 10px;
+}
+
 .nvl-minimap {
   position: absolute;
   right: 12px;
@@ -1317,11 +1350,12 @@ textarea:focus {
 
 .graph-inspector {
   display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
   align-content: start;
   gap: 10px;
-  max-height: var(--graph-viewport-height);
+  max-height: none;
   min-width: 0;
-  overflow: auto;
+  overflow: visible;
   padding-right: 2px;
 }
 
@@ -1394,7 +1428,7 @@ textarea:focus {
 }
 
 .graph-node-list {
-  max-height: 164px;
+  max-height: 220px;
   overflow: auto;
 }
 
@@ -1421,6 +1455,10 @@ textarea:focus {
 
 @container (max-width: 780px) {
   .graph-enhanced {
+    grid-template-columns: 1fr;
+  }
+
+  .graph-inspector {
     grid-template-columns: 1fr;
   }
 }

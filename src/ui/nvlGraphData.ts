@@ -55,6 +55,15 @@ function buildSvgIcon(path: string) {
   )}`;
 }
 
+function buildHtmlLabel(value: string, className: string) {
+  if (typeof document === 'undefined') return undefined;
+  const label = document.createElement('span');
+  label.className = className;
+  label.textContent = value;
+  label.setAttribute('aria-hidden', 'true');
+  return label;
+}
+
 function graphNodeSize(kind: string, selected: boolean) {
   const baseSize = nodeBaseSizes[kind] ?? 24;
   return selected ? baseSize + 4 : baseSize;
@@ -109,6 +118,7 @@ export function buildNvlGraphData(
       x: position.x,
       y: position.y,
       icon: nodeIconPaths[node.kind] ? buildSvgIcon(nodeIconPaths[node.kind]) : undefined,
+      html: buildHtmlLabel(node.label, 'nvl-node-label'),
       captions: [
         {
           value: node.label,
@@ -135,6 +145,7 @@ export function buildNvlGraphData(
           styles: ['bold']
         }
       ],
+      captionHtml: buildHtmlLabel(readableCaption, 'nvl-relationship-label'),
       captionSize: highlighted ? 12 : 11,
       captionAlign: 'top',
       color: highlighted ? '#f79767' : disabled ? '#6f7d8f' : '#8f9bad',

@@ -105,6 +105,8 @@ describe('NvlGraphView graph mapping', () => {
     expect(nodes.find((node) => node.id === 'material:acrylic')?.captions?.map((caption) => caption.value)).toEqual([
       'Acrylic'
     ]);
+    expect(nodes.find((node) => node.id === 'material:acrylic')?.html?.textContent).toBe('Acrylic');
+    expect(nodes.find((node) => node.id === 'material:acrylic')?.html?.className).toBe('nvl-node-label');
     expect(nodes.find((node) => node.id === 'supplier:qisi')).toMatchObject({
       disabled: true
     });
@@ -121,6 +123,8 @@ describe('NvlGraphView graph mapping', () => {
       disabled: false
     });
     expect(selectedRelationship?.captions?.map((caption) => caption.value)).toEqual(['使用材料']);
+    expect(selectedRelationship?.captionHtml?.textContent).toBe('使用材料');
+    expect(selectedRelationship?.captionHtml?.className).toBe('nvl-relationship-label');
     expect(rels.find((rel) => rel.type === 'SUPPORTS_THEME')).toMatchObject({
       caption: '支持主题',
       disabled: true,
@@ -264,8 +268,11 @@ describe('NvlGraphView graph mapping', () => {
     const styles = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf8');
 
     expect(styles).toContain('--graph-viewport-height: clamp(1120px, 140vh, 1680px);');
+    expect(styles).toContain('grid-template-columns: 1fr;');
     expect(styles).toContain('height: var(--graph-viewport-height);');
     expect(styles).toContain('max-height: var(--graph-viewport-height);');
+    expect(styles).toContain('.nvl-node-label');
+    expect(styles).toContain('.nvl-relationship-label');
     expect(styles).toContain('.nvl-stage canvas');
     expect(styles).toContain('height: 100%;');
     expect(styles).not.toContain('.nvl-readable-overlay');
