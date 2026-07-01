@@ -57,3 +57,20 @@ def test_understand_query_falls_back_to_rules_when_provider_returns_none():
     assert result.themes == ["力学"]
     assert result.audience == ["low_age_children"]
     assert result.budget_intent == "unknown"
+
+
+def test_ai_module_exports_stable_constants_and_entrypoint():
+    from app.ai import (
+        AUDIENCE_LOW_AGE_CHILDREN,
+        BUDGET_LOW,
+        BUDGET_LOWER_THAN_REFERENCE,
+        QueryUnderstandingResult,
+        understand_query as exported_understand_query,
+    )
+
+    result = exported_understand_query("低龄儿童 力学")
+
+    assert AUDIENCE_LOW_AGE_CHILDREN == "low_age_children"
+    assert BUDGET_LOW == "low"
+    assert BUDGET_LOWER_THAN_REFERENCE == "lower_than_reference"
+    assert isinstance(result, QueryUnderstandingResult)
