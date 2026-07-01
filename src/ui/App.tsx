@@ -54,6 +54,7 @@ import type {
   GraphEdge,
   GraphNode,
   GraphRagAnswer,
+  GraphRagCitation,
   MediaAsset,
   ReviewStatus,
   SearchResults,
@@ -824,13 +825,27 @@ export function App() {
     try {
       const answer = await askGraphRag(query, 3, filters);
       setGraphRagAnswer(answer);
-      if (answer.items[0]) {
-        setSelectedId(answer.items[0].exhibit.id);
-      }
     } catch {
       setGraphRagError('GraphRAG 问答接口暂不可用，请稍后重试');
     } finally {
       setIsAskingGraphRag(false);
+    }
+  };
+
+  const selectGraphRagCitation = (citation: GraphRagCitation) => {
+    if (citation.sourceType === 'exhibit') {
+      setSelectedId(citation.sourceId);
+      return;
+    }
+
+    const owningHit = graphRagAnswer?.items.find((hit) =>
+      hit.citations.some(
+        (itemCitation) =>
+          itemCitation.sourceType === citation.sourceType && itemCitation.sourceId === citation.sourceId
+      )
+    );
+    if (owningHit) {
+      setSelectedId(owningHit.exhibit.id);
     }
   };
 
@@ -1237,16 +1252,18 @@ export function App() {
               {graphRagAnswer.citations.length > 0 && (
                 <div className="graphrag-citations">
                   {graphRagAnswer.citations.map((citation, index) => (
-                    <article
+                    <button
+                      type="button"
                       className="graphrag-citation-card"
                       key={`${citation.sourceType}-${citation.sourceId}`}
                       aria-label={`引用来源 [${index + 1}]`}
+                      onClick={() => selectGraphRagCitation(citation)}
                     >
                       <em>[{index + 1}]</em>
                       <small>{citation.sourceType}</small>
                       <strong>{citation.title}</strong>
                       <span>{citation.snippet}</span>
-                    </article>
+                    </button>
                   ))}
                 </div>
               )}

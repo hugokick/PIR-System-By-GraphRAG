@@ -878,6 +878,74 @@ describe('App exhibit management', () => {
     );
   });
 
+  it('opens the exhibit that owns a GraphRAG document citation only after the citation is clicked', async () => {
+    const citedExhibit: Exhibit = {
+      ...frontendExhibit,
+      id: 'thermal-studio',
+      name: 'Thermal Studio',
+      theme: '热学',
+      documents: [
+        {
+          id: 'doc-thermal-plan',
+          name: 'thermal-plan.pdf',
+          fileType: 'pdf',
+          url: 'http://assets.test/thermal-plan.pdf',
+          sourceNote: '方案说明',
+          chunks: [{ id: 'doc-thermal-plan:chunk-1', text: '热学互动方案依据', sequence: 1 }]
+        }
+      ]
+    };
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/api/graphrag/answer')) {
+        expect(init?.method).toBe('POST');
+        return okJson({
+          query: 'thermal',
+          answer: 'Use the cited document to verify the thermal exhibit.',
+          citations: [
+            {
+              source_id: 'doc-thermal-plan',
+              source_type: 'document',
+              title: 'thermal-plan.pdf',
+              snippet: '热学互动方案依据'
+            }
+          ],
+          items: [
+            {
+              exhibit: apiExhibit(citedExhibit),
+              score: 9,
+              reasons: ['document citation'],
+              citations: [
+                {
+                  source_id: 'doc-thermal-plan',
+                  source_type: 'document',
+                  title: 'thermal-plan.pdf',
+                  snippet: '热学互动方案依据'
+                }
+              ],
+              graph: { nodes: [], edges: [] }
+            }
+          ]
+        });
+      }
+      return okJson({ total: 2, items: [apiExhibit(), apiExhibit(citedExhibit)] });
+    });
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: frontendExhibit.name });
+    fireEvent.change(screen.getByLabelText(/GraphRAG/), { target: { value: 'thermal' } });
+    fireEvent.click(screen.getByRole('button', { name: '生成答案' }));
+
+    const citationCard = await screen.findByLabelText('引用来源 [1]');
+    expect(within(document.querySelector('.detail') as HTMLElement).getByRole('heading', { name: frontendExhibit.name })).toBeTruthy();
+    fireEvent.click(citationCard);
+
+    await waitFor(() => {
+      expect(within(document.querySelector('.detail') as HTMLElement).getByRole('heading', { name: 'Thermal Studio' })).toBeTruthy();
+    });
+  });
+
   it('renders backend hybrid search reasons in semantic recommendations', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = String(input);
