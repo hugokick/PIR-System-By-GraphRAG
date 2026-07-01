@@ -130,6 +130,46 @@ const auditActionLabels: Record<string, string> = {
   import_exhibits: '批量导入',
   import_batch: '批量导入'
 };
+const importErrorFieldLabels: Record<string, string> = {
+  id: '展项编号',
+  name: '展项名称',
+  category: '类别',
+  theme: '主题',
+  venue_type: '适用场馆',
+  budget_min: '造价下限',
+  budget_max: '造价上限',
+  materials: '材料',
+  dimensions: '尺寸',
+  interactions: '交互方式',
+  supplier: '供应商',
+  project_id: '项目编号',
+  project_name: '项目名称',
+  owner: '业主',
+  project_year: '项目年份',
+  status: '状态',
+  description: '展项说明',
+  tags: '标签',
+  related_exhibit_ids: '相似展项',
+  file: '文件内容'
+};
+
+function importErrorFieldLabel(field: string) {
+  return importErrorFieldLabels[field] ?? field;
+}
+
+function importErrorMessage(message: string) {
+  if (message === 'Required') return '必填字段不能为空';
+  if (message === 'Must be an integer') return '必须填写整数';
+  if (message === 'Must be greater than or equal to budget_min') return '必须大于或等于造价下限';
+  if (message === 'No import rows found') return '没有找到可导入的数据行';
+  if (message.startsWith('Duplicate exhibit id in import file: ')) {
+    return `导入文件中存在重复展项编号：${message.replace('Duplicate exhibit id in import file: ', '')}`;
+  }
+  if (message.startsWith('Unknown or self-referencing exhibit id: ')) {
+    return `相似展项编号不存在或引用了当前展项：${message.replace('Unknown or self-referencing exhibit id: ', '')}`;
+  }
+  return message;
+}
 
 function auditActionLabel(action: string) {
   return auditActionLabels[action] ?? action;
@@ -1250,8 +1290,8 @@ export function App() {
                 {importPreview.result.errors.map((error) => (
                   <div key={`${error.row}-${error.field}-${error.message}`}>
                     <span>第 {error.row} 行</span>
-                    <strong>{error.field}</strong>
-                    <em>{error.message}</em>
+                    <strong>{importErrorFieldLabel(error.field)}</strong>
+                    <em>{importErrorMessage(error.message)}</em>
                   </div>
                 ))}
               </div>

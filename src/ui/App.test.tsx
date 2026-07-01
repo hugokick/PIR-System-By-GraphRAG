@@ -1764,9 +1764,40 @@ describe('App exhibit management', () => {
     expect(await screen.findByText('导入校验发现 1 个问题，未写入数据')).toBeTruthy();
     expect(screen.getByText('导入预览')).toBeTruthy();
     expect(screen.getByText('第 2 行')).toBeTruthy();
-    expect(screen.getByText('budget_min')).toBeTruthy();
-    expect(screen.getByText('Must be an integer')).toBeTruthy();
+    expect(screen.getByText('造价下限')).toBeTruthy();
+    expect(screen.getByText('必须填写整数')).toBeTruthy();
+    expect(screen.queryByText('budget_min')).toBeNull();
+    expect(screen.queryByText('Must be an integer')).toBeNull();
     expect((screen.getByRole('button', { name: '确认导入' }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByRole('heading', { name: '磁力迷宫' })).toBeTruthy();
+  });
+
+  it('shows empty import file errors in business language', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/api/exhibits/import')) {
+        expect(init?.method).toBe('POST');
+        return okJson({
+          total_rows: 0,
+          valid_rows: 0,
+          imported_count: 0,
+          errors: [{ row: 1, field: 'file', message: 'No import rows found' }],
+          items: []
+        });
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: '磁力迷宫' });
+    const input = document.querySelector('.import-upload input') as HTMLInputElement;
+    const file = new File(['id,name'], 'empty.csv', { type: 'text/csv' });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    expect(await screen.findByText('导入校验发现 1 个问题，未写入数据')).toBeTruthy();
+    expect(screen.getByText('文件内容')).toBeTruthy();
+    expect(screen.getByText('没有找到可导入的数据行')).toBeTruthy();
+    expect(screen.queryByText('No import rows found')).toBeNull();
   });
 });
