@@ -38,6 +38,8 @@ export function filterExhibits(items: Exhibit[], filters: ExhibitFilters) {
       (!filters.theme || item.theme === filters.theme) &&
       (!filters.tag || item.tags.includes(filters.tag)) &&
       (!filters.projectId || item.relatedProjectIds.includes(filters.projectId)) &&
+      (!filters.owner || item.owner === filters.owner) &&
+      (!filters.supplier || item.supplier === filters.supplier) &&
       (!filters.venueType || item.venueType === filters.venueType) &&
       (!filters.status || item.status === filters.status) &&
       (!filters.reviewStatus || item.reviewStatus === filters.reviewStatus) &&

@@ -8,6 +8,8 @@ class GraphRAGFilters(BaseModel):
     theme: str | None = None
     material: str | None = None
     interaction: str | None = None
+    owner: str | None = None
+    supplier: str | None = None
     tag: str | None = None
     venue_type: str | None = None
     status: str | None = None

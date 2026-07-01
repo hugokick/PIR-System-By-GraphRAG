@@ -70,6 +70,8 @@ const emptyFilters: ExhibitFilters = {
   theme: '',
   tag: '',
   projectId: '',
+  owner: '',
+  supplier: '',
   venueType: '',
   material: '',
   interaction: '',
@@ -399,6 +401,8 @@ export function App() {
       themes: uniqueValues(items, (item) => item.theme),
       tags: uniqueValues(items, (item) => item.tags),
       projects: uniqueValues(items, (item) => item.relatedProjectIds),
+      owners: uniqueValues(items, (item) => item.owner),
+      suppliers: uniqueValues(items, (item) => item.supplier),
       venueTypes: uniqueValues(items, (item) => item.venueType),
       materials: uniqueValues(items, (item) => item.materials),
       interactions: uniqueValues(items, (item) => item.interactions)
@@ -1027,6 +1031,8 @@ export function App() {
           <Select label="主题" value={filters.theme} values={options.themes} onChange={(value) => updateFilter('theme', value)} />
           <Select label="标签" value={filters.tag} values={options.tags} onChange={(value) => updateFilter('tag', value)} />
           <Select label="项目案例" value={filters.projectId} values={options.projects} onChange={(value) => updateFilter('projectId', value)} />
+          <Select label="业主" value={filters.owner} values={options.owners} onChange={(value) => updateFilter('owner', value)} />
+          <Select label="供应商" value={filters.supplier} values={options.suppliers} onChange={(value) => updateFilter('supplier', value)} />
           <Select label="材料" value={filters.material} values={options.materials} onChange={(value) => updateFilter('material', value)} />
           <Select label="交互方式" value={filters.interaction} values={options.interactions} onChange={(value) => updateFilter('interaction', value)} />
           <Select label="状态" value={filters.status} values={statuses} onChange={(value) => updateFilter('status', value)} />

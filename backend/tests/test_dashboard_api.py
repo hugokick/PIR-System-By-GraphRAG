@@ -56,3 +56,13 @@ def test_dashboard_summary_respects_tag_filter() -> None:
         {"label": "20-50万", "count": 1},
         {"label": "50万以上", "count": 0},
     ]
+
+
+def test_dashboard_summary_respects_owner_filter() -> None:
+    response = client.get("/api/dashboard/summary", params={"owner": "青禾儿童科技馆"})
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["total"] == 2
+    assert payload["themes"] == [{"label": "力学", "count": 2}]

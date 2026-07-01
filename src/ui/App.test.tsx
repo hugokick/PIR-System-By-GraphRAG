@@ -480,6 +480,26 @@ describe('App exhibit management', () => {
     });
   });
 
+  it('filters exhibits by owner and supplier through backend query parameters', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [apiExhibit()] }));
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: '磁力迷宫' });
+    fireEvent.change(screen.getByLabelText('业主'), { target: { value: '青禾儿童科技馆' } });
+    fireEvent.change(screen.getByLabelText('供应商'), { target: { value: '启思互动工坊' } });
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([input]) =>
+          String(input).includes(
+            '/api/exhibits?owner=%E9%9D%92%E7%A6%BE%E5%84%BF%E7%AB%A5%E7%A7%91%E6%8A%80%E9%A6%86&supplier=%E5%90%AF%E6%80%9D%E4%BA%92%E5%8A%A8%E5%B7%A5%E5%9D%8A'
+          )
+        )
+      ).toBe(true);
+    });
+  });
+
   it('renders and filters exhibits by review status through backend query parameters', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [apiExhibit()] }));
 

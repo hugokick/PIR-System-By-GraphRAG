@@ -75,6 +75,21 @@ def test_list_exhibits_supports_tag_filter():
     assert "低预算" in payload["items"][0]["tags"]
 
 
+def test_list_exhibits_supports_owner_and_supplier_filters():
+    owner_response = client.get("/api/exhibits", params={"owner": "青禾儿童科技馆"})
+    supplier_response = client.get("/api/exhibits", params={"supplier": "澄境模型"})
+
+    assert owner_response.status_code == 200
+    owner_payload = owner_response.json()
+    assert owner_payload["total"] == 2
+    assert [item["id"] for item in owner_payload["items"]] == ["lever-play", "pulley-wall"]
+
+    assert supplier_response.status_code == 200
+    supplier_payload = supplier_response.json()
+    assert supplier_payload["total"] == 1
+    assert supplier_payload["items"][0]["id"] == "water-cycle"
+
+
 def test_get_exhibit_detail_includes_documents_and_media():
     response = client.get("/api/exhibits/lever-play")
 

@@ -66,6 +66,8 @@ def _apply_filters(
             category=filters.category,
             theme=filters.theme,
             project_id=filters.project_id,
+            owner=filters.owner,
+            supplier=filters.supplier,
             tag=filters.tag,
             material=filters.material,
             interaction=filters.interaction,
@@ -155,6 +157,10 @@ def _filter_reasons(
         reasons.append(f"筛选主题：{filters.theme}")
     if filters.project_id:
         reasons.append(f"筛选项目：{filters.project_id}")
+    if filters.owner:
+        reasons.append(f"筛选业主：{filters.owner}")
+    if filters.supplier:
+        reasons.append(f"筛选供应商：{filters.supplier}")
     if filters.tag:
         reasons.append(f"筛选标签：{filters.tag}")
     if filters.material:

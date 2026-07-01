@@ -146,6 +146,41 @@ def test_hybrid_search_respects_tag_filters():
     assert "筛选标签：低预算" in payload["items"][0]["reasons"]
 
 
+def test_hybrid_search_respects_owner_and_supplier_filters():
+    owner_response = client.post(
+        "/api/search/hybrid",
+        json={
+            "query": "力学",
+            "limit": 5,
+            "filters": {
+                "owner": "青禾儿童科技馆",
+            },
+        },
+    )
+    supplier_response = client.post(
+        "/api/search/hybrid",
+        json={
+            "query": "水循环",
+            "limit": 5,
+            "filters": {
+                "supplier": "澄境模型",
+            },
+        },
+    )
+
+    assert owner_response.status_code == 200
+    owner_payload = owner_response.json()
+    assert owner_payload["total"] == 2
+    assert {item["exhibit"]["id"] for item in owner_payload["items"]} == {"lever-play", "pulley-wall"}
+    assert all("筛选业主：青禾儿童科技馆" in item["reasons"] for item in owner_payload["items"])
+
+    assert supplier_response.status_code == 200
+    supplier_payload = supplier_response.json()
+    assert supplier_payload["total"] == 1
+    assert supplier_payload["items"][0]["exhibit"]["id"] == "water-cycle"
+    assert "筛选供应商：澄境模型" in supplier_payload["items"][0]["reasons"]
+
+
 def test_hybrid_search_matches_exhibit_ids_for_smoke_checks_and_exact_lookup():
     response = client.post(
         "/api/search/hybrid",

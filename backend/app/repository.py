@@ -216,6 +216,8 @@ class ExhibitRepository:
         category: str | None = None,
         theme: str | None = None,
         project_id: str | None = None,
+        owner: str | None = None,
+        supplier: str | None = None,
         tag: str | None = None,
         material: str | None = None,
         interaction: str | None = None,
@@ -235,6 +237,8 @@ class ExhibitRepository:
                 category=category,
                 theme=theme,
                 project_id=project_id,
+                owner=owner,
+                supplier=supplier,
                 tag=tag,
                 material=material,
                 interaction=interaction,
@@ -253,6 +257,8 @@ class ExhibitRepository:
         category: str | None,
         theme: str | None,
         project_id: str | None,
+        owner: str | None,
+        supplier: str | None,
         tag: str | None,
         material: str | None,
         interaction: str | None,
@@ -285,6 +291,10 @@ class ExhibitRepository:
         if theme and item.theme.name != theme:
             return False
         if project_id and item.project.id != project_id:
+            return False
+        if owner and owner not in (item.owner.id, item.owner.name):
+            return False
+        if supplier and supplier not in (item.supplier.id, item.supplier.name):
             return False
         if tag and tag not in item.tags:
             return False
@@ -645,6 +655,8 @@ class PostgresExhibitRepository:
         category: str | None = None,
         theme: str | None = None,
         project_id: str | None = None,
+        owner: str | None = None,
+        supplier: str | None = None,
         tag: str | None = None,
         material: str | None = None,
         interaction: str | None = None,
@@ -677,6 +689,8 @@ class PostgresExhibitRepository:
                 category=category,
                 theme=theme,
                 project_id=project_id,
+                owner=owner,
+                supplier=supplier,
                 tag=tag,
                 material=material,
                 interaction=interaction,
