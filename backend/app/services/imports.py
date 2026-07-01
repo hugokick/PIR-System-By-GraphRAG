@@ -88,8 +88,17 @@ def parse_import_file(file: UploadFile) -> list[dict[str, str]]:
 
 
 def parse_csv(content: bytes) -> list[dict[str, str]]:
-    text = content.decode("utf-8-sig")
+    text = decode_csv_text(content)
     return list(csv.DictReader(StringIO(text)))
+
+
+def decode_csv_text(content: bytes) -> str:
+    for encoding in ("utf-8-sig", "utf-8", "gb18030"):
+        try:
+            return content.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return content.decode("utf-8", errors="ignore")
 
 
 def parse_xlsx(content: bytes) -> list[dict[str, str]]:

@@ -45,6 +45,11 @@ def csv_bytes_with_headers(headers: list[str], rows: list[list[str]]) -> bytes:
     return ("\n".join(lines) + "\n").encode("utf-8")
 
 
+def csv_bytes_with_headers_encoding(headers: list[str], rows: list[list[str]], encoding: str) -> bytes:
+    lines = [",".join(headers), *[",".join(row) for row in rows]]
+    return ("\n".join(lines) + "\n").encode(encoding)
+
+
 def minimal_xlsx_bytes(headers: list[str], rows: list[list[str]]) -> bytes:
     def cell_ref(column_index: int, row_index: int) -> str:
         column = chr(ord("A") + column_index)
@@ -387,6 +392,58 @@ def test_import_accepts_chinese_header_aliases():
         {"id": "acrylic", "name": "Acrylic"},
     ]
     assert client.get("/api/exhibits/chinese-header-demo").status_code == 404
+
+
+def test_import_accepts_gb18030_encoded_chinese_csv():
+    chinese_headers = [
+        "展项编号",
+        "展项名称",
+        "类别",
+        "主题",
+        "适用场馆",
+        "造价下限",
+        "造价上限",
+        "材料",
+        "尺寸",
+        "交互方式",
+        "供应商",
+        "项目编号",
+        "项目名称",
+        "业主",
+        "项目年份",
+        "状态",
+        "展项说明",
+        "标签",
+        "相似展项",
+    ]
+    row = valid_import_row("gb18030-import-demo")
+    row[1] = "中文编码展项"
+    row[2] = "基础科学"
+    row[3] = "力学"
+    row[4] = "儿童科技馆"
+    row[16] = "GB18030 编码的历史资料行。"
+
+    response = client.post(
+        "/api/exhibits/import",
+        data={"commit": "false"},
+        files={
+            "file": (
+                "gb18030-headers.csv",
+                csv_bytes_with_headers_encoding(chinese_headers, [row], "gb18030"),
+                "text/csv",
+            )
+        },
+        headers=EDITOR_HEADERS,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total_rows"] == 1
+    assert payload["valid_rows"] == 1
+    assert payload["errors"] == []
+    assert payload["items"][0]["id"] == "gb18030-import-demo"
+    assert payload["items"][0]["name"] == "中文编码展项"
+    assert client.get("/api/exhibits/gb18030-import-demo").status_code == 404
 
 
 def test_import_template_downloads_xlsx_with_field_descriptions():
