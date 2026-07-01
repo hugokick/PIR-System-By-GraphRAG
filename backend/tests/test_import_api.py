@@ -432,8 +432,10 @@ def test_import_commit_records_batch_audit_summary():
             entry["actor_role"] == "editor"
             and entry["action"] == "import_batch"
             and entry["resource_id"] == "audit-batch.csv"
+            and "批量导入 audit-batch.csv" in entry["summary"]
             and "total_rows=2" in entry["summary"]
             and "imported=2" in entry["summary"]
+            and "Imported spreadsheet" not in entry["summary"]
             for entry in entries
         )
     finally:

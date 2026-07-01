@@ -583,7 +583,9 @@ def test_only_admin_can_delete_uploaded_document_and_audit_it(monkeypatch, tmp_p
         entry["actor_role"] == "admin"
         and entry["action"] == "delete_document"
         and entry["resource_id"] == "pulley-wall"
+        and "删除资料" in entry["summary"]
         and document["id"] in entry["summary"]
+        and "Deleted asset" not in entry["summary"]
         for entry in audit_response.json()["items"]
     )
 
@@ -615,7 +617,9 @@ def test_admin_can_delete_uploaded_media_asset(monkeypatch, tmp_path):
         entry["actor_role"] == "admin"
         and entry["action"] == "delete_media"
         and entry["resource_id"] == "pulley-wall"
+        and "删除媒体" in entry["summary"]
         and media["id"] in entry["summary"]
+        and "Deleted asset" not in entry["summary"]
         for entry in audit_response.json()["items"]
     )
 

@@ -167,6 +167,7 @@ def test_only_admin_can_update_review_status_and_audit_it():
         and entry["action"] == "update_review_status"
         and entry["resource_id"] == "review-workflow-demo"
         and "已审核" in entry["summary"]
+        and "Updated review" not in entry["summary"]
         for entry in entries
     )
 
@@ -189,12 +190,16 @@ def test_admin_can_delete_and_audit_log_records_mutations():
         entry["actor_role"] == "admin"
         and entry["action"] == "create_exhibit"
         and entry["resource_id"] == "admin-audit-demo"
+        and "新增档案 admin-audit-demo" in entry["summary"]
+        and "Created exhibit" not in entry["summary"]
         for entry in entries
     )
     assert any(
         entry["actor_role"] == "admin"
         and entry["action"] == "delete_exhibit"
         and entry["resource_id"] == "admin-audit-demo"
+        and "删除档案 admin-audit-demo" in entry["summary"]
+        and "Deleted exhibit" not in entry["summary"]
         for entry in entries
     )
 

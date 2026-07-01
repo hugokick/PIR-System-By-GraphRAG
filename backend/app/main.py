@@ -400,7 +400,7 @@ def import_exhibits(
             if existing is None:
                 exhibit = normalize_write_review_status(item, role)
                 imported.append(repository.create_exhibit(exhibit))
-                write_audit(role, "import_create_exhibit", exhibit.id, f"Imported exhibit {exhibit.id}")
+                write_audit(role, "import_create_exhibit", exhibit.id, f"导入新增档案 {exhibit.id}")
             else:
                 exhibit = normalize_write_review_status(item, role, existing)
                 imported.append(repository.update_exhibit(item.id, exhibit) or exhibit)
@@ -418,7 +418,7 @@ def import_exhibits(
             role,
             "import_batch",
             filename,
-            f"Imported spreadsheet {filename}: total_rows={len(rows)}, valid_rows={len(items)}, imported={len(imported)}",
+            f"批量导入 {filename}: total_rows={len(rows)}, valid_rows={len(items)}, imported={len(imported)}",
         )
 
     return ExhibitImportResponse(
@@ -465,7 +465,7 @@ def create_exhibit(
             role,
         )
         created = repository.create_exhibit(exhibit)
-        write_audit(role, "create_exhibit", created.id, f"Created exhibit {created.id}")
+        write_audit(role, "create_exhibit", created.id, f"新增档案 {created.id}")
         return created
     except ValueError:
         raise conflict(payload.id)
@@ -520,7 +520,7 @@ def update_exhibit_review_status(
         role,
         "update_review_status",
         exhibit_id,
-        f"Updated review status for {exhibit_id} to {payload.review_status}",
+        f"更新审核状态 {exhibit_id} 为 {payload.review_status}",
     )
     return saved
 
@@ -546,7 +546,7 @@ def update_exhibit_related_exhibits(
         role,
         "update_exhibit_relations",
         exhibit_id,
-        f"Updated related exhibits for {exhibit_id}: {', '.join(related_ids) if related_ids else 'none'}",
+        f"更新相似关系 {exhibit_id}: {', '.join(related_ids) if related_ids else '无'}",
     )
     return saved
 
@@ -565,7 +565,7 @@ def delete_exhibit(
     deleted = repository.delete_exhibit(exhibit_id)
     if not deleted:
         raise not_found(exhibit_id)
-    write_audit(role, "delete_exhibit", exhibit_id, f"Deleted exhibit {exhibit_id}")
+    write_audit(role, "delete_exhibit", exhibit_id, f"删除档案 {exhibit_id}")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -620,7 +620,8 @@ def upload_exhibit_asset(
         audit_action = "upload_media"
 
     saved = repository.update_exhibit(exhibit_id, updated) or updated
-    write_audit(role, audit_action, exhibit_id, f"Uploaded {filename} to exhibit {exhibit_id}")
+    upload_label = "上传资料" if audit_action == "upload_document" else "上传媒体"
+    write_audit(role, audit_action, exhibit_id, f"{upload_label} {filename} 到档案 {exhibit_id}")
     return saved
 
 
@@ -710,7 +711,8 @@ def delete_exhibit_asset(
     file_id = file_id_from_url(deleted_url)
     if file_id:
         delete_stored_file(file_id)
-    write_audit(role, action, exhibit_id, f"Deleted asset {asset_id} from exhibit {exhibit_id}")
+    delete_label = "删除资料" if action == "delete_document" else "删除媒体"
+    write_audit(role, action, exhibit_id, f"{delete_label} {asset_id} 从档案 {exhibit_id}")
     return saved
 
 
