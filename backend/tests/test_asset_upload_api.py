@@ -62,6 +62,11 @@ def test_upload_image_asset_attaches_media_and_serves_file(monkeypatch, tmp_path
     assert file_response.status_code == 200
     assert file_response.content == b"fake image bytes"
 
+    download_response = client.get(f"{media['url']}?download=1")
+    assert download_response.status_code == 200
+    assert download_response.headers["content-disposition"].startswith("attachment;")
+    assert "scene.png" in download_response.headers["content-disposition"]
+
 
 def test_upload_document_asset_attaches_document_source(monkeypatch, tmp_path):
     monkeypatch.setenv("FILE_STORAGE_ROOT", str(tmp_path))
@@ -80,6 +85,15 @@ def test_upload_document_asset_attaches_document_source(monkeypatch, tmp_path):
     assert document["file_type"] == "pdf"
     assert document["source_note"] == "报价资料"
     assert document["url"].startswith("/api/files/")
+
+    preview_response = client.get(document["url"])
+    assert preview_response.status_code == 200
+    assert preview_response.headers["content-disposition"].startswith("inline;")
+
+    download_response = client.get(f"{document['url']}?download=1")
+    assert download_response.status_code == 200
+    assert download_response.headers["content-disposition"].startswith("attachment;")
+    assert "quote.pdf" in download_response.headers["content-disposition"]
 
 
 def test_uploaded_text_document_is_chunked_and_available_to_graphrag(monkeypatch, tmp_path):

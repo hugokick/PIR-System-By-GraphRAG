@@ -427,7 +427,7 @@ def list_audit_logs(
 
 
 @app.get("/api/files/{file_id}")
-def download_file(file_id: str) -> FileResponse:
+def download_file(file_id: str, download: bool = Query(default=False)) -> FileResponse:
     path = file_path(file_id)
     if path is None:
         raise HTTPException(
@@ -438,7 +438,11 @@ def download_file(file_id: str) -> FileResponse:
                 "details": {"id": file_id},
             },
         )
-    return FileResponse(path)
+    return FileResponse(
+        path,
+        filename=path.name,
+        content_disposition_type="attachment" if download else "inline",
+    )
 
 
 @app.get("/api/exhibits/{exhibit_id}/graph", response_model=GraphResponse)

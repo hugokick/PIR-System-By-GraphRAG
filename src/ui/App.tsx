@@ -135,6 +135,13 @@ function canPreviewMedia(asset: MediaAsset) {
   return asset.type === 'image' || asset.type === 'video';
 }
 
+function downloadUrl(url: string) {
+  if (!url.includes('/api/files/')) return url;
+  const nextUrl = new URL(url, globalThis.location?.origin ?? 'http://localhost');
+  nextUrl.searchParams.set('download', '1');
+  return nextUrl.toString();
+}
+
 function mergeImportedExhibits(currentItems: Exhibit[], importedItems: Exhibit[]) {
   const importedIds = new Set(importedItems.map((item) => item.id));
   return [...importedItems, ...currentItems.filter((item) => !importedIds.has(item.id))];
@@ -1242,7 +1249,7 @@ export function App() {
                           <video src={asset.url} controls aria-label={`${asset.name} 视频预览`} />
                         )}
                         {!canPreviewMedia(asset) && (
-                          <a className="media-file-link" href={asset.url} target="_blank" rel="noreferrer">
+                          <a className="media-file-link" href={downloadUrl(asset.url)} download={asset.name}>
                             <FileText size={22} />
                             <span>{asset.name}</span>
                           </a>
@@ -1274,7 +1281,7 @@ export function App() {
                     {selected.documents.map((document) => (
                       <div className="document-item" key={document.id}>
                         <div className="document-heading">
-                          <a href={document.url} target="_blank" rel="noreferrer">
+                          <a href={downloadUrl(document.url)} download={document.name}>
                             <FileText size={16} />
                             <span>{document.name}</span>
                           </a>

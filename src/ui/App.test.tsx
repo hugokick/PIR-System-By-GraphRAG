@@ -740,6 +740,31 @@ describe('App exhibit management', () => {
     expect(screen.getByText(/伯努利气流环道/)).toBeTruthy();
   });
 
+  it('uses explicit download URLs while keeping PDF preview URLs inline', async () => {
+    const withDocument = {
+      ...apiExhibit(),
+      documents: [
+        {
+          id: 'quote-download-doc',
+          name: 'quote.pdf',
+          file_type: 'pdf',
+          url: '/api/files/quote-download-doc',
+          source_note: 'Quote file'
+        }
+      ]
+    };
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [withDocument] }));
+
+    render(<App />);
+
+    const link = await screen.findByRole('link', { name: 'quote.pdf' });
+    const preview = screen.getByTitle('quote.pdf 预览') as HTMLIFrameElement;
+
+    expect(link.getAttribute('href')).toBe('http://127.0.0.1:8000/api/files/quote-download-doc?download=1');
+    expect(link.getAttribute('download')).toBe('quote.pdf');
+    expect(preview.getAttribute('src')).toBe('http://127.0.0.1:8000/api/files/quote-download-doc');
+  });
+
   it('uploads selected media through the backend and renders the returned asset link', async () => {
     const updated = {
       ...apiExhibit(),
