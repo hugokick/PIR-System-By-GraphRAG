@@ -8,10 +8,12 @@ from app.schemas import DocumentChunk
 TEXT_FILE_TYPES = {"txt", "md", "markdown", "csv", "tsv", "json", "log"}
 PDF_FILE_TYPES = {"pdf"}
 XLSX_FILE_TYPES = {"xlsx"}
+DOCX_FILE_TYPES = {"docx"}
 MAX_TEXT_CHARS = 20000
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 80
 SPREADSHEET_NAMESPACE = {"s": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+WORD_NAMESPACE = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
 
 
 def extract_document_chunks(document_id: str, path: Path, file_type: str) -> list[DocumentChunk]:
@@ -30,6 +32,8 @@ def extract_document_text(path: Path, file_type: str) -> str:
         return extract_pdf_text(path)
     if normalized_type in XLSX_FILE_TYPES:
         return extract_xlsx_text(path)
+    if normalized_type in DOCX_FILE_TYPES:
+        return extract_docx_text(path)
     if normalized_type not in TEXT_FILE_TYPES:
         return ""
     raw = path.read_bytes()[:MAX_TEXT_CHARS]
@@ -82,6 +86,18 @@ def extract_xlsx_text(path: Path) -> str:
                         return normalize_text(" ".join(parts))[:MAX_TEXT_CHARS]
     except Exception:
         return ""
+    return normalize_text(" ".join(parts))[:MAX_TEXT_CHARS]
+
+
+def extract_docx_text(path: Path) -> str:
+    try:
+        with ZipFile(path) as archive:
+            if "word/document.xml" not in archive.namelist():
+                return ""
+            root = ElementTree.fromstring(archive.read("word/document.xml"))
+    except Exception:
+        return ""
+    parts = [node.text or "" for node in root.findall(".//w:t", WORD_NAMESPACE)]
     return normalize_text(" ".join(parts))[:MAX_TEXT_CHARS]
 
 

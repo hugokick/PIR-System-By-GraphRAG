@@ -104,6 +104,40 @@ def minimal_xlsx_bytes(rows: list[list[str]]) -> bytes:
     return workbook.getvalue()
 
 
+def minimal_docx_bytes(paragraphs: list[str]) -> bytes:
+    body = "".join(
+        "<w:p><w:r><w:t>"
+        + text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        + "</w:t></w:r></w:p>"
+        for text in paragraphs
+    )
+    document_xml = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>{body}</w:body>
+</w:document>"""
+
+    document = BytesIO()
+    with ZipFile(document, "w", compression=ZIP_DEFLATED) as archive:
+        archive.writestr(
+            "[Content_Types].xml",
+            """<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>""",
+        )
+        archive.writestr(
+            "_rels/.rels",
+            """<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>""",
+        )
+        archive.writestr("word/document.xml", document_xml)
+    return document.getvalue()
+
+
 def test_upload_image_asset_attaches_media_and_serves_file(monkeypatch, tmp_path):
     monkeypatch.setenv("FILE_STORAGE_ROOT", str(tmp_path))
 
@@ -284,6 +318,48 @@ def test_uploaded_xlsx_document_is_chunked_and_available_to_graphrag(monkeypatch
         citation["source_id"] == document["id"]
         and citation["source_type"] == "document"
         and xlsx_token in citation["snippet"]
+        for citation in hit["citations"]
+    )
+
+
+def test_uploaded_docx_document_is_chunked_and_available_to_graphrag(monkeypatch, tmp_path):
+    monkeypatch.setenv("FILE_STORAGE_ROOT", str(tmp_path))
+    docx_token = "docx-smoke-token-f4b9e1"
+
+    upload_response = client.post(
+        "/api/exhibits/lever-play/assets",
+        data={"asset_kind": "document", "note": "Word 方案说明"},
+        files={
+            "file": (
+                "scheme-note.docx",
+                minimal_docx_bytes([
+                    "滑轮挑战墙深化设计说明",
+                    f"{docx_token} 说明低龄儿童操作流程和安全维护要点",
+                ]),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+        headers=EDITOR_HEADERS,
+    )
+
+    assert upload_response.status_code == 201
+    document = upload_response.json()["documents"][-1]
+    assert document["file_type"] == "docx"
+    assert document["chunks"]
+    assert docx_token in document["chunks"][0]["text"]
+
+    search_response = client.post(
+        "/api/graphrag/search",
+        json={"query": docx_token, "top_k": 1},
+    )
+
+    assert search_response.status_code == 200
+    hit = search_response.json()["items"][0]
+    assert hit["exhibit"]["id"] == "lever-play"
+    assert any(
+        citation["source_id"] == document["id"]
+        and citation["source_type"] == "document"
+        and docx_token in citation["snippet"]
         for citation in hit["citations"]
     )
 
