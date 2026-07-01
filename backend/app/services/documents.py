@@ -9,11 +9,13 @@ TEXT_FILE_TYPES = {"txt", "md", "markdown", "csv", "tsv", "json", "log"}
 PDF_FILE_TYPES = {"pdf"}
 XLSX_FILE_TYPES = {"xlsx"}
 DOCX_FILE_TYPES = {"docx"}
+PPTX_FILE_TYPES = {"pptx"}
 MAX_TEXT_CHARS = 20000
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 80
 SPREADSHEET_NAMESPACE = {"s": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
 WORD_NAMESPACE = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+DRAWING_NAMESPACE = {"a": "http://schemas.openxmlformats.org/drawingml/2006/main"}
 
 
 def extract_document_chunks(document_id: str, path: Path, file_type: str) -> list[DocumentChunk]:
@@ -34,6 +36,8 @@ def extract_document_text(path: Path, file_type: str) -> str:
         return extract_xlsx_text(path)
     if normalized_type in DOCX_FILE_TYPES:
         return extract_docx_text(path)
+    if normalized_type in PPTX_FILE_TYPES:
+        return extract_pptx_text(path)
     if normalized_type not in TEXT_FILE_TYPES:
         return ""
     raw = path.read_bytes()[:MAX_TEXT_CHARS]
@@ -98,6 +102,24 @@ def extract_docx_text(path: Path) -> str:
     except Exception:
         return ""
     parts = [node.text or "" for node in root.findall(".//w:t", WORD_NAMESPACE)]
+    return normalize_text(" ".join(parts))[:MAX_TEXT_CHARS]
+
+
+def extract_pptx_text(path: Path) -> str:
+    try:
+        with ZipFile(path) as archive:
+            parts: list[str] = []
+            for slide_name in sorted(
+                name for name in archive.namelist() if name.startswith("ppt/slides/") and name.endswith(".xml")
+            ):
+                root = ElementTree.fromstring(archive.read(slide_name))
+                slide_text = " ".join(node.text or "" for node in root.findall(".//a:t", DRAWING_NAMESPACE))
+                if slide_text:
+                    parts.append(slide_text)
+                if sum(len(part) for part in parts) >= MAX_TEXT_CHARS:
+                    return normalize_text(" ".join(parts))[:MAX_TEXT_CHARS]
+    except Exception:
+        return ""
     return normalize_text(" ".join(parts))[:MAX_TEXT_CHARS]
 
 

@@ -138,6 +138,47 @@ def minimal_docx_bytes(paragraphs: list[str]) -> bytes:
     return document.getvalue()
 
 
+def minimal_pptx_bytes(texts: list[str]) -> bytes:
+    text_runs = "".join(
+        "<a:p><a:r><a:t>"
+        + text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        + "</a:t></a:r></a:p>"
+        for text in texts
+    )
+    slide_xml = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+       xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+  <p:cSld>
+    <p:spTree>
+      <p:sp><p:txBody>{text_runs}</p:txBody></p:sp>
+    </p:spTree>
+  </p:cSld>
+</p:sld>"""
+
+    presentation = BytesIO()
+    with ZipFile(presentation, "w", compression=ZIP_DEFLATED) as archive:
+        archive.writestr(
+            "[Content_Types].xml",
+            """<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>
+  <Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>
+</Types>""",
+        )
+        archive.writestr(
+            "_rels/.rels",
+            """<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>
+</Relationships>""",
+        )
+        archive.writestr("ppt/presentation.xml", "<presentation />")
+        archive.writestr("ppt/slides/slide1.xml", slide_xml)
+    return presentation.getvalue()
+
+
 def test_upload_image_asset_attaches_media_and_serves_file(monkeypatch, tmp_path):
     monkeypatch.setenv("FILE_STORAGE_ROOT", str(tmp_path))
 
@@ -360,6 +401,48 @@ def test_uploaded_docx_document_is_chunked_and_available_to_graphrag(monkeypatch
         citation["source_id"] == document["id"]
         and citation["source_type"] == "document"
         and docx_token in citation["snippet"]
+        for citation in hit["citations"]
+    )
+
+
+def test_uploaded_pptx_document_is_chunked_and_available_to_graphrag(monkeypatch, tmp_path):
+    monkeypatch.setenv("FILE_STORAGE_ROOT", str(tmp_path))
+    pptx_token = "pptx-smoke-token-91ec02"
+
+    upload_response = client.post(
+        "/api/exhibits/lever-play/assets",
+        data={"asset_kind": "document", "note": "PPT 方案汇报"},
+        files={
+            "file": (
+                "scheme-deck.pptx",
+                minimal_pptx_bytes([
+                    "滑轮挑战墙方案汇报",
+                    f"{pptx_token} 说明展项互动形式和儿童安全边界",
+                ]),
+                "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            )
+        },
+        headers=EDITOR_HEADERS,
+    )
+
+    assert upload_response.status_code == 201
+    document = upload_response.json()["documents"][-1]
+    assert document["file_type"] == "pptx"
+    assert document["chunks"]
+    assert pptx_token in document["chunks"][0]["text"]
+
+    search_response = client.post(
+        "/api/graphrag/search",
+        json={"query": pptx_token, "top_k": 1},
+    )
+
+    assert search_response.status_code == 200
+    hit = search_response.json()["items"][0]
+    assert hit["exhibit"]["id"] == "lever-play"
+    assert any(
+        citation["source_id"] == document["id"]
+        and citation["source_type"] == "document"
+        and pptx_token in citation["snippet"]
         for citation in hit["citations"]
     )
 
