@@ -1,6 +1,13 @@
 import re
 from collections.abc import Mapping
 
+from app.ai.query_understanding import (
+    AUDIENCE_LOW_AGE_CHILDREN,
+    BUDGET_LOW,
+    BUDGET_LOWER_THAN_REFERENCE,
+    QueryUnderstandingResult,
+    understand_query,
+)
 from app.repository import ExhibitRepository
 from app.schemas import (
     ExhibitResponse,
@@ -22,10 +29,11 @@ def search_hybrid_exhibits(
     semantic_scores: Mapping[str, float] | None = None,
 ) -> HybridSearchResponse:
     filtered = _apply_filters(exhibits, filters)
+    understanding = understand_query(query)
     hits: list[tuple[int, HybridSearchHit]] = []
 
     for index, exhibit in enumerate(filtered):
-        score, reasons = _score_exhibit(query, exhibit, filters)
+        score, reasons = _score_exhibit(query, exhibit, filters, understanding)
         semantic_score = (semantic_scores or {}).get(exhibit.id, 0.0)
         if semantic_score >= SEMANTIC_RECALL_THRESHOLD:
             score += semantic_score * 6
@@ -83,6 +91,7 @@ def _score_exhibit(
     query: str,
     exhibit: ExhibitResponse,
     filters: HybridSearchFilters | None,
+    understanding: QueryUnderstandingResult,
 ) -> tuple[float, list[str]]:
     compact_query = _compact(query)
     score = 0.0
@@ -136,6 +145,11 @@ def _score_exhibit(
     if document_hits:
         score += len(document_hits) * 2.5
         reasons.extend(document_hits)
+
+    understanding_score, understanding_reasons = _query_understanding_score(understanding, exhibit)
+    if understanding_score:
+        score += understanding_score
+        reasons.extend(understanding_reasons)
 
     reasons.extend(_filter_reasons(exhibit, filters))
     return score, reasons
@@ -200,6 +214,54 @@ def _document_hits(compact_query: str, exhibit: ExhibitResponse) -> list[str]:
     return hits
 
 
+def _query_understanding_score(
+    understanding: QueryUnderstandingResult,
+    exhibit: ExhibitResponse,
+) -> tuple[float, list[str]]:
+    if understanding.confidence < 0.4:
+        return 0.0, []
+
+    score = 0.0
+    reasons: list[str] = []
+    if understanding.themes and exhibit.theme.name in understanding.themes:
+        score += 3.0
+        reasons.append(f"查询理解：主题 {exhibit.theme.name}")
+    if understanding.venue_types and exhibit.venue_type in understanding.venue_types:
+        score += 2.0
+        reasons.append(f"查询理解：场馆 {exhibit.venue_type}")
+    matched_materials = [
+        material.name for material in exhibit.materials if material.name in understanding.materials
+    ]
+    if matched_materials:
+        score += len(matched_materials) * 1.5
+        reasons.append(f"查询理解：材料 {'、'.join(matched_materials)}")
+    matched_interactions = [
+        interaction.name
+        for interaction in exhibit.interactions
+        if interaction.name in understanding.interactions
+    ]
+    if matched_interactions:
+        score += len(matched_interactions) * 1.5
+        reasons.append(f"查询理解：互动 {'、'.join(matched_interactions)}")
+    if AUDIENCE_LOW_AGE_CHILDREN in understanding.audience and _exhibit_has_child_signal(exhibit):
+        score += 2.0
+        reasons.append("查询理解：人群 low_age_children")
+    if understanding.budget_intent == BUDGET_LOW and _exhibit_has_low_budget(exhibit):
+        score += 2.5
+        reasons.append("查询理解：预算倾向 low")
+    elif understanding.budget_intent == BUDGET_LOWER_THAN_REFERENCE and _exhibit_has_low_budget(exhibit):
+        score += 1.5
+        reasons.append("查询理解：预算倾向 lower_than_reference")
+    matched_tags = [tag for tag in exhibit.tags if tag in understanding.tags]
+    if matched_tags:
+        score += len(matched_tags)
+        reasons.append(f"查询理解：标签 {'、'.join(matched_tags)}")
+    if understanding.exclusions and _exhibit_matches_exclusions(exhibit, understanding.exclusions):
+        score -= 4.0
+        reasons.append(f"查询理解：排除 {'、'.join(understanding.exclusions)}")
+    return score, reasons
+
+
 def _mentions_child_audience(compact_query: str) -> bool:
     return any(signal in compact_query for signal in ("低龄儿童", "低龄", "儿童", "亲子"))
 
@@ -224,6 +286,24 @@ def _mentions_low_budget(compact_query: str) -> bool:
 
 def _exhibit_has_low_budget(exhibit: ExhibitResponse) -> bool:
     return exhibit.budget_max <= 300000
+
+
+def _exhibit_matches_exclusions(exhibit: ExhibitResponse, exclusions: list[str]) -> bool:
+    text = " ".join(
+        [
+            exhibit.name,
+            exhibit.category,
+            exhibit.theme.name,
+            exhibit.venue_type,
+            exhibit.description,
+            exhibit.owner.name,
+            exhibit.supplier.name,
+            *exhibit.tags,
+            *[material.name for material in exhibit.materials],
+            *[interaction.name for interaction in exhibit.interactions],
+        ]
+    )
+    return any(exclusion in text for exclusion in exclusions)
 
 
 def _format_budget(value: int) -> str:

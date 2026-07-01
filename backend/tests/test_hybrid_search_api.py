@@ -72,6 +72,25 @@ def test_hybrid_search_explains_low_budget_intent_without_structured_filter():
     assert "匹配预算：低预算 15 万-28 万" in payload["items"][0]["reasons"]
 
 
+def test_hybrid_search_uses_query_understanding_for_chinese_business_intent():
+    response = client.post(
+        "/api/search/hybrid",
+        json={
+            "query": "找几个适合低龄儿童、预算不高、互动性强的力学展项",
+            "limit": 5,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] >= 2
+    assert payload["items"][0]["exhibit"]["id"] == "pulley-wall"
+    joined_reasons = "；".join(payload["items"][0]["reasons"])
+    assert "查询理解：主题 力学" in joined_reasons
+    assert "查询理解：预算倾向 low" in joined_reasons
+    assert "查询理解：人群 low_age_children" in joined_reasons
+
+
 def test_hybrid_search_total_counts_all_matches_before_limit():
     response = client.post(
         "/api/search/hybrid",

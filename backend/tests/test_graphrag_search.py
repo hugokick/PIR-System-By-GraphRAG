@@ -15,6 +15,21 @@ def test_graph_rag_search_applies_budget_filters():
     assert [item.exhibit.id for item in response.items] == ["pulley-wall"]
 
 
+def test_graph_rag_search_uses_query_understanding_for_chinese_business_intent():
+    response = search_graph_rag(
+        "找几个适合低龄儿童、预算不高、互动性强的力学展项",
+        seed_exhibits,
+        top_k=5,
+    )
+
+    assert response.total >= 2
+    assert response.items[0].exhibit.id == "pulley-wall"
+    joined_reasons = "；".join(response.items[0].reasons)
+    assert "查询理解：主题 力学" in joined_reasons
+    assert "查询理解：预算倾向 low" in joined_reasons
+    assert "查询理解：人群 low_age_children" in joined_reasons
+
+
 def test_graph_rag_search_includes_deduped_incoming_neighbor_edges():
     center_id = "exhibit:lever-play"
     related_id = "exhibit:incoming-related"

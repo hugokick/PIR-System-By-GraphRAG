@@ -1,5 +1,12 @@
 from collections.abc import Mapping
 
+from app.ai.query_understanding import (
+    AUDIENCE_LOW_AGE_CHILDREN,
+    BUDGET_LOW,
+    BUDGET_LOWER_THAN_REFERENCE,
+    QueryUnderstandingResult,
+    understand_query,
+)
 from app.kg.builder import build_exhibit_kg_snapshot
 from app.kg.models import KGEvidence, KGSnapshot
 from app.repository import ExhibitRepository
@@ -17,6 +24,7 @@ def search_graph_rag(
     semantic_scores: Mapping[str, float] | None = None,
 ) -> GraphRAGSearchResponse:
     active_snapshot = snapshot or build_exhibit_kg_snapshot(exhibits)
+    understanding = understand_query(query)
     filtered = _apply_filters(exhibits, filters)
     hits = [
         hit
@@ -26,6 +34,7 @@ def search_graph_rag(
                 query,
                 exhibit,
                 active_snapshot,
+                understanding,
                 semantic_score=(semantic_scores or {}).get(exhibit.id, 0.0),
             )
         )
@@ -72,9 +81,10 @@ def _score_exhibit(
     query: str,
     exhibit: ExhibitResponse,
     snapshot: KGSnapshot,
+    understanding: QueryUnderstandingResult,
     semantic_score: float = 0.0,
 ) -> GraphRAGHit | None:
-    tokens = _query_tokens(query)
+    tokens = _query_tokens(query, understanding)
     fields = {
         "identity": [exhibit.id, exhibit.name],
         "classification": [exhibit.category, exhibit.theme.name, exhibit.venue_type, *exhibit.tags],
@@ -106,6 +116,11 @@ def _score_exhibit(
     if document_score:
         score += document_score
         reasons.extend(document_reasons)
+
+    understanding_score, understanding_reasons = _query_understanding_score(understanding, exhibit)
+    if understanding_score:
+        score += understanding_score
+        reasons.extend(understanding_reasons)
 
     if semantic_score >= 0.2:
         score += semantic_score * 6
@@ -157,13 +172,74 @@ def _one_hop_neighborhood(snapshot: KGSnapshot, center_id: str) -> KGSnapshot:
     )
 
 
-def _query_tokens(query: str) -> list[str]:
+def _query_tokens(query: str, understanding: QueryUnderstandingResult | None = None) -> list[str]:
     normalized = query.strip().lower()
     if not normalized:
         return []
     for separator in ",，、|":
         normalized = normalized.replace(separator, " ")
-    return [token for token in normalized.split() if token]
+    tokens = [token for token in normalized.split() if token]
+    if understanding is None:
+        return tokens
+    tokens.extend(
+        [
+            *understanding.themes,
+            *understanding.venue_types,
+            *understanding.materials,
+            *understanding.interactions,
+            *understanding.tags,
+            understanding.project_case or "",
+        ]
+    )
+    return _dedupe_tokens(tokens)
+
+
+def _query_understanding_score(
+    understanding: QueryUnderstandingResult,
+    exhibit: ExhibitResponse,
+) -> tuple[float, list[str]]:
+    if understanding.confidence < 0.4:
+        return 0.0, []
+
+    score = 0.0
+    reasons: list[str] = []
+    if understanding.themes and exhibit.theme.name in understanding.themes:
+        score += 3.0
+        reasons.append(f"查询理解：主题 {exhibit.theme.name}")
+    if understanding.venue_types and exhibit.venue_type in understanding.venue_types:
+        score += 2.0
+        reasons.append(f"查询理解：场馆 {exhibit.venue_type}")
+    matched_materials = [
+        material.name for material in exhibit.materials if material.name in understanding.materials
+    ]
+    if matched_materials:
+        score += len(matched_materials) * 1.5
+        reasons.append(f"查询理解：材料 {'、'.join(matched_materials)}")
+    matched_interactions = [
+        interaction.name
+        for interaction in exhibit.interactions
+        if interaction.name in understanding.interactions
+    ]
+    if matched_interactions:
+        score += len(matched_interactions) * 1.5
+        reasons.append(f"查询理解：互动 {'、'.join(matched_interactions)}")
+    if AUDIENCE_LOW_AGE_CHILDREN in understanding.audience and _exhibit_has_low_age_signal(exhibit):
+        score += 2.0
+        reasons.append("查询理解：人群 low_age_children")
+    if understanding.budget_intent == BUDGET_LOW and exhibit.budget_max <= 300000:
+        score += 2.5
+        reasons.append("查询理解：预算倾向 low")
+    elif understanding.budget_intent == BUDGET_LOWER_THAN_REFERENCE and exhibit.budget_max <= 300000:
+        score += 1.5
+        reasons.append("查询理解：预算倾向 lower_than_reference")
+    matched_tags = [tag for tag in exhibit.tags if tag in understanding.tags]
+    if matched_tags:
+        score += len(matched_tags)
+        reasons.append(f"查询理解：标签 {'、'.join(matched_tags)}")
+    if understanding.exclusions and _exhibit_matches_exclusions(exhibit, understanding.exclusions):
+        score -= 4.0
+        reasons.append(f"查询理解：排除 {'、'.join(understanding.exclusions)}")
+    return score, reasons
 
 
 def _document_match_score(tokens: list[str], exhibit: ExhibitResponse) -> tuple[float, list[str]]:
@@ -182,6 +258,36 @@ def _document_match_score(tokens: list[str], exhibit: ExhibitResponse) -> tuple[
         score += len(matched) * 2.0
         reasons.append(f"匹配资料：{document.name}")
     return score, reasons
+
+
+def _exhibit_has_low_age_signal(exhibit: ExhibitResponse) -> bool:
+    joined = " ".join(
+        [
+            exhibit.venue_type,
+            exhibit.description,
+            *exhibit.tags,
+            *[interaction.name for interaction in exhibit.interactions],
+        ]
+    )
+    return any(signal in joined for signal in ("低龄儿童", "低龄", "儿童", "亲子"))
+
+
+def _exhibit_matches_exclusions(exhibit: ExhibitResponse, exclusions: list[str]) -> bool:
+    joined = " ".join(
+        [
+            exhibit.name,
+            exhibit.category,
+            exhibit.theme.name,
+            exhibit.venue_type,
+            exhibit.description,
+            exhibit.owner.name,
+            exhibit.supplier.name,
+            *exhibit.tags,
+            *[material.name for material in exhibit.materials],
+            *[interaction.name for interaction in exhibit.interactions],
+        ]
+    )
+    return any(exclusion in joined for exclusion in exclusions)
 
 
 def _dedupe_citations(evidences: list[KGEvidence]) -> list[KGEvidence]:
@@ -205,4 +311,16 @@ def _dedupe_edges(edges):
             continue
         seen.add(key)
         unique.append(edge)
+    return unique
+
+
+def _dedupe_tokens(tokens: list[str]) -> list[str]:
+    unique: list[str] = []
+    seen: set[str] = set()
+    for token in tokens:
+        token = token.strip().lower()
+        if not token or token in seen:
+            continue
+        seen.add(token)
+        unique.append(token)
     return unique
