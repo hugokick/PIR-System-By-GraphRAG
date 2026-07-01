@@ -607,14 +607,24 @@ textarea:focus {
 }
 
 .graphrag-citation-card {
+  appearance: none;
   max-width: 420px;
   border: 1px solid #d9e1dc;
   border-radius: 6px;
   background: #f8fbf9;
   color: #52645f;
+  cursor: pointer;
   padding: 9px 10px;
   line-height: 1.5;
   font-size: 13px;
+  text-align: left;
+}
+
+.graphrag-citation-card:hover,
+.graphrag-citation-card:focus-visible {
+  border-color: #0f8b78;
+  box-shadow: 0 0 0 3px rgba(15, 139, 120, 0.12);
+  outline: none;
 }
 
 .graphrag-citation-card em,
@@ -990,7 +1000,7 @@ textarea:focus {
 }
 
 .media-gallery .panel-title {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .media-gallery-grid {
@@ -1000,18 +1010,18 @@ textarea:focus {
 }
 
 .media-gallery-grid.thumbnail-grid {
-  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 112px));
+  gap: 8px;
 }
 
 .media-card {
   min-width: 0;
   display: grid;
-  gap: 7px;
+  gap: 5px;
   border: 1px solid #e0e8e4;
   border-radius: 8px;
   background: #ffffff;
-  padding: 8px;
+  padding: 6px;
 }
 
 .media-thumbnail,
@@ -1019,7 +1029,7 @@ textarea:focus {
 .media-card video,
 .media-file-link {
   width: 100%;
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 1 / 1;
   border-radius: 6px;
   border: 1px solid #dce6e1;
   background: #f4f7f5;
@@ -1055,11 +1065,12 @@ textarea:focus {
 
 .media-card div {
   display: grid;
-  gap: 3px;
+  gap: 2px;
 }
 
 .media-card strong {
   color: #203b39;
+  font-size: 12px;
   overflow-wrap: anywhere;
 }
 
@@ -1073,7 +1084,7 @@ textarea:focus {
 .media-card span,
 .media-card small {
   color: #60766f;
-  font-size: 0.86rem;
+  font-size: 11px;
 }
 
 .document-list {
@@ -1188,7 +1199,7 @@ textarea:focus {
   border-top: 1px solid #e0e7e3;
   padding-top: 14px;
   container-type: inline-size;
-  --graph-viewport-height: clamp(520px, 68vh, 720px);
+  --graph-viewport-height: clamp(960px, 120vh, 1440px);
 }
 
 .graph-mode-switch,
@@ -1275,44 +1286,6 @@ textarea:focus {
 
 .nvl-stage > div:first-child {
   height: var(--graph-viewport-height);
-}
-
-.nvl-readable-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.nvl-node-caption,
-.nvl-edge-caption {
-  font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
-  paint-order: stroke;
-  stroke-linejoin: round;
-}
-
-.nvl-node-caption {
-  fill: #f8fbff;
-  font-size: 13px;
-  font-weight: 800;
-  stroke: #0f172a;
-  stroke-width: 4px;
-}
-
-.nvl-node-caption.dimmed {
-  fill: #aeb8c4;
-  opacity: 0.72;
-}
-
-.nvl-edge-caption {
-  fill: #55301f;
-  font-size: 11px;
-  font-weight: 800;
-  stroke: #fff7ed;
-  stroke-width: 5px;
 }
 
 .nvl-minimap {
@@ -1494,7 +1467,7 @@ textarea:focus {
   }
 
   .graph {
-    --graph-viewport-height: 560px;
+    --graph-viewport-height: 780px;
   }
 
   .nvl-minimap {

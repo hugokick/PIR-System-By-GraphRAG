@@ -16,14 +16,14 @@ export const nvlGraphStyling = {
 };
 
 const nodeBaseSizes: Record<string, number> = {
-  exhibit: 22,
-  project: 18,
-  owner: 18,
-  material: 18,
-  supplier: 18,
-  theme: 18,
-  interaction: 18,
-  document: 16
+  exhibit: 18,
+  project: 14,
+  owner: 14,
+  material: 14,
+  supplier: 14,
+  theme: 14,
+  interaction: 14,
+  document: 13
 };
 
 const nodeIconPaths: Record<string, string> = {
@@ -40,8 +40,8 @@ const nodeIconPaths: Record<string, string> = {
 const relationshipCaptions: Record<string, string> = {
   belongs_to_project: '所属项目',
   has_document: '资料文档',
-  has_interaction: '交互方式',
-  has_theme: '主题',
+  has_interaction: '交互形式',
+  has_theme: '主题领域',
   owned_by: '业主',
   similar_to: '相似展项',
   supplied_by: '供应商',
@@ -57,7 +57,7 @@ function buildSvgIcon(path: string) {
 
 function graphNodeSize(kind: string, selected: boolean) {
   const baseSize = nodeBaseSizes[kind] ?? 24;
-  return selected ? baseSize + 8 : baseSize;
+  return selected ? baseSize + 4 : baseSize;
 }
 
 function relationshipCaption(value: string) {
@@ -67,7 +67,7 @@ function relationshipCaption(value: string) {
 
 function initialNodePosition(index: number, total: number) {
   if (total <= 1) return { x: 0, y: 0 };
-  const radius = Math.min(520, 180 + total * 7);
+  const radius = Math.min(920, 320 + total * 12);
   const angle = -Math.PI / 2 + (2 * Math.PI * index) / total;
   return {
     x: Math.round(Math.cos(angle) * radius),
@@ -104,7 +104,7 @@ export function buildNvlGraphData(
       selected: node.id === selectedNodeId,
       activated: node.id === selectedNodeId,
       disabled: Boolean(selectedNodeId) && !neighborIds.has(node.id),
-      captionSize: node.id === selectedNodeId ? 11 : 10,
+      captionSize: node.id === selectedNodeId ? 13 : 12,
       captionAlign: 'bottom',
       x: position.x,
       y: position.y,
@@ -132,7 +132,7 @@ export function buildNvlGraphData(
       to: edge.target,
       type: relationshipType,
       caption: readableCaption,
-      captionSize: highlighted ? 9 : 8,
+      captionSize: highlighted ? 12 : 11,
       captionAlign: 'center',
       color: highlighted ? '#f79767' : disabled ? '#6f7d8f' : '#8f9bad',
       width: highlighted ? 3.4 : disabled ? 1 : 2,
