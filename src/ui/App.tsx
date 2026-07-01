@@ -378,6 +378,26 @@ function makeExhibitFromForm(form: HTMLFormElement, existingItem?: Exhibit): Exh
   };
 }
 
+type ExhibitFormDraft = Partial<Record<string, string | number>>;
+
+function documentSuggestionFormDraft(suggestion: DocumentExtractionSuggestion): ExhibitFormDraft {
+  const draft: ExhibitFormDraft = {};
+  if (suggestion.exhibitName) draft.name = suggestion.exhibitName;
+  if (suggestion.category) draft.category = suggestion.category;
+  if (suggestion.theme) draft.theme = suggestion.theme;
+  if (suggestion.venueType) draft.venueType = suggestion.venueType;
+  if (suggestion.budgetMin !== undefined) draft.budgetMin = suggestion.budgetMin;
+  if (suggestion.budgetMax !== undefined) draft.budgetMax = suggestion.budgetMax;
+  if (suggestion.materials.length > 0) draft.materials = suggestion.materials.join(',');
+  if (suggestion.interactions.length > 0) draft.interactions = suggestion.interactions.join(',');
+  if (suggestion.supplier) draft.supplier = suggestion.supplier;
+  if (suggestion.owner) draft.owner = suggestion.owner;
+  if (suggestion.projectYear !== undefined) draft.projectYear = suggestion.projectYear;
+  if (suggestion.tags.length > 0) draft.tags = suggestion.tags.join(',');
+  if (suggestion.summary) draft.description = suggestion.summary;
+  return draft;
+}
+
 export function App() {
   const [items, setItems] = useState<Exhibit[]>(() => loadExhibits());
   const [session, setSession] = useState<UserSession | null>(() => {
@@ -426,6 +446,11 @@ export function App() {
   const [documentExtractionSuggestion, setDocumentExtractionSuggestion] = useState<{
     documentId: string;
     result: DocumentExtractionSuggestion;
+  } | null>(null);
+  const [formDraft, setFormDraft] = useState<{
+    exhibitId: string | null;
+    version: number;
+    values: ExhibitFormDraft;
   } | null>(null);
   const [documentExtractionError, setDocumentExtractionError] = useState<{
     documentId: string;
@@ -533,6 +558,8 @@ export function App() {
   const semanticResults = semanticSearchResponse.items;
   const selected = items.find((item) => item.id === selectedId) ?? filteredItems[0] ?? items[0];
   const editingItem = editingId ? items.find((item) => item.id === editingId) : undefined;
+  const activeFormDraft = formDraft && formDraft.exhibitId === (editingId ?? null) ? formDraft.values : {};
+  const formValue = (name: string, fallback: string | number) => activeFormDraft[name] ?? fallback;
   const fallbackGraph = useMemo(() => (selected ? buildGraph(selected, items) : { nodes: [], edges: [] }), [selected, items]);
   const isRemoteGraph = Boolean(remoteGraph && remoteGraph.exhibitId === selected?.id);
   const graph =
@@ -883,6 +910,7 @@ export function App() {
       setIsSaving(false);
       setEditingId(null);
       setShowForm(false);
+      setFormDraft(null);
       form.reset();
     }
   };
@@ -946,6 +974,7 @@ export function App() {
   const startEdit = (item: Exhibit) => {
     if (!canWrite) return;
     setEditingId(item.id);
+    setFormDraft(null);
     setShowForm(true);
     setLoadError(null);
   };
@@ -1072,6 +1101,18 @@ export function App() {
     } finally {
       setLoadingDocumentExtractionId(null);
     }
+  };
+
+  const applyDocumentExtractionSuggestion = (suggestion: DocumentExtractionSuggestion) => {
+    if (!selected || !canWrite) return;
+    setEditingId(selected.id);
+    setFormDraft((current) => ({
+      exhibitId: selected.id,
+      version: (current?.version ?? 0) + 1,
+      values: documentSuggestionFormDraft(suggestion)
+    }));
+    setShowForm(true);
+    setLoadError(null);
   };
 
   const submitGraphRagQuestion = async (event: FormEvent<HTMLFormElement>) => {
@@ -1453,19 +1494,19 @@ export function App() {
         )}
 
         {showForm && (
-          <form key={editingId ?? 'new-exhibit'} className="create-form" onSubmit={addExhibit}>
-            <input name="name" placeholder="展项名称" defaultValue={editingItem?.name ?? ''} required />
-            <input name="category" placeholder="类别，如基础科学" defaultValue={editingItem?.category ?? ''} required />
-            <input name="theme" placeholder="主题，如力学" defaultValue={editingItem?.theme ?? ''} required />
-            <input name="venueType" placeholder="适用场馆" defaultValue={editingItem?.venueType ?? ''} required />
-            <input name="budgetMin" type="number" placeholder="最低造价" defaultValue={editingItem?.budgetMin ?? ''} required />
-            <input name="budgetMax" type="number" placeholder="最高造价" defaultValue={editingItem?.budgetMax ?? ''} required />
-            <input name="materials" placeholder="材料，用逗号分隔" defaultValue={editingItem?.materials.join(',') ?? ''} />
-            <input name="interactions" placeholder="交互方式，用逗号分隔" defaultValue={editingItem?.interactions.join(',') ?? ''} />
-            <input name="dimensions" placeholder="尺寸" defaultValue={editingItem?.dimensions ?? ''} />
-            <input name="supplier" placeholder="供应商" defaultValue={editingItem?.supplier ?? ''} />
-            <input name="owner" placeholder="业主" defaultValue={editingItem?.owner ?? ''} />
-            <input name="projectYear" type="number" defaultValue={editingItem?.projectYear ?? new Date().getFullYear()} />
+          <form key={`${editingId ?? 'new-exhibit'}:${formDraft?.version ?? 0}`} className="create-form" onSubmit={addExhibit}>
+            <input name="name" placeholder="展项名称" defaultValue={formValue('name', editingItem?.name ?? '')} required />
+            <input name="category" placeholder="类别，如基础科学" defaultValue={formValue('category', editingItem?.category ?? '')} required />
+            <input name="theme" placeholder="主题，如力学" defaultValue={formValue('theme', editingItem?.theme ?? '')} required />
+            <input name="venueType" placeholder="适用场馆" defaultValue={formValue('venueType', editingItem?.venueType ?? '')} required />
+            <input name="budgetMin" type="number" placeholder="最低造价" defaultValue={formValue('budgetMin', editingItem?.budgetMin ?? '')} required />
+            <input name="budgetMax" type="number" placeholder="最高造价" defaultValue={formValue('budgetMax', editingItem?.budgetMax ?? '')} required />
+            <input name="materials" placeholder="材料，用逗号分隔" defaultValue={formValue('materials', editingItem?.materials.join(',') ?? '')} />
+            <input name="interactions" placeholder="交互方式，用逗号分隔" defaultValue={formValue('interactions', editingItem?.interactions.join(',') ?? '')} />
+            <input name="dimensions" placeholder="尺寸" defaultValue={formValue('dimensions', editingItem?.dimensions ?? '')} />
+            <input name="supplier" placeholder="供应商" defaultValue={formValue('supplier', editingItem?.supplier ?? '')} />
+            <input name="owner" placeholder="业主" defaultValue={formValue('owner', editingItem?.owner ?? '')} />
+            <input name="projectYear" type="number" defaultValue={formValue('projectYear', editingItem?.projectYear ?? new Date().getFullYear())} />
             <select name="status" defaultValue={editingItem?.status ?? statuses[0]}>
               {statuses.map((status) => (
                 <option key={status}>{status}</option>
@@ -1481,14 +1522,14 @@ export function App() {
                 </select>
               </label>
             )}
-            <input name="tags" placeholder="标签，用逗号分隔" defaultValue={editingItem?.tags.join(',') ?? ''} />
-            <input name="relatedProjectIds" placeholder="项目编号，用逗号分隔" defaultValue={editingItem?.relatedProjectIds.join(',') ?? ''} />
+            <input name="tags" placeholder="标签，用逗号分隔" defaultValue={formValue('tags', editingItem?.tags.join(',') ?? '')} />
+            <input name="relatedProjectIds" placeholder="项目编号，用逗号分隔" defaultValue={formValue('relatedProjectIds', editingItem?.relatedProjectIds.join(',') ?? '')} />
             <input
               name="relatedExhibitIds"
               placeholder="相似展项 ID，用逗号分隔"
-              defaultValue={editingItem?.relatedExhibitIds.join(',') ?? ''}
+              defaultValue={formValue('relatedExhibitIds', editingItem?.relatedExhibitIds.join(',') ?? '')}
             />
-            <textarea name="description" placeholder="展项说明" defaultValue={editingItem?.description ?? ''} required />
+            <textarea name="description" placeholder="展项说明" defaultValue={formValue('description', editingItem?.description ?? '')} required />
             <button type="submit" disabled={isSaving || !canWrite}>{isSaving ? '保存中' : editingId ? '保存修改' : '保存档案'}</button>
           </form>
         )}
@@ -1961,6 +2002,16 @@ export function App() {
                             </div>
                             {documentExtractionSuggestion.result.summary && (
                               <p>{documentExtractionSuggestion.result.summary}</p>
+                            )}
+                            {canWrite && (
+                              <button
+                                type="button"
+                                className="document-extraction-apply"
+                                onClick={() => applyDocumentExtractionSuggestion(documentExtractionSuggestion.result)}
+                              >
+                                <Check size={14} />
+                                套用建议到编辑表单
+                              </button>
                             )}
                             {flattenSuggestionSources(documentExtractionSuggestion.result).length > 0 && (
                               <div className="document-extraction-sources">

@@ -1533,6 +1533,19 @@ textarea:focus {
   margin: 0;
 }
 
+.document-extraction-apply {
+  align-items: center;
+  background: #12322f;
+  border: 0;
+  border-radius: 6px;
+  color: #ffffff;
+  display: inline-flex;
+  font-weight: 800;
+  gap: 6px;
+  justify-self: start;
+  padding: 8px 10px;
+}
+
 .document-extraction-sources {
   display: grid;
   gap: 8px;

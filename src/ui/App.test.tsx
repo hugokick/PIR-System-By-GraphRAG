@@ -1543,6 +1543,68 @@ describe('App exhibit management', () => {
     );
   });
 
+  it('applies document extraction suggestions to the edit form without saving automatically', async () => {
+    const withDocument = {
+      ...apiExhibit(),
+      documents: [
+        {
+          id: 'field-apply-doc',
+          name: 'field-apply.txt',
+          file_type: 'txt',
+          url: '/api/files/field-apply-doc',
+          source_note: '现场记录',
+          chunks: [{ id: 'field-apply-doc:chunk-1', text: '展项名称：风洞实验台。预算：20-35 万。', sequence: 1 }]
+        }
+      ]
+    };
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/api/exhibits/magnet-maze/documents/field-apply-doc/extraction-suggestions')) {
+        return okJson({
+          document_id: 'field-apply-doc',
+          file_name: 'field-apply.txt',
+          file_type: 'txt',
+          source_note: '现场记录',
+          exhibit_name: '风洞实验台',
+          category: '基础科学',
+          theme: '力学',
+          venue_type: '儿童科技馆',
+          budget_min: 200000,
+          budget_max: 350000,
+          materials: ['亚克力', '风机'],
+          interactions: ['按钮互动'],
+          supplier: '启思互动工坊',
+          owner: '青禾儿童科技馆',
+          project_year: 2024,
+          tags: ['低龄儿童', '气流'],
+          summary: '适合低龄儿童体验气流变化。',
+          confidence: 0.82,
+          field_sources: {}
+        });
+      }
+      if (url.endsWith('/api/exhibits/magnet-maze') && init?.method === 'PUT') {
+        return okJson(JSON.parse(String(init.body)));
+      }
+      return okJson({ total: 1, items: [withDocument] });
+    });
+
+    render(<App />);
+
+    expect(await screen.findByRole('link', { name: 'field-apply.txt' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '抽取字段建议 field-apply.txt' }));
+    const suggestionPanel = await screen.findByLabelText('字段抽取建议 field-apply.txt');
+    fireEvent.click(within(suggestionPanel).getByRole('button', { name: '套用建议到编辑表单' }));
+
+    expect((screen.getByPlaceholderText('展项名称') as HTMLInputElement).value).toBe('风洞实验台');
+    expect((screen.getByPlaceholderText('主题，如力学') as HTMLInputElement).value).toBe('力学');
+    expect((screen.getByPlaceholderText('最低造价') as HTMLInputElement).value).toBe('200000');
+    expect((screen.getByPlaceholderText('最高造价') as HTMLInputElement).value).toBe('350000');
+    expect((screen.getByPlaceholderText('材料，用逗号分隔') as HTMLInputElement).value).toBe('亚克力,风机');
+    expect((screen.getByPlaceholderText('标签，用逗号分隔') as HTMLInputElement).value).toBe('低龄儿童,气流');
+    expect((screen.getByPlaceholderText('展项说明') as HTMLTextAreaElement).value).toBe('适合低龄儿童体验气流变化。');
+    expect(fetchMock.mock.calls.some(([input, init]) => String(input).endsWith('/api/exhibits/magnet-maze') && init?.method === 'PUT')).toBe(false);
+  });
+
   it('uses explicit download URLs while keeping PDF preview URLs inline', async () => {
     const withDocument = {
       ...apiExhibit(),
