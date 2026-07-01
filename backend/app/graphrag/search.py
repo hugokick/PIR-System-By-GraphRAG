@@ -78,16 +78,6 @@ def _score_exhibit(
         "materials": [item.name for item in exhibit.materials],
         "interactions": [item.name for item in exhibit.interactions],
         "project": [exhibit.project.name, exhibit.owner.name, exhibit.supplier.name],
-        "documents": [
-            value
-            for document in exhibit.documents
-            for value in [
-                document.name,
-                document.source_note or "",
-                *[chunk.text for chunk in document.chunks],
-            ]
-            if value
-        ],
         "description": [exhibit.description],
     }
     weights = {
@@ -108,6 +98,11 @@ def _score_exhibit(
         if matched:
             score += len(set(matched)) * weights[label]
             reasons.append(f"matched {label}")
+
+    document_score, document_reasons = _document_match_score(tokens, exhibit)
+    if document_score:
+        score += document_score
+        reasons.extend(document_reasons)
 
     if semantic_score >= 0.2:
         score += semantic_score * 6
@@ -166,6 +161,24 @@ def _query_tokens(query: str) -> list[str]:
     for separator in ",，、|":
         normalized = normalized.replace(separator, " ")
     return [token for token in normalized.split() if token]
+
+
+def _document_match_score(tokens: list[str], exhibit: ExhibitResponse) -> tuple[float, list[str]]:
+    score = 0.0
+    reasons: list[str] = []
+    for document in exhibit.documents:
+        values = [
+            document.name,
+            document.source_note or "",
+            *[chunk.text for chunk in document.chunks],
+        ]
+        joined = " ".join(value for value in values if value).lower()
+        matched = {token for token in tokens if token in joined}
+        if not matched:
+            continue
+        score += len(matched) * 2.0
+        reasons.append(f"匹配资料：{document.name}")
+    return score, reasons
 
 
 def _dedupe_citations(evidences: list[KGEvidence]) -> list[KGEvidence]:

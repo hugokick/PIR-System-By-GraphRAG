@@ -105,6 +105,21 @@ def test_graphrag_search_keeps_document_citations_with_their_exhibit():
     assert "lever-brief" not in pulley_citation_ids
 
 
+def test_graphrag_search_explains_document_matches_in_business_language():
+    response = client.post(
+        "/api/graphrag/search",
+        json={"query": "样例文档 来源链路", "top_k": 1},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    first = payload["items"][0]
+
+    assert first["exhibit"]["id"] == "lever-play"
+    assert "匹配资料：杠杆乐园展项说明" in first["reasons"]
+    assert any(citation["source_id"] == "lever-brief" for citation in first["citations"])
+
+
 def test_graphrag_search_uses_repository_vector_scores(monkeypatch):
     from app import main
 

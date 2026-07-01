@@ -228,7 +228,7 @@ def _center_subgraph(snapshot: KGSnapshot, center_id: str) -> tuple[list[KGNode]
 def _reasoning_signal_type(reason: str) -> str:
     if reason.startswith("向量召回") or reason.startswith("鍚戦噺鍙洖"):
         return "semantic_recall"
-    if "documents" in reason:
+    if "documents" in reason or reason.startswith("匹配资料"):
         return "document_chunk_match"
     if "project" in reason or "materials" in reason or "interactions" in reason:
         return "graph_neighbor_match"
