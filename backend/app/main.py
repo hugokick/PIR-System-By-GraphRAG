@@ -171,6 +171,17 @@ def invalid_related_exhibit_ids(exhibit_id: str, related_exhibit_ids: list[str])
     ]
 
 
+def normalize_write_review_status(
+    exhibit: ExhibitResponse,
+    role: str,
+    existing: ExhibitResponse | None = None,
+) -> ExhibitResponse:
+    if role == "admin":
+        return exhibit
+    review_status = existing.review_status if existing else "待审核"
+    return exhibit.model_copy(update={"review_status": review_status})
+
+
 def current_role(
     authorization: str | None = Header(default=None, alias="Authorization"),
     x_user_role: str | None = Header(default=None, alias="X-User-Role"),
@@ -376,9 +387,11 @@ def create_exhibit(
         raise invalid_related_exhibits(payload.id, invalid_ids)
 
     try:
-        created = repository.create_exhibit(
-            payload.to_response().model_copy(update={"related_exhibit_ids": related_ids})
+        exhibit = normalize_write_review_status(
+            payload.to_response().model_copy(update={"related_exhibit_ids": related_ids}),
+            role,
         )
+        created = repository.create_exhibit(exhibit)
         write_audit(role, "create_exhibit", created.id, f"Created exhibit {created.id}")
         return created
     except ValueError:
@@ -391,7 +404,8 @@ def update_exhibit(
     payload: ExhibitWriteRequest,
     role: str = Depends(require_roles("admin", "editor")),
 ) -> ExhibitResponse:
-    if repository.get_exhibit(exhibit_id) is None:
+    existing = repository.get_exhibit(exhibit_id)
+    if existing is None:
         raise not_found(exhibit_id)
 
     related_ids = normalize_related_exhibit_ids(payload.related_exhibit_ids)
@@ -399,9 +413,14 @@ def update_exhibit(
     if invalid_ids:
         raise invalid_related_exhibits(exhibit_id, invalid_ids)
 
+    exhibit = normalize_write_review_status(
+        payload.to_response().model_copy(update={"related_exhibit_ids": related_ids}),
+        role,
+        existing,
+    )
     updated = repository.update_exhibit(
         exhibit_id,
-        payload.to_response().model_copy(update={"related_exhibit_ids": related_ids}),
+        exhibit,
     )
     if updated is None:
         raise not_found(exhibit_id)

@@ -325,6 +325,33 @@ def test_update_exhibit_replaces_existing_record():
     assert response.json()["materials"] == [{"id": "steel", "name": "钢结构"}]
 
 
+def test_editor_create_exhibit_cannot_self_approve_review_status():
+    payload = client.get("/api/exhibits/pulley-wall").json()
+    payload["id"] = "editor-create-review-demo"
+    payload["status"] = "概念方案"
+    payload["review_status"] = "已审核"
+    payload["related_exhibit_ids"] = []
+
+    response = client.post("/api/exhibits", json=payload, headers=EDITOR_HEADERS)
+
+    assert response.status_code == 201
+    assert response.json()["review_status"] == "待审核"
+
+    client.delete("/api/exhibits/editor-create-review-demo", headers=ADMIN_HEADERS)
+
+
+def test_editor_update_exhibit_cannot_change_review_status():
+    payload = client.get("/api/exhibits/pulley-wall").json()
+    payload["name"] = "滑轮挑战墙 编辑稿"
+    payload["review_status"] = "已审核"
+
+    response = client.put("/api/exhibits/pulley-wall", json=payload, headers=EDITOR_HEADERS)
+
+    assert response.status_code == 200
+    assert response.json()["name"] == "滑轮挑战墙 编辑稿"
+    assert response.json()["review_status"] == "待审核"
+
+
 def test_update_exhibit_rejects_self_and_unknown_related_exhibit_ids():
     payload = client.get("/api/exhibits/pulley-wall").json()
     payload["related_exhibit_ids"] = ["pulley-wall", "missing-related-exhibit"]
