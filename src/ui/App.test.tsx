@@ -1053,6 +1053,38 @@ describe('App exhibit management', () => {
     expect(screen.getByText(/伯努利气流环道/)).toBeTruthy();
   });
 
+  it('shows document GraphRAG indexing status for indexed and unindexed files', async () => {
+    const withDocuments = {
+      ...apiExhibit(),
+      documents: [
+        {
+          id: 'indexed-doc',
+          name: 'indexed-plan.docx',
+          file_type: 'docx',
+          url: '/api/files/indexed-doc',
+          source_note: '方案资料',
+          chunks: [{ id: 'indexed-doc:chunk-1', text: '可检索的方案片段', sequence: 1 }]
+        },
+        {
+          id: 'legacy-doc',
+          name: 'legacy-plan.doc',
+          file_type: 'doc',
+          url: '/api/files/legacy-doc',
+          source_note: '旧版资料',
+          chunks: []
+        }
+      ]
+    };
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [withDocuments] }));
+
+    render(<App />);
+
+    expect(await screen.findByRole('link', { name: 'indexed-plan.docx' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'legacy-plan.doc' })).toBeTruthy();
+    expect(screen.getByText('已生成 1 个引用片段')).toBeTruthy();
+    expect(screen.getByText('未生成引用片段，仅可下载/预览')).toBeTruthy();
+  });
+
   it('uses explicit download URLs while keeping PDF preview URLs inline', async () => {
     const withDocument = {
       ...apiExhibit(),

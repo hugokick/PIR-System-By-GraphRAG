@@ -1522,6 +1522,17 @@ export function App() {
                             </button>
                           )}
                           {document.sourceNote && <small>{document.sourceNote}</small>}
+                          <small
+                            className={
+                              document.chunks && document.chunks.length > 0
+                                ? 'document-rag-status indexed'
+                                : 'document-rag-status empty'
+                            }
+                          >
+                            {document.chunks && document.chunks.length > 0
+                              ? `已生成 ${document.chunks.length} 个引用片段`
+                              : '未生成引用片段，仅可下载/预览'}
+                          </small>
                         </div>
                         {isPdfDocument(document) && (
                           <iframe
