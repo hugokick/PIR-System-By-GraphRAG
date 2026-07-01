@@ -336,13 +336,22 @@ textarea:focus {
   margin-top: 10px;
 }
 
-.review-summary span {
+.review-summary button {
+  background: #ffffff;
   border: 1px solid #d9e1dc;
   border-radius: 6px;
-  padding: 8px 10px;
   color: #31413d;
+  cursor: pointer;
   font-size: 13px;
   font-weight: 700;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.review-summary button:hover,
+.review-summary button:focus-visible {
+  border-color: #9dbbb3;
+  color: #12322f;
 }
 
 .review-bars {

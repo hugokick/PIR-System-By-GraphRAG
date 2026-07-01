@@ -538,6 +538,34 @@ describe('App exhibit management', () => {
     expect(screen.getByText('退回 1')).toBeTruthy();
   });
 
+  it('uses review workload metrics as quick filters for review queues', async () => {
+    const pending = apiExhibit({ ...frontendExhibit, id: 'pending-demo', name: '待审展项', reviewStatus: '待审核' });
+    const rejected = apiExhibit({ ...frontendExhibit, id: 'rejected-demo', name: '退回展项', reviewStatus: '已退回' });
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/api/exhibits?review_status=%E5%BE%85%E5%AE%A1%E6%A0%B8')) {
+        return okJson({ total: 1, items: [pending] });
+      }
+      return okJson({ total: 2, items: [pending, rejected] });
+    });
+
+    render(<App />);
+
+    const dashboardPanel = (await screen.findByText('数据看板')).closest('section') as HTMLElement;
+    fireEvent.click(within(dashboardPanel).getByRole('button', { name: '筛选待审核档案，当前 1 条' }));
+
+    expect((screen.getByLabelText('审核状态') as HTMLSelectElement).value).toBe('待审核');
+    await waitFor(() => {
+      expect(screen.getAllByText('待审展项').length).toBeGreaterThan(0);
+      expect(screen.queryAllByText('退回展项')).toHaveLength(0);
+    });
+    expect(
+      fetchMock.mock.calls.some(([input]) =>
+        String(input).includes('/api/exhibits?review_status=%E5%BE%85%E5%AE%A1%E6%A0%B8')
+      )
+    ).toBe(true);
+  });
+
   it('lets admins approve the selected exhibit from the detail panel', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = String(input);

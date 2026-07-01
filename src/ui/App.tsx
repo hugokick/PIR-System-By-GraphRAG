@@ -1313,8 +1313,20 @@ export function App() {
             <Metric label="均价" value={`${stats.avgBudget}万`} />
           </div>
           <div className="review-summary" aria-label="审核状态概览">
-            <span>待审 {stats.pendingReview}</span>
-            <span>退回 {stats.rejectedReview}</span>
+            <button
+              type="button"
+              onClick={() => updateFilter('reviewStatus', '待审核')}
+              aria-label={`筛选待审核档案，当前 ${stats.pendingReview} 条`}
+            >
+              待审 {stats.pendingReview}
+            </button>
+            <button
+              type="button"
+              onClick={() => updateFilter('reviewStatus', '已退回')}
+              aria-label={`筛选已退回档案，当前 ${stats.rejectedReview} 条`}
+            >
+              退回 {stats.rejectedReview}
+            </button>
           </div>
           <DashboardBars title="类别分布" items={stats.categories} />
           <DashboardBars title="预算区间" items={stats.budgetBands} />
