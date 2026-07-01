@@ -334,29 +334,26 @@ export function App() {
     storeRole(role);
   }, [role, session]);
 
-  useEffect(() => {
+  const refreshAuditLogs = async () => {
     if (role !== 'admin') {
       setAuditLogs([]);
       setAuditError(null);
       return;
     }
 
-    let cancelled = false;
-    fetchAuditLogs(8)
+    await fetchAuditLogs(8)
       .then((logs) => {
-        if (cancelled) return;
         setAuditLogs(logs);
         setAuditError(null);
       })
       .catch(() => {
-        if (cancelled) return;
         setAuditLogs([]);
         setAuditError('操作日志暂不可用');
       });
+  };
 
-    return () => {
-      cancelled = true;
-    };
+  useEffect(() => {
+    void refreshAuditLogs();
   }, [role]);
 
   useEffect(() => {
@@ -520,6 +517,7 @@ export function App() {
       setSelectedId(saved.id);
       setDataSource('api');
       setLoadError(null);
+      void refreshAuditLogs();
     } catch {
       const updated = editingId
         ? items.map((item) => (item.id === editingId ? next : item))
@@ -547,6 +545,7 @@ export function App() {
       setItems(updated);
       setDataSource('api');
       setLoadError(null);
+      void refreshAuditLogs();
     } catch {
       const url = URL.createObjectURL(file);
       if (assetKind === 'document') {
@@ -610,6 +609,7 @@ export function App() {
       setSelectedId(updated[0]?.id ?? '');
       setDataSource('api');
       setLoadError(null);
+      void refreshAuditLogs();
     } catch {
       setLoadError('删除失败，请检查权限或档案保护状态');
     } finally {
@@ -628,6 +628,7 @@ export function App() {
       setSelectedId(updatedExhibit.id);
       setDataSource('api');
       setLoadError(null);
+      void refreshAuditLogs();
     } catch {
       setLoadError('审核状态更新失败，请检查权限或网络连接');
     } finally {
@@ -660,6 +661,7 @@ export function App() {
       setDataSource('api');
       setLoadError(null);
       refreshSelectedGraph(updatedExhibit.id);
+      void refreshAuditLogs();
     } catch {
       setLoadError('相似展项关系更新失败，请检查目标展项或网络连接');
     } finally {
@@ -751,6 +753,7 @@ export function App() {
       setImportPreview(null);
       setDataSource('api');
       setLoadError('导入完成：已选中新展项，可在当前展项图谱核验关系');
+      void refreshAuditLogs();
     } catch {
       setDataSource('local');
       setLoadError('表格导入失败，请检查字段模板和网络连接');

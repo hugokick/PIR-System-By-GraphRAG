@@ -626,6 +626,45 @@ describe('App exhibit management', () => {
     );
   });
 
+  it('refreshes audit log entries after admin mutations', async () => {
+    let auditCalls = 0;
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/api/admin/audit-logs?limit=8')) {
+        auditCalls += 1;
+        return okJson({
+          total: auditCalls > 1 ? 1 : 0,
+          items:
+            auditCalls > 1
+              ? [
+                  {
+                    id: 'audit-delete-refresh',
+                    actor_role: 'admin',
+                    action: 'delete_exhibit',
+                    resource_type: 'exhibit',
+                    resource_id: 'magnet-maze',
+                    summary: 'Deleted exhibit magnet-maze',
+                    created_at: '2026-07-01T00:00:00+00:00'
+                  }
+                ]
+              : []
+        });
+      }
+      if (init?.method === 'DELETE') {
+        return { ok: true } as Response;
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText('暂无操作记录')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /删除档案/ }));
+
+    expect(await screen.findByText('delete_exhibit')).toBeTruthy();
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).endsWith('/api/admin/audit-logs?limit=8'))).toHaveLength(2);
+  });
+
   it('hides audit log entries from viewers', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [apiExhibit()] }));
 
