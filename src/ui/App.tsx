@@ -387,7 +387,12 @@ export function App() {
       : remoteGraph && remoteGraph.exhibitId === selected?.id
         ? remoteGraph
         : fallbackGraph;
-  const graphSourceLabel = graphMode === 'demo' || isRemoteGraph ? 'Neo4j 图数据库' : '本地轻量图谱';
+  const graphSourceLabel =
+    graphMode === 'demo'
+      ? 'Neo4j 图数据库'
+      : isRemoteGraph
+        ? 'PostgreSQL KG 投影'
+        : '本地轻量图谱';
   const selectedGraphNode = graph.nodes.find((node) => node.id === selectedGraphNodeId) ?? graph.nodes[0] ?? null;
   const localStats = useMemo(() => graphStats(items), [items]);
   const stats = dashboardSummary ?? localStats;

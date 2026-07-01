@@ -159,7 +159,7 @@ describe('App exhibit management', () => {
     render(<App />);
 
     expect(await screen.findByText('Neo4j 知识图谱')).toBeTruthy();
-    expect(await screen.findByText('数据源：Neo4j 图数据库')).toBeTruthy();
+    expect(await screen.findByText('数据源：PostgreSQL KG 投影')).toBeTruthy();
     expect(await screen.findByText('节点 3')).toBeTruthy();
     expect(await screen.findByText('关系 2')).toBeTruthy();
     expect(screen.queryByText('USES_MATERIAL')).toBeNull();
@@ -225,6 +225,7 @@ describe('App exhibit management', () => {
     render(<App />);
 
     expect(await screen.findByText('Current Material')).toBeTruthy();
+    expect(await screen.findByText('数据源：PostgreSQL KG 投影')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: '全库演示' }));
 
