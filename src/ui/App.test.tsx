@@ -946,6 +946,32 @@ describe('App exhibit management', () => {
     });
   });
 
+  it('shows a clear no-evidence state when GraphRAG cannot find grounded sources', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/api/graphrag/answer')) {
+        expect(init?.method).toBe('POST');
+        return okJson({
+          query: 'unknown exhibit',
+          answer: '未找到依据：库内资料暂未命中“unknown exhibit”。',
+          citations: [],
+          items: []
+        });
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: frontendExhibit.name });
+    fireEvent.change(screen.getByLabelText(/GraphRAG/), { target: { value: 'unknown exhibit' } });
+    fireEvent.click(screen.getByRole('button', { name: '生成答案' }));
+
+    const notice = await screen.findByRole('alert');
+    expect(notice.textContent).toContain('未找到可引用来源');
+    expect(screen.queryByLabelText('引用来源 [1]')).toBeNull();
+  });
+
   it('renders backend hybrid search reasons in semantic recommendations', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = String(input);

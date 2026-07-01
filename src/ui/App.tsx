@@ -394,6 +394,9 @@ export function App() {
   const canWrite = role !== 'viewer';
   const canDelete = role === 'admin';
   const canReview = role === 'admin';
+  const hasNoGraphRagEvidence = Boolean(
+    graphRagAnswer && graphRagAnswer.items.length === 0 && graphRagAnswer.citations.length === 0
+  );
   const isDeleteProtected = Boolean(selected && (selected.reviewStatus === '已审核' || selected.status === '已落地'));
   const deleteProtectionMessage = '已审核/已落地档案受保护，请先退回审核或变更状态后再删除';
   const relatedExhibits = useMemo(
@@ -1239,6 +1242,11 @@ export function App() {
           {graphRagAnswer && (
             <div className="graphrag-answer">
               <p>{graphRagAnswer.answer}</p>
+              {hasNoGraphRagEvidence && (
+                <p className="graphrag-no-evidence" role="alert">
+                  未找到可引用来源，请补充展项档案、上传资料，或调整筛选条件后重试。
+                </p>
+              )}
               {graphRagAnswer.items.length > 0 && (
                 <div className="graphrag-hits">
                   {graphRagAnswer.items.map((hit) => (
