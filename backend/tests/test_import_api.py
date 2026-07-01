@@ -220,6 +220,68 @@ def test_import_commit_upserts_valid_rows_and_graph_relationships():
     assert "similar_to" in edge_types
 
 
+def test_import_rejects_unknown_related_exhibit_ids_before_persisting():
+    row = valid_import_row("invalid-related-import-demo")
+    row[-1] = "missing-related-exhibit"
+
+    response = client.post(
+        "/api/exhibits/import",
+        data={"commit": "true"},
+        files={
+            "file": (
+                "invalid-related.csv",
+                csv_bytes([row]),
+                "text/csv",
+            )
+        },
+        headers=EDITOR_HEADERS,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["valid_rows"] == 0
+    assert payload["imported_count"] == 0
+    assert payload["errors"] == [
+        {
+            "row": 2,
+            "field": "related_exhibit_ids",
+            "message": "Unknown or self-referencing exhibit id: missing-related-exhibit",
+        }
+    ]
+    assert client.get("/api/exhibits/invalid-related-import-demo").status_code == 404
+
+
+def test_import_allows_related_exhibit_ids_from_same_batch():
+    first = valid_import_row("batch-relation-a")
+    first[-1] = "batch-relation-b"
+    second = valid_import_row("batch-relation-b")
+    second[-1] = "batch-relation-a"
+
+    response = client.post(
+        "/api/exhibits/import",
+        data={"commit": "true"},
+        files={
+            "file": (
+                "batch-relations.csv",
+                csv_bytes([first, second]),
+                "text/csv",
+            )
+        },
+        headers=EDITOR_HEADERS,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["valid_rows"] == 2
+    assert payload["imported_count"] == 2
+    assert payload["errors"] == []
+
+    graph_response = client.get("/api/exhibits/batch-relation-a/graph")
+    assert graph_response.status_code == 200
+    edge_types = {edge["type"] for edge in graph_response.json()["edges"]}
+    assert "similar_to" in edge_types
+
+
 def test_import_accepts_basic_xlsx_files():
     response = client.post(
         "/api/exhibits/import",

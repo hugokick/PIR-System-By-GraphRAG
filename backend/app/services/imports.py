@@ -162,8 +162,11 @@ def cell_value(cell: ElementTree.Element, shared_strings: list[str], namespace: 
     return raw_value
 
 
-def build_import_items(rows: list[dict[str, str]]) -> tuple[list[ExhibitResponse], list[ExhibitImportError]]:
-    items: list[ExhibitResponse] = []
+def build_import_items(
+    rows: list[dict[str, str]],
+    known_exhibit_ids: set[str] | None = None,
+) -> tuple[list[ExhibitResponse], list[ExhibitImportError]]:
+    parsed_items: list[tuple[int, ExhibitResponse]] = []
     errors: list[ExhibitImportError] = []
 
     for index, raw_row in enumerate(rows, start=2):
@@ -172,9 +175,46 @@ def build_import_items(rows: list[dict[str, str]]) -> tuple[list[ExhibitResponse
         if row_errors:
             errors.extend(row_errors)
             continue
-        items.append(row_to_exhibit(row))
+        parsed_items.append((index, row_to_exhibit(row)))
 
+    if known_exhibit_ids is not None:
+        relation_errors = validate_related_exhibit_ids(parsed_items, known_exhibit_ids)
+        errors.extend(relation_errors)
+        invalid_rows = {error.row for error in relation_errors}
+        parsed_items = [
+            (row_number, item)
+            for row_number, item in parsed_items
+            if row_number not in invalid_rows
+        ]
+
+    items = [item for _row_number, item in parsed_items]
     return items, errors
+
+
+def validate_related_exhibit_ids(
+    parsed_items: list[tuple[int, ExhibitResponse]],
+    known_exhibit_ids: set[str],
+) -> list[ExhibitImportError]:
+    import_ids = {item.id for _row_number, item in parsed_items}
+    allowed_ids = known_exhibit_ids | import_ids
+    errors: list[ExhibitImportError] = []
+
+    for row_number, item in parsed_items:
+        invalid_ids = [
+            related_id
+            for related_id in item.related_exhibit_ids
+            if related_id == item.id or related_id not in allowed_ids
+        ]
+        if invalid_ids:
+            errors.append(
+                ExhibitImportError(
+                    row=row_number,
+                    field="related_exhibit_ids",
+                    message=f"Unknown or self-referencing exhibit id: {', '.join(invalid_ids)}",
+                )
+            )
+
+    return errors
 
 
 def normalize_row(row: dict[str, str]) -> dict[str, str]:

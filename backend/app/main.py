@@ -282,7 +282,8 @@ def import_exhibits(
     role: str = Depends(require_roles("admin", "editor")),
 ) -> ExhibitImportResponse:
     rows = parse_import_file(file)
-    items, errors = build_import_items(rows)
+    existing_exhibit_ids = {item.id for item in repository.list_exhibits()}
+    items, errors = build_import_items(rows, known_exhibit_ids=existing_exhibit_ids)
     imported: list[ExhibitResponse] = []
 
     if commit and not errors:
