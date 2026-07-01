@@ -257,6 +257,43 @@ def test_import_update_preserves_existing_review_status_for_editors():
         client.put("/api/exhibits/lever-play", json=original, headers=ADMIN_HEADERS)
 
 
+def test_import_rejects_duplicate_exhibit_ids_in_same_file_before_persisting():
+    first = valid_import_row("duplicate-import-demo")
+    second = valid_import_row("duplicate-import-demo")
+    second[1] = "Duplicate Import Demo Updated"
+
+    response = client.post(
+        "/api/exhibits/import",
+        data={"commit": "true"},
+        files={
+            "file": (
+                "duplicate-import.csv",
+                csv_bytes([first, second]),
+                "text/csv",
+            )
+        },
+        headers=EDITOR_HEADERS,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["valid_rows"] == 0
+    assert payload["imported_count"] == 0
+    assert payload["errors"] == [
+        {
+            "row": 2,
+            "field": "id",
+            "message": "Duplicate exhibit id in import file: duplicate-import-demo",
+        },
+        {
+            "row": 3,
+            "field": "id",
+            "message": "Duplicate exhibit id in import file: duplicate-import-demo",
+        },
+    ]
+    assert client.get("/api/exhibits/duplicate-import-demo").status_code == 404
+
+
 def test_import_rejects_unknown_related_exhibit_ids_before_persisting():
     row = valid_import_row("invalid-related-import-demo")
     row[-1] = "missing-related-exhibit"

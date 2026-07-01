@@ -194,6 +194,15 @@ def build_import_items(
         parsed_items.append((index, row_to_exhibit(row)))
 
     if known_exhibit_ids is not None:
+        duplicate_errors = validate_duplicate_import_ids(parsed_items)
+        errors.extend(duplicate_errors)
+        duplicate_rows = {error.row for error in duplicate_errors}
+        parsed_items = [
+            (row_number, item)
+            for row_number, item in parsed_items
+            if row_number not in duplicate_rows
+        ]
+
         relation_errors = validate_related_exhibit_ids(parsed_items, known_exhibit_ids)
         errors.extend(relation_errors)
         invalid_rows = {error.row for error in relation_errors}
@@ -205,6 +214,28 @@ def build_import_items(
 
     items = [item for _row_number, item in parsed_items]
     return items, errors
+
+
+def validate_duplicate_import_ids(
+    parsed_items: list[tuple[int, ExhibitResponse]],
+) -> list[ExhibitImportError]:
+    rows_by_id: dict[str, list[int]] = {}
+    for row_number, item in parsed_items:
+        rows_by_id.setdefault(item.id, []).append(row_number)
+
+    errors: list[ExhibitImportError] = []
+    for exhibit_id, row_numbers in rows_by_id.items():
+        if len(row_numbers) <= 1:
+            continue
+        for row_number in row_numbers:
+            errors.append(
+                ExhibitImportError(
+                    row=row_number,
+                    field="id",
+                    message=f"Duplicate exhibit id in import file: {exhibit_id}",
+                )
+            )
+    return errors
 
 
 def validate_related_exhibit_ids(
