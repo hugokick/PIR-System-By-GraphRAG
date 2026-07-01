@@ -82,7 +82,8 @@ def answer_from_graphrag_context(
             items=search_response.items,
         )
 
-    answer = _compose_grounded_answer(query, search_response.items, citations)
+    grounded_items = [item for item in search_response.items if item.citations]
+    answer = _compose_grounded_answer(query, grounded_items, citations)
     return GraphRagAnswerResponse(
         query=query,
         answer=answer,

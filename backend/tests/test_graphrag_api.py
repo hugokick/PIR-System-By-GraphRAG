@@ -417,6 +417,58 @@ def test_graphrag_answer_refuses_to_compose_without_citations(monkeypatch):
     assert seed_exhibits[0].description not in payload["answer"]
 
 
+def test_graphrag_answer_omits_uncited_candidates_from_grounded_answer(monkeypatch):
+    from app.schemas import GraphResponse, GraphRagCitation, GraphRagSearchHit, GraphRagSearchResponse
+    from app.services import graphrag as graphrag_service
+
+    cited_exhibit = seed_exhibits[0]
+    uncited_exhibit = seed_exhibits[1]
+    citation = GraphRagCitation(
+        source_id=cited_exhibit.id,
+        source_type="exhibit",
+        title=cited_exhibit.name,
+        snippet="有来源的展项说明片段",
+    )
+
+    def search_with_mixed_citations(query, exhibits, top_k=3, filters=None, semantic_scores=None, snapshot=None):
+        return GraphRagSearchResponse(
+            query=query,
+            total=2,
+            items=[
+                GraphRagSearchHit(
+                    exhibit=cited_exhibit,
+                    score=2,
+                    reasons=["有引用命中"],
+                    citations=[citation],
+                    graph=GraphResponse(nodes=[], edges=[]),
+                ),
+                GraphRagSearchHit(
+                    exhibit=uncited_exhibit,
+                    score=1,
+                    reasons=["候选但缺少引用"],
+                    citations=[],
+                    graph=GraphResponse(nodes=[], edges=[]),
+                ),
+            ],
+        )
+
+    monkeypatch.setattr(graphrag_service, "search_graphrag_context", search_with_mixed_citations)
+
+    response = client.post(
+        "/api/graphrag/answer",
+        json={"query": "力学展项", "top_k": 2},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert [item["exhibit"]["id"] for item in payload["items"]] == [cited_exhibit.id, uncited_exhibit.id]
+    assert payload["citations"]
+    assert cited_exhibit.name in payload["answer"]
+    assert uncited_exhibit.name not in payload["answer"]
+    assert uncited_exhibit.description not in payload["answer"]
+    assert "暂无可编号来源" not in payload["answer"]
+
+
 def test_graphrag_answer_reports_when_no_evidence_is_found():
     response = client.post(
         "/api/graphrag/answer",
