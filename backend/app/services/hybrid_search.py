@@ -30,14 +30,19 @@ def search_hybrid_exhibits(
 ) -> HybridSearchResponse:
     filtered = _apply_filters(exhibits, filters)
     understanding = understand_query(query)
+    reference_exhibit = _find_reference_exhibit(filtered, understanding)
     hits: list[tuple[int, HybridSearchHit]] = []
 
     for index, exhibit in enumerate(filtered):
+        if reference_exhibit and exhibit.id == reference_exhibit.id:
+            continue
+        if _is_outside_reference_budget(understanding, exhibit, reference_exhibit):
+            continue
         if _is_excluded_by_query_understanding(understanding, exhibit):
             continue
         if _is_outside_query_budget_range(understanding, exhibit):
             continue
-        score, reasons = _score_exhibit(query, exhibit, filters, understanding)
+        score, reasons = _score_exhibit(query, exhibit, filters, understanding, reference_exhibit)
         semantic_score = (semantic_scores or {}).get(exhibit.id, 0.0)
         if semantic_score >= SEMANTIC_RECALL_THRESHOLD:
             score += semantic_score * 6
@@ -96,6 +101,7 @@ def _score_exhibit(
     exhibit: ExhibitResponse,
     filters: HybridSearchFilters | None,
     understanding: QueryUnderstandingResult,
+    reference_exhibit: ExhibitResponse | None = None,
 ) -> tuple[float, list[str]]:
     compact_query = _compact(query)
     score = 0.0
@@ -150,7 +156,11 @@ def _score_exhibit(
         score += len(document_hits) * 2.5
         reasons.extend(document_hits)
 
-    understanding_score, understanding_reasons = _query_understanding_score(understanding, exhibit)
+    understanding_score, understanding_reasons = _query_understanding_score(
+        understanding,
+        exhibit,
+        reference_exhibit,
+    )
     if understanding_score:
         score += understanding_score
         reasons.extend(understanding_reasons)
@@ -221,6 +231,7 @@ def _document_hits(compact_query: str, exhibit: ExhibitResponse) -> list[str]:
 def _query_understanding_score(
     understanding: QueryUnderstandingResult,
     exhibit: ExhibitResponse,
+    reference_exhibit: ExhibitResponse | None = None,
 ) -> tuple[float, list[str]]:
     if understanding.confidence < 0.4:
         return 0.0, []
@@ -253,6 +264,9 @@ def _query_understanding_score(
     if understanding.budget_intent == BUDGET_LOW and _exhibit_has_low_budget(exhibit):
         score += 2.5
         reasons.append("查询理解：预算倾向 low")
+    elif _exhibit_has_lower_budget_than_reference(understanding, exhibit, reference_exhibit):
+        score += 2.5
+        reasons.append(f"查询理解：预算低于参照案例 {reference_exhibit.name}")
     elif understanding.budget_intent == BUDGET_LOWER_THAN_REFERENCE and _exhibit_has_low_budget(exhibit):
         score += 1.5
         reasons.append("查询理解：预算倾向 lower_than_reference")
@@ -283,6 +297,18 @@ def _is_outside_query_budget_range(
     return _has_budget_range(understanding) and not _exhibit_matches_budget_range(exhibit, understanding)
 
 
+def _is_outside_reference_budget(
+    understanding: QueryUnderstandingResult,
+    exhibit: ExhibitResponse,
+    reference_exhibit: ExhibitResponse | None,
+) -> bool:
+    return (
+        understanding.budget_intent == BUDGET_LOWER_THAN_REFERENCE
+        and reference_exhibit is not None
+        and not _exhibit_has_lower_budget_than_reference(understanding, exhibit, reference_exhibit)
+    )
+
+
 def _mentions_child_audience(compact_query: str) -> bool:
     return any(signal in compact_query for signal in ("低龄儿童", "低龄", "儿童", "亲子"))
 
@@ -307,6 +333,18 @@ def _mentions_low_budget(compact_query: str) -> bool:
 
 def _exhibit_has_low_budget(exhibit: ExhibitResponse) -> bool:
     return exhibit.budget_max <= 300000
+
+
+def _exhibit_has_lower_budget_than_reference(
+    understanding: QueryUnderstandingResult,
+    exhibit: ExhibitResponse,
+    reference_exhibit: ExhibitResponse | None,
+) -> bool:
+    return bool(
+        understanding.budget_intent == BUDGET_LOWER_THAN_REFERENCE
+        and reference_exhibit is not None
+        and exhibit.budget_max < reference_exhibit.budget_min
+    )
 
 
 def _has_budget_range(understanding: QueryUnderstandingResult) -> bool:
@@ -397,6 +435,31 @@ def _exhibit_matches_exclusions(exhibit: ExhibitResponse, exclusions: list[str])
         ]
     )
     return any(exclusion in text for exclusion in exclusions)
+
+
+def _find_reference_exhibit(
+    exhibits: list[ExhibitResponse],
+    understanding: QueryUnderstandingResult,
+) -> ExhibitResponse | None:
+    if not understanding.project_case:
+        return None
+
+    needle = _compact(understanding.project_case)
+    if not needle:
+        return None
+
+    for exhibit in exhibits:
+        values = [
+            exhibit.id,
+            exhibit.name,
+            exhibit.description,
+            exhibit.project.name,
+            exhibit.theme.name,
+            *exhibit.tags,
+        ]
+        if any(needle in _compact(value) for value in values if value):
+            return exhibit
+    return None
 
 
 def _format_budget(value: int) -> str:

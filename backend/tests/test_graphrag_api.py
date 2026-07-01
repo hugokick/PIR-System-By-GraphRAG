@@ -105,6 +105,24 @@ def test_graphrag_search_applies_query_understanding_budget_range():
     assert "查询理解：预算区间 30 万-50 万" in payload["items"][0]["reasons"]
 
 
+def test_graphrag_search_uses_reference_case_for_lower_budget_intent():
+    response = client.post(
+        "/api/graphrag/search",
+        json={
+            "query": "类似城市水循环沙盘但预算更低的方案",
+            "top_k": 5,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    ids = [item["exhibit"]["id"] for item in payload["items"]]
+    assert "water-cycle" not in ids
+    assert ids
+    assert all(item["exhibit"]["budget_max"] < 420000 for item in payload["items"])
+    assert "查询理解：预算低于参照案例 城市水循环沙盘" in payload["items"][0]["reasons"]
+
+
 def test_graphrag_search_applies_owner_and_supplier_filters():
     owner_response = client.post(
         "/api/graphrag/search",

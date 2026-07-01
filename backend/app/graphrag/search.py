@@ -1,3 +1,4 @@
+import re
 from collections.abc import Mapping
 
 from app.ai.query_understanding import (
@@ -26,8 +27,13 @@ def search_graph_rag(
     active_snapshot = snapshot or build_exhibit_kg_snapshot(exhibits)
     understanding = understand_query(query)
     filtered = _apply_filters(exhibits, filters)
+    reference_exhibit = _find_reference_exhibit(filtered, understanding)
     hits: list[GraphRAGHit] = []
     for exhibit in filtered:
+        if reference_exhibit and exhibit.id == reference_exhibit.id:
+            continue
+        if _is_outside_reference_budget(understanding, exhibit, reference_exhibit):
+            continue
         if _is_excluded_by_query_understanding(understanding, exhibit):
             continue
         if _is_outside_query_budget_range(understanding, exhibit):
@@ -37,6 +43,7 @@ def search_graph_rag(
             exhibit,
             active_snapshot,
             understanding,
+            reference_exhibit=reference_exhibit,
             semantic_score=(semantic_scores or {}).get(exhibit.id, 0.0),
         )
         if hit is not None:
@@ -84,6 +91,7 @@ def _score_exhibit(
     exhibit: ExhibitResponse,
     snapshot: KGSnapshot,
     understanding: QueryUnderstandingResult,
+    reference_exhibit: ExhibitResponse | None = None,
     semantic_score: float = 0.0,
 ) -> GraphRAGHit | None:
     tokens = _query_tokens(query, understanding)
@@ -119,7 +127,11 @@ def _score_exhibit(
         score += document_score
         reasons.extend(document_reasons)
 
-    understanding_score, understanding_reasons = _query_understanding_score(understanding, exhibit)
+    understanding_score, understanding_reasons = _query_understanding_score(
+        understanding,
+        exhibit,
+        reference_exhibit,
+    )
     if understanding_score:
         score += understanding_score
         reasons.extend(understanding_reasons)
@@ -199,6 +211,7 @@ def _query_tokens(query: str, understanding: QueryUnderstandingResult | None = N
 def _query_understanding_score(
     understanding: QueryUnderstandingResult,
     exhibit: ExhibitResponse,
+    reference_exhibit: ExhibitResponse | None = None,
 ) -> tuple[float, list[str]]:
     if understanding.confidence < 0.4:
         return 0.0, []
@@ -231,6 +244,9 @@ def _query_understanding_score(
     if understanding.budget_intent == BUDGET_LOW and exhibit.budget_max <= 300000:
         score += 2.5
         reasons.append("查询理解：预算倾向 low")
+    elif _exhibit_has_lower_budget_than_reference(understanding, exhibit, reference_exhibit):
+        score += 2.5
+        reasons.append(f"查询理解：预算低于参照案例 {reference_exhibit.name}")
     elif understanding.budget_intent == BUDGET_LOWER_THAN_REFERENCE and exhibit.budget_max <= 300000:
         score += 1.5
         reasons.append("查询理解：预算倾向 lower_than_reference")
@@ -261,6 +277,18 @@ def _is_outside_query_budget_range(
     return _has_budget_range(understanding) and not _exhibit_matches_budget_range(exhibit, understanding)
 
 
+def _is_outside_reference_budget(
+    understanding: QueryUnderstandingResult,
+    exhibit: ExhibitResponse,
+    reference_exhibit: ExhibitResponse | None,
+) -> bool:
+    return (
+        understanding.budget_intent == BUDGET_LOWER_THAN_REFERENCE
+        and reference_exhibit is not None
+        and not _exhibit_has_lower_budget_than_reference(understanding, exhibit, reference_exhibit)
+    )
+
+
 def _document_match_score(tokens: list[str], exhibit: ExhibitResponse) -> tuple[float, list[str]]:
     score = 0.0
     reasons: list[str] = []
@@ -289,6 +317,18 @@ def _exhibit_has_low_age_signal(exhibit: ExhibitResponse) -> bool:
         ]
     )
     return any(signal in joined for signal in ("低龄儿童", "低龄", "儿童", "亲子"))
+
+
+def _exhibit_has_lower_budget_than_reference(
+    understanding: QueryUnderstandingResult,
+    exhibit: ExhibitResponse,
+    reference_exhibit: ExhibitResponse | None,
+) -> bool:
+    return bool(
+        understanding.budget_intent == BUDGET_LOWER_THAN_REFERENCE
+        and reference_exhibit is not None
+        and exhibit.budget_max < reference_exhibit.budget_min
+    )
 
 
 def _has_budget_range(understanding: QueryUnderstandingResult) -> bool:
@@ -381,6 +421,31 @@ def _exhibit_matches_exclusions(exhibit: ExhibitResponse, exclusions: list[str])
     return any(exclusion in joined for exclusion in exclusions)
 
 
+def _find_reference_exhibit(
+    exhibits: list[ExhibitResponse],
+    understanding: QueryUnderstandingResult,
+) -> ExhibitResponse | None:
+    if not understanding.project_case:
+        return None
+
+    needle = _compact(understanding.project_case)
+    if not needle:
+        return None
+
+    for exhibit in exhibits:
+        values = [
+            exhibit.id,
+            exhibit.name,
+            exhibit.description,
+            exhibit.project.name,
+            exhibit.theme.name,
+            *exhibit.tags,
+        ]
+        if any(needle in _compact(value) for value in values if value):
+            return exhibit
+    return None
+
+
 def _format_budget(value: int) -> str:
     if value % 10000 == 0:
         return f"{value // 10000} 万"
@@ -421,3 +486,7 @@ def _dedupe_tokens(tokens: list[str]) -> list[str]:
         seen.add(token)
         unique.append(token)
     return unique
+
+
+def _compact(value: str) -> str:
+    return re.sub(r"[\s,，、。；;:：|/\\-]+", "", value.strip().lower())
