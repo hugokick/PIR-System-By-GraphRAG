@@ -344,6 +344,33 @@ def test_import_accepts_basic_xlsx_files():
     assert payload["items"][0]["id"] == "xlsx-import-demo"
 
 
+def test_import_rejects_malformed_xlsx_with_structured_error():
+    safe_client = TestClient(app, raise_server_exceptions=False)
+
+    response = safe_client.post(
+        "/api/exhibits/import",
+        data={"commit": "false"},
+        files={
+            "file": (
+                "broken.xlsx",
+                b"not a valid xlsx archive",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+        headers=EDITOR_HEADERS,
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == {
+        "error": "InvalidImportFile",
+        "message": "Import file could not be parsed",
+        "details": {
+            "filename": "broken.xlsx",
+            "supported_formats": ["csv", "xlsx"],
+        },
+    }
+
+
 def test_import_accepts_chinese_header_aliases():
     chinese_headers = [
         "展项编号",

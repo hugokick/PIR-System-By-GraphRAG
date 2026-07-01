@@ -42,7 +42,12 @@ from .services.dashboard import summarize_dashboard
 from .services.documents import extract_document_chunks
 from .services.graphrag import answer_from_graphrag_context, search_graphrag_context
 from .services.hybrid_search import search_hybrid_exhibits
-from .services.imports import build_import_items, build_import_template_xlsx, parse_import_file
+from .services.imports import (
+    ImportFileParseError,
+    build_import_items,
+    build_import_template_xlsx,
+    parse_import_file,
+)
 
 app = FastAPI(
     title="Exhibit Atlas API",
@@ -155,6 +160,20 @@ def invalid_related_exhibits(exhibit_id: str, invalid_ids: list[str]) -> HTTPExc
             "error": "InvalidRelatedExhibits",
             "message": "Related exhibit ids must reference existing exhibits and cannot reference the current exhibit",
             "details": {"id": exhibit_id, "invalid_ids": invalid_ids},
+        },
+    )
+
+
+def invalid_import_file(filename: str | None) -> HTTPException:
+    return HTTPException(
+        status_code=400,
+        detail={
+            "error": "InvalidImportFile",
+            "message": "Import file could not be parsed",
+            "details": {
+                "filename": filename or "uploaded-file",
+                "supported_formats": ["csv", "xlsx"],
+            },
         },
     )
 
@@ -326,7 +345,10 @@ def import_exhibits(
     file: UploadFile = File(...),
     role: str = Depends(require_roles("admin", "editor")),
 ) -> ExhibitImportResponse:
-    rows = parse_import_file(file)
+    try:
+        rows = parse_import_file(file)
+    except ImportFileParseError:
+        raise invalid_import_file(file.filename)
     existing_exhibit_ids = {item.id for item in repository.list_exhibits()}
     items, errors = build_import_items(rows, known_exhibit_ids=existing_exhibit_ids)
     imported: list[ExhibitResponse] = []

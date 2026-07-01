@@ -4,7 +4,7 @@ from io import BytesIO, StringIO
 from pathlib import Path
 from xml.sax.saxutils import escape
 from xml.etree import ElementTree
-from zipfile import ZIP_DEFLATED, ZipFile
+from zipfile import BadZipFile, ZIP_DEFLATED, ZipFile
 
 from fastapi import UploadFile
 
@@ -79,11 +79,18 @@ header_alias_lookup = {
 }
 
 
+class ImportFileParseError(ValueError):
+    pass
+
+
 def parse_import_file(file: UploadFile) -> list[dict[str, str]]:
     content = file.file.read()
     suffix = Path(file.filename or "").suffix.lower()
     if suffix == ".xlsx":
-        return parse_xlsx(content)
+        try:
+            return parse_xlsx(content)
+        except (BadZipFile, ElementTree.ParseError, KeyError, ValueError, IndexError) as exc:
+            raise ImportFileParseError("Import file could not be parsed") from exc
     return parse_csv(content)
 
 
