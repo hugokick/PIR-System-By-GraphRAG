@@ -152,12 +152,23 @@ export function NvlGraphView({ graph, selectedNodeId, layoutVersion, nodeColors,
     setMinimapContainer(node);
   }, []);
   const graphData = useMemo(() => buildNvlGraphData(graph, selectedNodeId, nodeColors), [graph, nodeColors, selectedNodeId]);
+  const graphDataRef = useRef(graphData);
+  const graphTopologyKey = useMemo(
+    () =>
+      JSON.stringify({
+        nodes: graph.nodes.map((node) => node.id),
+        edges: graph.edges.map((edge) => [edge.source, edge.target, edge.type ?? edge.label])
+      }),
+    [graph.nodes, graph.edges]
+  );
+  const graphNodeIds = useMemo(() => graph.nodes.map((node) => node.id), [graphTopologyKey]);
   const [overlayFrame, setOverlayFrame] = useState<OverlayFrame>(() =>
     buildOverlayFrame(graphData.nodes, graphData.rels, null)
   );
   const syncOverlayFrame = useCallback(() => {
-    setOverlayFrame(buildOverlayFrame(graphData.nodes, graphData.rels, graphRef.current));
-  }, [graphData]);
+    const latestGraphData = graphDataRef.current;
+    setOverlayFrame(buildOverlayFrame(latestGraphData.nodes, latestGraphData.rels, graphRef.current));
+  }, []);
   const scheduleOverlaySync = useCallback(() => {
     if (typeof window === 'undefined') {
       syncOverlayFrame();
@@ -196,13 +207,18 @@ export function NvlGraphView({ graph, selectedNodeId, layoutVersion, nodeColors,
   );
 
   useEffect(() => {
+    graphDataRef.current = graphData;
+    syncOverlayFrame();
+  }, [graphData, syncOverlayFrame]);
+
+  useEffect(() => {
     if (!nvlCanUseDomRenderer()) return;
     const timer = window.setTimeout(() => {
-      graphRef.current?.fit?.(graph.nodes.map((node) => node.id));
+      graphRef.current?.fit?.(graphNodeIds);
       trackOverlayDuringLayout(45);
     }, 120);
     return () => window.clearTimeout(timer);
-  }, [graph.nodes, graph.edges, layoutVersion, trackOverlayDuringLayout]);
+  }, [graphTopologyKey, graphNodeIds, layoutVersion, trackOverlayDuringLayout]);
 
   useEffect(() => {
     if (!nvlCanUseDomRenderer()) return;
@@ -214,9 +230,9 @@ export function NvlGraphView({ graph, selectedNodeId, layoutVersion, nodeColors,
       },
       false
     );
-    graphRef.current?.fit?.(graph.nodes.map((node) => node.id));
+    graphRef.current?.fit?.(graphNodeIds);
     trackOverlayDuringLayout();
-  }, [layoutVersion, graph.nodes, trackOverlayDuringLayout]);
+  }, [layoutVersion, graphTopologyKey, graphNodeIds, trackOverlayDuringLayout]);
 
   useEffect(() => {
     syncOverlayFrame();
@@ -263,7 +279,7 @@ export function NvlGraphView({ graph, selectedNodeId, layoutVersion, nodeColors,
           },
           onCanvasClick: () => {
             onNodeSelect(null);
-            graphRef.current?.fit?.(graph.nodes.map((node) => node.id), { outOnly: true });
+            graphRef.current?.fit?.(graphNodeIds, { outOnly: true });
             scheduleOverlaySync();
           },
           onDrag: () => trackOverlayDuringLayout(8),

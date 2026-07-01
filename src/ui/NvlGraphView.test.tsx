@@ -12,6 +12,21 @@ let lastNvlProps: {
   nvlOptions?: Record<string, unknown>;
   positions?: { id: string; x?: number; y?: number }[];
 } | null = null;
+let lastNvlApi = createMockNvlApi();
+
+function createMockNvlApi() {
+  return {
+    fit: vi.fn(),
+    restart: vi.fn(),
+    setLayout: vi.fn(),
+    getContainer: vi.fn(() => ({
+      getBoundingClientRect: () => ({ width: 1000, height: 560 })
+    })),
+    getNodePositions: vi.fn(() => []),
+    getPan: vi.fn(() => ({ x: 0, y: 0 })),
+    getScale: vi.fn(() => 1)
+  };
+}
 
 vi.mock('@neo4j-nvl/react', () => ({
   InteractiveNvlWrapper: React.forwardRef(
@@ -22,9 +37,10 @@ vi.mock('@neo4j-nvl/react', () => ({
         nvlOptions?: Record<string, unknown>;
         positions?: { id: string; x?: number; y?: number }[];
       },
-      _ref
+      ref
     ) => {
       lastNvlProps = props;
+      React.useImperativeHandle(ref, () => lastNvlApi);
       return <div data-testid="mock-interactive-nvl" />;
     }
   )
@@ -169,6 +185,39 @@ describe('NvlGraphView graph mapping', () => {
     });
     expect(lastNvlProps?.positions).toHaveLength(graph.nodes.length);
     expect(new Set(lastNvlProps?.positions?.map((node) => `${node.x},${node.y}`)).size).toBe(graph.nodes.length);
+  });
+
+  it('does not restart or refit the graph when only the selected node changes', async () => {
+    vi.stubGlobal('navigator', { userAgent: 'Chrome' });
+    lastNvlApi = createMockNvlApi();
+    const { NvlGraphView } = await import('./NvlGraphView');
+
+    const { rerender } = render(
+      <NvlGraphView
+        graph={graph}
+        selectedNodeId="exhibit:magnet-maze"
+        layoutVersion={0}
+        nodeColors={nodeColors}
+        onNodeSelect={() => undefined}
+      />
+    );
+    await new Promise((resolve) => window.setTimeout(resolve, 160));
+    const restartCount = lastNvlApi.restart.mock.calls.length;
+    const fitCount = lastNvlApi.fit.mock.calls.length;
+
+    rerender(
+      <NvlGraphView
+        graph={graph}
+        selectedNodeId="material:acrylic"
+        layoutVersion={0}
+        nodeColors={nodeColors}
+        onNodeSelect={() => undefined}
+      />
+    );
+    await new Promise((resolve) => window.setTimeout(resolve, 160));
+
+    expect(lastNvlApi.restart).toHaveBeenCalledTimes(restartCount);
+    expect(lastNvlApi.fit).toHaveBeenCalledTimes(fitCount);
   });
 
   it('spreads the full demo graph far enough for readable relationship lengths', () => {
