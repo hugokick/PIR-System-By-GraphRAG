@@ -731,7 +731,7 @@ describe('App exhibit management', () => {
     expect(screen.getByRole('button', { name: '登录' })).toBeTruthy();
   });
 
-  it('shows audit log entries to admins', async () => {
+  it('shows readable audit log entries to admins', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
       const url = String(input);
       if (url.endsWith('/api/admin/audit-logs?limit=8')) {
@@ -755,8 +755,11 @@ describe('App exhibit management', () => {
 
     render(<App />);
 
-    expect(await screen.findByText('操作日志')).toBeTruthy();
-    expect(screen.getByText('delete_exhibit')).toBeTruthy();
+    const auditPanel = (await screen.findByText('操作日志')).closest('section') as HTMLElement;
+    expect(auditPanel).toBeTruthy();
+    expect(within(auditPanel).getByText('删除档案')).toBeTruthy();
+    expect(within(auditPanel).queryByText('delete_exhibit')).toBeNull();
+    expect(within(auditPanel).getByText(/2026-07-01 00:00/)).toBeTruthy();
     expect(screen.getAllByText(/magnet-maze/).length).toBeGreaterThan(0);
     expect(screen.getAllByText('admin').length).toBeGreaterThan(0);
     expect(fetchMock).toHaveBeenCalledWith(
@@ -800,7 +803,8 @@ describe('App exhibit management', () => {
     expect(await screen.findByText('暂无操作记录')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /删除档案/ }));
 
-    expect(await screen.findByText('delete_exhibit')).toBeTruthy();
+    const auditPanel = (await screen.findByText('操作日志')).closest('section') as HTMLElement;
+    expect(await within(auditPanel).findByText('删除档案')).toBeTruthy();
     expect(fetchMock.mock.calls.filter(([input]) => String(input).endsWith('/api/admin/audit-logs?limit=8'))).toHaveLength(2);
   });
 

@@ -111,6 +111,28 @@ const uploadAcceptTypes = [
 ].join(',');
 const userRoles: UserRole[] = ['admin', 'editor', 'viewer'];
 const sessionStorageKey = 'pir-system-session';
+const auditActionLabels: Record<string, string> = {
+  create_exhibit: '新增档案',
+  update_exhibit: '编辑档案',
+  delete_exhibit: '删除档案',
+  update_review_status: '更新审核',
+  upload_document: '上传资料',
+  upload_media: '上传媒体',
+  delete_document: '删除资料',
+  delete_media: '删除媒体',
+  import_create_exhibit: '导入新增',
+  import_update_exhibit: '导入更新',
+  import_exhibits: '批量导入'
+};
+
+function auditActionLabel(action: string) {
+  return auditActionLabels[action] ?? action;
+}
+
+function formatAuditTime(value?: string) {
+  if (!value) return '时间未知';
+  return value.replace('T', ' ').replace(/\.\d+/, '').replace(/([+-]\d{2}:\d{2}|Z)$/, '').slice(0, 16);
+}
 
 function readInitialRole(): UserRole {
   let stored: string | null = null;
@@ -1039,11 +1061,11 @@ export function App() {
               {auditLogs.map((entry) => (
                 <div className="audit-item" key={entry.id}>
                   <div>
-                    <strong>{entry.action}</strong>
+                    <strong>{auditActionLabel(entry.action)}</strong>
                     <span>{entry.summary}</span>
                   </div>
                   <small>
-                    {entry.actorRole} / {entry.resourceId}
+                    {entry.actorRole} / {entry.resourceId} / {formatAuditTime(entry.createdAt)}
                   </small>
                 </div>
               ))}
