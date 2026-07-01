@@ -319,6 +319,7 @@ export function App() {
   const [importPreview, setImportPreview] = useState<{ file: File; result: ExhibitImportResult } | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [auditError, setAuditError] = useState<string | null>(null);
+  const [isAuditLoading, setIsAuditLoading] = useState(false);
   const [dashboardSummary, setDashboardSummary] = useState<DashboardStats | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [remoteGraph, setRemoteGraph] = useState<{
@@ -483,9 +484,11 @@ export function App() {
     if (role !== 'admin') {
       setAuditLogs([]);
       setAuditError(null);
+      setIsAuditLoading(false);
       return;
     }
 
+    setIsAuditLoading(true);
     await fetchAuditLogs(8)
       .then((logs) => {
         setAuditLogs(logs);
@@ -494,6 +497,9 @@ export function App() {
       .catch(() => {
         setAuditLogs([]);
         setAuditError('操作日志暂不可用');
+      })
+      .finally(() => {
+        setIsAuditLoading(false);
       });
   };
 
@@ -1054,9 +1060,20 @@ export function App() {
             <div className="panel-title">
               <FileText size={18} />
               <span>操作日志</span>
+              <button
+                type="button"
+                className="audit-refresh-action"
+                onClick={() => void refreshAuditLogs()}
+                disabled={isAuditLoading}
+                aria-label="刷新操作日志"
+              >
+                <RotateCcw size={13} />
+                {isAuditLoading ? '刷新中' : '刷新'}
+              </button>
             </div>
             {auditError && <p className="audit-error">{auditError}</p>}
-            {!auditError && auditLogs.length === 0 && <p className="audit-empty">暂无操作记录</p>}
+            {!auditError && isAuditLoading && auditLogs.length === 0 && <p className="audit-empty">正在加载操作日志...</p>}
+            {!auditError && !isAuditLoading && auditLogs.length === 0 && <p className="audit-empty">暂无操作记录</p>}
             <div className="audit-list">
               {auditLogs.map((entry) => (
                 <div className="audit-item" key={entry.id}>

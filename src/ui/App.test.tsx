@@ -768,6 +768,44 @@ describe('App exhibit management', () => {
     );
   });
 
+  it('lets admins manually refresh audit log entries', async () => {
+    let auditCalls = 0;
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.endsWith('/api/admin/audit-logs?limit=8')) {
+        auditCalls += 1;
+        return okJson({
+          total: auditCalls > 1 ? 1 : 0,
+          items:
+            auditCalls > 1
+              ? [
+                  {
+                    id: 'audit-refresh-manual',
+                    actor_role: 'admin',
+                    action: 'delete_exhibit',
+                    resource_type: 'exhibit',
+                    resource_id: 'manual-refresh-demo',
+                    summary: 'Deleted exhibit manual-refresh-demo',
+                    created_at: '2026-07-01T01:15:00+00:00'
+                  }
+                ]
+              : []
+        });
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText('暂无操作记录')).toBeTruthy();
+    const auditPanel = screen.getByText('操作日志').closest('section') as HTMLElement;
+    fireEvent.click(within(auditPanel).getByRole('button', { name: '刷新操作日志' }));
+
+    expect(await within(auditPanel).findAllByText(/manual-refresh-demo/)).toHaveLength(2);
+    expect(within(auditPanel).getByText('删除档案')).toBeTruthy();
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).endsWith('/api/admin/audit-logs?limit=8'))).toHaveLength(2);
+  });
+
   it('refreshes audit log entries after admin mutations', async () => {
     let auditCalls = 0;
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {

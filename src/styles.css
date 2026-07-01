@@ -358,6 +358,26 @@ textarea:focus {
   gap: 9px;
 }
 
+.audit-refresh-action {
+  margin-left: auto;
+  border: 1px solid #cfd8e3;
+  border-radius: 999px;
+  background: #f7fafc;
+  color: #26384f;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 4px 8px;
+}
+
+.audit-refresh-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .audit-item {
   display: grid;
   gap: 5px;
