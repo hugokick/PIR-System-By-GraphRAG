@@ -1041,7 +1041,7 @@ describe('App exhibit management', () => {
     );
   });
 
-  it('renders image and video media assets in a preview gallery with file download links', async () => {
+  it('renders media assets as compact thumbnails that open previews or downloads', async () => {
     const withMedia = apiExhibit({
       ...frontendExhibit,
       media: [
@@ -1071,12 +1071,15 @@ describe('App exhibit management', () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [withMedia] }));
 
     render(<App />);
+    await screen.findByText('媒体档案');
+    expect(document.querySelector('.media-gallery-grid')?.classList.contains('thumbnail-grid')).toBe(true);
+    expect(document.querySelectorAll('.media-thumbnail')).toHaveLength(2);
 
     expect(await screen.findByText('媒体档案')).toBeTruthy();
     expect(screen.getByAltText('展项效果图.png')).toBeTruthy();
     const video = screen.getByLabelText('互动演示.mp4 视频预览') as HTMLVideoElement;
     expect(video.tagName).toBe('VIDEO');
-    expect(video.controls).toBe(true);
+    expect(video.controls).toBe(false);
     expect(screen.getByRole('link', { name: '报价清单.xlsx' }).getAttribute('href')).toBe('http://assets.test/quote.xlsx');
     expect(screen.getByText('效果图')).toBeTruthy();
     expect(screen.getByText('现场演示')).toBeTruthy();

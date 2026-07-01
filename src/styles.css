@@ -973,16 +973,22 @@ textarea:focus {
   gap: 12px;
 }
 
+.media-gallery-grid.thumbnail-grid {
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  gap: 10px;
+}
+
 .media-card {
   min-width: 0;
   display: grid;
-  gap: 9px;
+  gap: 7px;
   border: 1px solid #e0e8e4;
   border-radius: 8px;
   background: #ffffff;
-  padding: 10px;
+  padding: 8px;
 }
 
+.media-thumbnail,
 .media-card img,
 .media-card video,
 .media-file-link {
@@ -993,9 +999,17 @@ textarea:focus {
   background: #f4f7f5;
 }
 
+.media-thumbnail {
+  display: block;
+  overflow: hidden;
+  text-decoration: none;
+}
+
 .media-card img,
 .media-card video {
   display: block;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
 }
 
@@ -1148,7 +1162,7 @@ textarea:focus {
   border-top: 1px solid #e0e7e3;
   padding-top: 14px;
   container-type: inline-size;
-  --graph-viewport-height: clamp(260px, 34vh, 360px);
+  --graph-viewport-height: clamp(520px, 68vh, 720px);
 }
 
 .graph-mode-switch,
@@ -1235,6 +1249,44 @@ textarea:focus {
 
 .nvl-stage > div:first-child {
   height: var(--graph-viewport-height);
+}
+
+.nvl-readable-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.nvl-node-caption,
+.nvl-edge-caption {
+  font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+  paint-order: stroke;
+  stroke-linejoin: round;
+}
+
+.nvl-node-caption {
+  fill: #f8fbff;
+  font-size: 13px;
+  font-weight: 800;
+  stroke: #0f172a;
+  stroke-width: 4px;
+}
+
+.nvl-node-caption.dimmed {
+  fill: #aeb8c4;
+  opacity: 0.72;
+}
+
+.nvl-edge-caption {
+  fill: #55301f;
+  font-size: 11px;
+  font-weight: 800;
+  stroke: #fff7ed;
+  stroke-width: 5px;
 }
 
 .nvl-minimap {
@@ -1416,7 +1468,7 @@ textarea:focus {
   }
 
   .graph {
-    --graph-viewport-height: 300px;
+    --graph-viewport-height: 560px;
   }
 
   .nvl-minimap {

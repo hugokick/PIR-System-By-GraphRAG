@@ -188,7 +188,7 @@ describe('NvlGraphView graph mapping', () => {
     expect(Math.max(...nodes.map((node) => node.size ?? 0))).toBeLessThanOrEqual(30);
   });
 
-  it('renders readable node and relationship labels above the canvas', async () => {
+  it('renders readable node and relationship labels inside the graph viewport', async () => {
     vi.stubGlobal('navigator', { userAgent: 'Chrome' });
     const { NvlGraphView } = await import('./NvlGraphView');
 
@@ -203,9 +203,10 @@ describe('NvlGraphView graph mapping', () => {
     );
 
     expect(lastNvlProps?.positions).toHaveLength(graph.nodes.length);
-    expect(container.querySelector('.nvl-readable-overlay')).toBeNull();
-    expect(container.querySelector('.nvl-node-caption')).toBeNull();
-    expect(container.querySelector('.nvl-edge-caption')).toBeNull();
+    expect(container.querySelector('.nvl-readable-overlay')).toBeTruthy();
+    expect([...container.querySelectorAll('.nvl-node-caption')].map((node) => node.textContent)).toContain('Magnet Maze');
+    expect([...container.querySelectorAll('.nvl-node-caption')].map((node) => node.textContent)).toContain('Acrylic');
+    expect([...container.querySelectorAll('.nvl-edge-caption')].map((node) => node.textContent)).toContain('使用材料');
   });
 
   it('hides unrelated relationship labels when the graph is dense', async () => {
@@ -238,19 +239,19 @@ describe('NvlGraphView graph mapping', () => {
       />
     );
 
-    expect(container.querySelector('.nvl-readable-overlay')).toBeNull();
+    expect(container.querySelector('.nvl-readable-overlay')).toBeTruthy();
+    expect(container.querySelectorAll('.nvl-edge-caption')).toHaveLength(19);
     expect(buildNvlGraphData(denseGraph, 'exhibit:center', nodeColors).rels.find((rel) => rel.type === 'UNRELATED_EDGE')).toMatchObject({
       disabled: true
     });
   });
 
-  it('keeps the graph viewport compact instead of reserving a tall empty area', () => {
+  it('expands the graph viewport enough to read labels in the canvas', () => {
     const styles = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf8');
 
-    expect(styles).toContain('--graph-viewport-height: clamp(260px, 34vh, 360px);');
+    expect(styles).toContain('--graph-viewport-height: clamp(520px, 68vh, 720px);');
     expect(styles).toContain('height: var(--graph-viewport-height);');
     expect(styles).toContain('max-height: var(--graph-viewport-height);');
     expect(styles).toContain('overflow: auto;');
-    expect(styles).not.toContain('min-height: 480px;');
   });
 });

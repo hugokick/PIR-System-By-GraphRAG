@@ -1397,12 +1397,24 @@ export function App() {
                     <ImageIcon size={18} />
                     <span>媒体档案</span>
                   </div>
-                  <div className="media-gallery-grid">
+                  <div className="media-gallery-grid thumbnail-grid">
                     {selected.media.map((asset) => (
                       <article key={asset.id} className={canPreviewMedia(asset) ? 'media-card previewable' : 'media-card'}>
-                        {asset.type === 'image' && <img src={asset.url} alt={asset.name} onError={imageFallback} />}
+                        {asset.type === 'image' && (
+                          <a className="media-thumbnail" href={asset.url} target="_blank" rel="noreferrer">
+                            <img src={asset.url} alt={asset.name} onError={imageFallback} />
+                          </a>
+                        )}
                         {asset.type === 'video' && (
-                          <video src={asset.url} controls aria-label={`${asset.name} 视频预览`} />
+                          <a className="media-thumbnail" href={asset.url} target="_blank" rel="noreferrer">
+                            <video
+                              src={asset.url}
+                              muted
+                              playsInline
+                              preload="metadata"
+                              aria-label={`${asset.name} 视频预览`}
+                            />
+                          </a>
                         )}
                         {!canPreviewMedia(asset) && (
                           <a className="media-file-link" href={downloadUrl(asset.url)} download={asset.name}>
@@ -1411,13 +1423,7 @@ export function App() {
                           </a>
                         )}
                         <div>
-                          {canPreviewMedia(asset) ? (
-                            <a className="media-title-link" href={asset.url} target="_blank" rel="noreferrer">
-                              {asset.name}
-                            </a>
-                          ) : (
-                            <strong>{asset.name}</strong>
-                          )}
+                          <strong>{asset.name}</strong>
                           <span>{asset.type}</span>
                           {asset.note && <small>{asset.note}</small>}
                           {canDelete && (
