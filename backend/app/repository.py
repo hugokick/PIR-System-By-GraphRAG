@@ -1134,6 +1134,17 @@ class PostgresExhibitRepository:
 
                 cursor.execute(
                     """
+                    SELECT id, name
+                    FROM media_assets
+                    WHERE exhibit_id = %s
+                    ORDER BY name ASC
+                    """,
+                    (exhibit_id,),
+                )
+                media_rows = cursor.fetchall()
+
+                cursor.execute(
+                    """
                     SELECT d.id, d.name
                     FROM exhibit_documents ed
                     JOIN documents d ON d.id = ed.document_id
@@ -1228,6 +1239,11 @@ class PostgresExhibitRepository:
             target_id = f"interaction:{self._row_value(row, 'id', 0)}"
             add_node(target_id, self._row_value(row, "name", 1), "interaction")
             add_edge(center_id, target_id, "has_interaction", "交互方式")
+
+        for row in media_rows:
+            target_id = f"media_asset:{self._row_value(row, 'id', 0)}"
+            add_node(target_id, self._row_value(row, "name", 1), "media_asset")
+            add_edge(center_id, target_id, "has_media", "媒体资产")
 
         for row in document_rows:
             target_id = f"document:{self._row_value(row, 'id', 0)}"

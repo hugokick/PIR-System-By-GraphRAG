@@ -16,6 +16,7 @@ def test_build_snapshot_contains_fixed_node_and_edge_types():
         "material",
         "theme",
         "interaction",
+        "media_asset",
         "document",
     } <= node_types
     assert {
@@ -25,6 +26,7 @@ def test_build_snapshot_contains_fixed_node_and_edge_types():
         "uses_material",
         "has_theme",
         "has_interaction",
+        "has_media",
         "has_document",
         "similar_to",
     } <= edge_types

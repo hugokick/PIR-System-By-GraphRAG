@@ -265,6 +265,8 @@ def test_postgres_repository_reads_exhibit_graph_from_domain_relation_tables_fir
                 self.rows = [{"id": "mechanical", "name": "机械互动"}]
             elif "FROM exhibit_documents" in normalized:
                 self.rows = [{"id": "lever-brief", "name": "杠杆乐园展项说明"}]
+            elif "FROM media_assets" in normalized:
+                self.rows = [{"id": "lever-render", "name": "展项效果图"}]
             elif "FROM exhibit_relations r" in normalized and "JOIN exhibits target" in normalized:
                 self.rows = [{"id": "pulley-wall", "name": "滑轮挑战墙"}]
             elif "FROM exhibit_relations r" in normalized and "JOIN exhibits source" in normalized:
@@ -309,6 +311,7 @@ def test_postgres_repository_reads_exhibit_graph_from_domain_relation_tables_fir
         "theme:mechanics",
         "material:metal",
         "interaction:mechanical",
+        "media_asset:lever-render",
         "document:lever-brief",
         "exhibit:pulley-wall",
         "exhibit:balance-lab",
@@ -323,6 +326,7 @@ def test_postgres_repository_reads_exhibit_graph_from_domain_relation_tables_fir
         ("exhibit:lever-play", "has_theme", "theme:mechanics"),
         ("exhibit:lever-play", "uses_material", "material:metal"),
         ("exhibit:lever-play", "has_interaction", "interaction:mechanical"),
+        ("exhibit:lever-play", "has_media", "media_asset:lever-render"),
         ("exhibit:lever-play", "has_document", "document:lever-brief"),
         ("exhibit:lever-play", "similar_to", "exhibit:pulley-wall"),
         ("exhibit:balance-lab", "similar_to", "exhibit:lever-play"),

@@ -79,6 +79,26 @@ def build_exhibit_kg_snapshot(exhibits: list[ExhibitResponse]) -> KGSnapshot:
                 )
             )
 
+        for asset in exhibit.media_assets:
+            target_id = f"media_asset:{asset.id}"
+            add_node(
+                KGNode(
+                    id=target_id,
+                    type="media_asset",
+                    label=asset.name,
+                    source_refs=[f"exhibit:{exhibit.id}", f"media_asset:{asset.id}"],
+                )
+            )
+            add_edge(
+                KGEdge(
+                    source=exhibit_node_id,
+                    target=target_id,
+                    type="has_media",
+                    label="媒体资产",
+                    source_refs=[f"exhibit:{exhibit.id}", f"media_asset:{asset.id}"],
+                )
+            )
+
         for document in exhibit.documents:
             target_id = f"document:{document.id}"
             add_node(
