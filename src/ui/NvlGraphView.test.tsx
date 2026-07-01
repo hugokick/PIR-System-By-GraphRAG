@@ -1,16 +1,31 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { render } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { GraphEdge, GraphNode } from '../types';
 import { buildNvlGraphData, nvlGraphStyling } from './nvlGraphData';
 
-let lastNvlProps: { layout?: string; positions?: { id: string; x?: number; y?: number }[] } | null = null;
+let lastNvlProps: {
+  layout?: string;
+  layoutOptions?: Record<string, unknown>;
+  nvlOptions?: Record<string, unknown>;
+  positions?: { id: string; x?: number; y?: number }[];
+} | null = null;
 
 vi.mock('@neo4j-nvl/react', () => ({
   InteractiveNvlWrapper: React.forwardRef(
-    (props: { layout?: string; positions?: { id: string; x?: number; y?: number }[] }, _ref) => {
-    lastNvlProps = props;
-    return <div data-testid="mock-interactive-nvl" />;
+    (
+      props: {
+        layout?: string;
+        layoutOptions?: Record<string, unknown>;
+        nvlOptions?: Record<string, unknown>;
+        positions?: { id: string; x?: number; y?: number }[];
+      },
+      _ref
+    ) => {
+      lastNvlProps = props;
+      return <div data-testid="mock-interactive-nvl" />;
     }
   )
 }));
@@ -52,33 +67,43 @@ describe('NvlGraphView graph mapping', () => {
     expect(nodes.find((node) => node.id === 'exhibit:magnet-maze')).toMatchObject({
       caption: 'Magnet Maze',
       color: '#68bdf6',
-      size: 58,
+      size: 40,
       selected: true,
       activated: true,
-      captionSize: 14,
+      pinned: true,
+      captionSize: 13,
+      captionAlign: 'bottom',
       disabled: false
     });
     expect(nodes.find((node) => node.id === 'material:acrylic')).toMatchObject({
       disabled: false,
-      size: 34
+      size: 24,
+      captionSize: 12
     });
+    expect(nodes.find((node) => node.id === 'material:acrylic')?.captions?.map((caption) => caption.value)).toEqual([
+      'Acrylic',
+      'material'
+    ]);
     expect(nodes.find((node) => node.id === 'supplier:qisi')).toMatchObject({
       disabled: true
     });
+    expect(Math.max(...nodes.map((node) => Math.hypot(node.x ?? 0, node.y ?? 0)))).toBeGreaterThanOrEqual(150);
     expect(new Set(nodes.map((node) => `${Math.round(node.x ?? 0)},${Math.round(node.y ?? 0)}`)).size).toBe(nodes.length);
 
     const selectedRelationship = rels.find((rel) => rel.type === 'USES_MATERIAL');
     expect(selectedRelationship).toMatchObject({
       caption: 'USES_MATERIAL',
       color: '#f79767',
-      width: 4.5,
-      captionSize: 5.5,
+      width: 3.4,
+      captionSize: 8.5,
+      captionAlign: 'center',
       disabled: false
     });
     expect(rels.find((rel) => rel.type === 'SUPPORTS_THEME')).toMatchObject({
       disabled: true,
       color: '#6f7d8f',
-      width: 1.2
+      width: 1,
+      captionSize: 7
     });
   });
 
@@ -108,7 +133,39 @@ describe('NvlGraphView graph mapping', () => {
     );
 
     expect(lastNvlProps?.layout).toBe('d3Force');
+    expect(lastNvlProps?.nvlOptions).toMatchObject({
+      initialZoom: 1,
+      relationshipThreshold: 1000,
+      renderer: 'canvas'
+    });
     expect(lastNvlProps?.positions).toHaveLength(graph.nodes.length);
     expect(new Set(lastNvlProps?.positions?.map((node) => `${node.x},${node.y}`)).size).toBe(graph.nodes.length);
+  });
+
+  it('renders readable node and relationship labels above the canvas', async () => {
+    vi.stubGlobal('navigator', { userAgent: 'Chrome' });
+    const { NvlGraphView } = await import('./NvlGraphView');
+
+    const { container } = render(
+      <NvlGraphView
+        graph={graph}
+        selectedNodeId="exhibit:magnet-maze"
+        layoutVersion={0}
+        nodeColors={nodeColors}
+        onNodeSelect={() => undefined}
+      />
+    );
+
+    expect([...container.querySelectorAll('.nvl-node-caption')].map((node) => node.textContent)).toContain('Magnet Maze');
+    expect([...container.querySelectorAll('.nvl-node-caption')].map((node) => node.textContent)).toContain('Acrylic');
+    expect([...container.querySelectorAll('.nvl-edge-caption')].map((edge) => edge.textContent)).toContain('USES_MATERIAL');
+  });
+
+  it('keeps the graph viewport compact instead of reserving a tall empty area', () => {
+    const styles = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf8');
+
+    expect(styles).toContain('--graph-viewport-height: clamp(320px, 42vh, 420px);');
+    expect(styles).toContain('height: var(--graph-viewport-height);');
+    expect(styles).not.toContain('min-height: 480px;');
   });
 });

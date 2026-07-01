@@ -217,6 +217,21 @@ def login(payload: AuthLoginRequest) -> AuthLoginResponse:
     )
 
 
+@app.get("/api/auth/me", response_model=AuthUser)
+def current_auth_user(
+    authorization: str | None = Header(default=None, alias="Authorization"),
+) -> AuthUser:
+    if not authorization:
+        raise invalid_token()
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise invalid_token()
+    user = verify_access_token(token)
+    if user is None:
+        raise invalid_token()
+    return AuthUser(username=user.username, role=user.role, display_name=user.display_name)
+
+
 @app.get("/health")
 def health_check() -> dict[str, str]:
     return {"status": "ok", "service": "exhibit-atlas-api"}

@@ -677,6 +677,41 @@ describe('App exhibit management', () => {
     expect(screen.getByRole('button', { name: '登录' })).toBeTruthy();
   });
 
+  it('clears a saved login session when token validation fails', async () => {
+    const storage = installMemoryStorage();
+    storage.setItem(
+      'pir-system-session',
+      JSON.stringify({
+        accessToken: 'stale-token',
+        tokenType: 'bearer',
+        user: {
+          username: 'admin',
+          role: 'admin',
+          displayName: '管理员'
+        }
+      })
+    );
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.endsWith('/api/auth/me')) {
+        return { ok: false, status: 401, statusText: 'Unauthorized' } as Response;
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8000/api/auth/me', {
+        headers: { Authorization: 'Bearer stale-token' }
+      });
+    });
+    await waitFor(() => {
+      expect(storage.removeItem).toHaveBeenCalledWith('pir-system-session');
+    });
+    expect(screen.getByRole('button', { name: '登录' })).toBeTruthy();
+  });
+
   it('shows audit log entries to admins', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
       const url = String(input);

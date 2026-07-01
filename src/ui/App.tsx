@@ -38,6 +38,7 @@ import {
   updateExhibitRelatedExhibits,
   updateExhibitReviewStatus,
   uploadExhibitAsset,
+  validateSession,
   type ExhibitImportResult,
   type UserRole
 } from '../lib/api';
@@ -414,6 +415,32 @@ export function App() {
     }
     storeRole(role);
   }, [role, session]);
+
+  useEffect(() => {
+    const restoredSession = session;
+    if (!restoredSession) return;
+
+    let cancelled = false;
+    validateSession(restoredSession)
+      .then((validatedSession) => {
+        if (cancelled) return;
+        setSession(validatedSession);
+        setRole(validatedSession.user.role);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSession(null);
+        setApiSession(null);
+        setRole('viewer');
+        setAuthError('登录已失效，请重新登录');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // Validate only the session restored during initial page load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const refreshAuditLogs = async () => {
     if (role !== 'admin') {

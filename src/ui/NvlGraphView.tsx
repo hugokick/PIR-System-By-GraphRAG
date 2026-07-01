@@ -17,6 +17,11 @@ type NvlGraphViewProps = {
 
 const nvlForceDirectedLayout = 'd3Force' as Layout;
 
+function positionPercent(value: number, min: number, max: number) {
+  const span = Math.max(max - min, 1);
+  return 18 + ((value - min) / span) * 64;
+}
+
 function nvlCanUseDomRenderer() {
   if (typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('jsdom')) return false;
   if (typeof document === 'undefined') return false;
@@ -30,6 +35,54 @@ export function NvlGraphView({ graph, selectedNodeId, layoutVersion, nodeColors,
     setMinimapContainer(node);
   }, []);
   const graphData = useMemo(() => buildNvlGraphData(graph, selectedNodeId, nodeColors), [graph, nodeColors, selectedNodeId]);
+  const overlayLabels = useMemo(() => {
+    const xs = graphData.nodes.map((node) => node.x ?? 0);
+    const ys = graphData.nodes.map((node) => node.y ?? 0);
+    const minX = Math.min(...xs, 0);
+    const maxX = Math.max(...xs, 0);
+    const minY = Math.min(...ys, 0);
+    const maxY = Math.max(...ys, 0);
+    const nodePositions = new Map(
+      graphData.nodes.map((node) => [
+        node.id,
+        {
+          x: node.x ?? 0,
+          y: node.y ?? 0,
+          left: positionPercent(node.x ?? 0, minX, maxX),
+          top: positionPercent(node.y ?? 0, minY, maxY)
+        }
+      ])
+    );
+
+    return {
+      nodes: graphData.nodes.map((node) => {
+        const position = nodePositions.get(node.id);
+        return {
+          id: node.id,
+          label: node.caption ?? node.id,
+          left: position?.left ?? 50,
+          top: position?.top ?? 50,
+          selected: node.id === selectedNodeId
+        };
+      }),
+      edges: graphData.rels.flatMap((rel) => {
+        const from = nodePositions.get(rel.from);
+        const to = nodePositions.get(rel.to);
+        if (!from || !to) return [];
+        const midpointX = (from.x + to.x) / 2;
+        const midpointY = (from.y + to.y) / 2;
+        return [
+          {
+            id: rel.id,
+            label: rel.caption ?? rel.type ?? rel.id,
+            left: positionPercent(midpointX, minX, maxX),
+            top: positionPercent(midpointY, minY, maxY),
+            disabled: rel.disabled
+          }
+        ];
+      })
+    };
+  }, [graphData, selectedNodeId]);
 
   useEffect(() => {
     if (!nvlCanUseDomRenderer()) return;
@@ -70,8 +123,9 @@ export function NvlGraphView({ graph, selectedNodeId, layoutVersion, nodeColors,
           renderer: 'canvas',
           minZoom: 0.12,
           maxZoom: 4.5,
-          initialZoom: 0.7,
+          initialZoom: 1,
           allowDynamicMinZoom: true,
+          relationshipThreshold: 1000,
           minimapContainer,
           styling: nvlGraphStyling
         }}
@@ -91,6 +145,26 @@ export function NvlGraphView({ graph, selectedNodeId, layoutVersion, nodeColors,
         }}
         interactionOptions={{ selectOnClick: true }}
       />
+      <div className="nvl-readable-overlay" aria-hidden="true">
+        {overlayLabels.edges.map((edge) => (
+          <span
+            key={edge.id}
+            className={`nvl-edge-caption${edge.disabled ? ' disabled' : ''}`}
+            style={{ left: `${edge.left}%`, top: `${edge.top}%` }}
+          >
+            {edge.label}
+          </span>
+        ))}
+        {overlayLabels.nodes.map((node) => (
+          <span
+            key={node.id}
+            className={`nvl-node-caption${node.selected ? ' selected' : ''}`}
+            style={{ left: `${node.left}%`, top: `${node.top}%` }}
+          >
+            {node.label}
+          </span>
+        ))}
+      </div>
       <div className="nvl-minimap" ref={handleMinimapRef} aria-hidden="true" />
     </div>
   );

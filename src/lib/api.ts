@@ -177,6 +177,8 @@ type ApiAuthLoginResponse = {
   };
 };
 
+type ApiAuthUser = ApiAuthLoginResponse['user'];
+
 type ApiDashboardMetric = {
   label: string;
   count: number;
@@ -403,11 +405,15 @@ function mapApiAuthSession(payload: ApiAuthLoginResponse): UserSession {
   return {
     accessToken: payload.access_token,
     tokenType: payload.token_type,
-    user: {
-      username: payload.user.username,
-      role: payload.user.role,
-      displayName: payload.user.display_name
-    }
+    user: mapApiAuthUser(payload.user)
+  };
+}
+
+function mapApiAuthUser(user: ApiAuthUser) {
+  return {
+    username: user.username,
+    role: user.role,
+    displayName: user.display_name
   };
 }
 
@@ -477,6 +483,23 @@ export async function login(username: string, password: string): Promise<UserSes
   const session = mapApiAuthSession((await response.json()) as ApiAuthLoginResponse);
   setApiSession(session);
   return session;
+}
+
+export async function validateSession(session: UserSession): Promise<UserSession> {
+  const response = await fetch(`${apiBaseUrl}/api/auth/me`, {
+    headers: {
+      Authorization: `Bearer ${session.accessToken}`
+    }
+  });
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+  }
+  const validatedSession = {
+    ...session,
+    user: mapApiAuthUser((await response.json()) as ApiAuthUser)
+  };
+  setApiSession(validatedSession);
+  return validatedSession;
 }
 
 export async function fetchExhibits(filters: ExhibitFilters = {}): Promise<Exhibit[]> {

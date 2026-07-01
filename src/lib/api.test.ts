@@ -20,6 +20,7 @@ import {
   updateExhibitRelatedExhibits,
   updateExhibitReviewStatus,
   uploadExhibitAsset,
+  validateSession,
   type ApiExhibit
 } from './api';
 import type { Exhibit } from '../types';
@@ -432,6 +433,48 @@ describe('updateExhibit', () => {
       })
     );
     expect(result.name).toBe('磁力迷宫 Pro');
+  });
+
+  it('validates a persisted session with the current user endpoint', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        username: 'editor',
+        role: 'editor',
+        display_name: '编辑员'
+      })
+    } as Response);
+
+    const session = await validateSession({
+      accessToken: 'persisted-token',
+      tokenType: 'bearer',
+      user: { username: 'editor', role: 'editor', displayName: '旧名称' }
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8000/api/auth/me', {
+      headers: { Authorization: 'Bearer persisted-token' }
+    });
+    expect(session).toEqual({
+      accessToken: 'persisted-token',
+      tokenType: 'bearer',
+      user: { username: 'editor', role: 'editor', displayName: '编辑员' }
+    });
+  });
+
+  it('rejects invalid persisted sessions', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 401,
+      statusText: 'Unauthorized'
+    } as Response);
+
+    await expect(
+      validateSession({
+        accessToken: 'bad-token',
+        tokenType: 'bearer',
+        user: { username: 'editor', role: 'editor', displayName: '编辑员' }
+      })
+    ).rejects.toThrow('API request failed: 401 Unauthorized');
   });
 });
 

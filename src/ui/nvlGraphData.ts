@@ -16,14 +16,14 @@ export const nvlGraphStyling = {
 };
 
 const nodeBaseSizes: Record<string, number> = {
-  exhibit: 46,
-  project: 36,
-  owner: 36,
-  material: 34,
-  supplier: 34,
-  theme: 34,
-  interaction: 34,
-  document: 30
+  exhibit: 32,
+  project: 26,
+  owner: 26,
+  material: 24,
+  supplier: 24,
+  theme: 24,
+  interaction: 24,
+  document: 22
 };
 
 const nodeIconPaths: Record<string, string> = {
@@ -44,13 +44,13 @@ function buildSvgIcon(path: string) {
 }
 
 function graphNodeSize(kind: string, selected: boolean) {
-  const baseSize = nodeBaseSizes[kind] ?? 32;
-  return selected ? baseSize + 12 : baseSize;
+  const baseSize = nodeBaseSizes[kind] ?? 24;
+  return selected ? baseSize + 8 : baseSize;
 }
 
 function initialNodePosition(index: number, total: number) {
   if (total <= 1) return { x: 0, y: 0 };
-  const radius = Math.min(360, 150 + total * 12);
+  const radius = Math.min(280, 110 + total * 10);
   const angle = -Math.PI / 2 + (2 * Math.PI * index) / total;
   return {
     x: Math.round(Math.cos(angle) * radius),
@@ -83,10 +83,12 @@ export function buildNvlGraphData(
       caption: node.label,
       color: nodeColors[node.kind] ?? defaultNodeColor,
       size: graphNodeSize(node.kind, node.id === selectedNodeId),
+      pinned: true,
       selected: node.id === selectedNodeId,
       activated: node.id === selectedNodeId,
       disabled: Boolean(selectedNodeId) && !neighborIds.has(node.id),
-      captionSize: node.id === selectedNodeId ? 14 : 11,
+      captionSize: node.id === selectedNodeId ? 13 : 12,
+      captionAlign: 'bottom',
       x: position.x,
       y: position.y,
       icon: nodeIconPaths[node.kind] ? buildSvgIcon(nodeIconPaths[node.kind]) : undefined,
@@ -112,10 +114,10 @@ export function buildNvlGraphData(
       to: edge.target,
       type: relationshipType,
       caption: relationshipType,
-      captionSize: highlighted ? 5.5 : 4.5,
+      captionSize: highlighted ? 8.5 : 7,
       captionAlign: 'center',
       color: highlighted ? '#f79767' : disabled ? '#6f7d8f' : '#8f9bad',
-      width: highlighted ? 4.5 : disabled ? 1.2 : 2.4,
+      width: highlighted ? 3.4 : disabled ? 1 : 2,
       disabled
     };
   });

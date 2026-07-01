@@ -57,6 +57,36 @@ def test_demo_login_rejects_invalid_credentials():
     assert response.json()["detail"]["error"] == "InvalidCredentials"
 
 
+def test_auth_me_returns_profile_for_valid_bearer_token():
+    login_response = client.post(
+        "/api/auth/login",
+        json={"username": "editor", "password": "editor123"},
+    )
+    token = login_response.json()["access_token"]
+
+    response = client.get(
+        "/api/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "username": "editor",
+        "role": "editor",
+        "display_name": "编辑员",
+    }
+
+
+def test_auth_me_rejects_invalid_bearer_token():
+    response = client.get(
+        "/api/auth/me",
+        headers={"Authorization": "Bearer invalid-token"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"]["error"] == "InvalidToken"
+
+
 def test_bearer_token_authorizes_role_protected_mutations():
     login_response = client.post(
         "/api/auth/login",

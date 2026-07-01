@@ -1140,6 +1140,7 @@ textarea:focus {
   border-top: 1px solid #e0e7e3;
   padding-top: 14px;
   container-type: inline-size;
+  --graph-viewport-height: clamp(320px, 42vh, 420px);
 }
 
 .graph-mode-switch,
@@ -1197,11 +1198,11 @@ textarea:focus {
   display: grid;
   grid-template-columns: minmax(460px, 1fr) minmax(250px, 330px);
   gap: 14px;
-  align-items: stretch;
+  align-items: start;
 }
 
 .nvl-canvas {
-  min-height: 480px;
+  height: var(--graph-viewport-height);
   border-radius: 8px;
   border: 1px solid #1f2a3b;
   background:
@@ -1216,16 +1217,64 @@ textarea:focus {
 }
 
 .nvl-canvas > div {
-  min-height: 480px;
+  height: var(--graph-viewport-height);
 }
 
 .nvl-stage {
   position: relative;
-  min-height: 480px;
+  height: var(--graph-viewport-height);
 }
 
 .nvl-stage > div:first-child {
-  min-height: 480px;
+  height: var(--graph-viewport-height);
+}
+
+.nvl-readable-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.nvl-node-caption,
+.nvl-edge-caption {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  max-width: 132px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 999px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 20px rgba(3, 7, 18, 0.2);
+}
+
+.nvl-node-caption {
+  margin-top: 33px;
+  border: 1px solid rgba(104, 189, 246, 0.35);
+  background: rgba(15, 23, 42, 0.82);
+  color: #e8f4ff;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 7px;
+}
+
+.nvl-node-caption.selected {
+  border-color: rgba(247, 151, 103, 0.75);
+  color: #ffffff;
+}
+
+.nvl-edge-caption {
+  border: 1px solid rgba(247, 151, 103, 0.45);
+  background: rgba(255, 244, 236, 0.9);
+  color: #8b3c19;
+  font-size: 10px;
+  font-weight: 900;
+  padding: 2px 6px;
+}
+
+.nvl-edge-caption.disabled {
+  opacity: 0.42;
 }
 
 .nvl-minimap {
@@ -1245,7 +1294,7 @@ textarea:focus {
 .nvl-test-fallback {
   color: #dbe7f3;
   display: grid;
-  min-height: 480px;
+  height: var(--graph-viewport-height);
   place-items: center;
 }
 
@@ -1418,12 +1467,8 @@ textarea:focus {
     width: fit-content;
   }
 
-  .nvl-canvas,
-  .nvl-canvas > div,
-  .nvl-stage,
-  .nvl-stage > div:first-child,
-  .nvl-test-fallback {
-    min-height: 320px;
+  .graph {
+    --graph-viewport-height: 320px;
   }
 
   .nvl-minimap {
