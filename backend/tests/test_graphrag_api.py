@@ -469,6 +469,70 @@ def test_graphrag_answer_omits_uncited_candidates_from_grounded_answer(monkeypat
     assert "暂无可编号来源" not in payload["answer"]
 
 
+def test_graphrag_answer_uses_rag_answerer_for_grounded_composition(monkeypatch):
+    from app.ai.rag_answerer import RagAnswerResult
+    from app.schemas import GraphResponse, GraphRagCitation, GraphRagSearchHit, GraphRagSearchResponse
+    from app.services import graphrag as graphrag_service
+
+    cited_exhibit = seed_exhibits[0]
+    uncited_exhibit = seed_exhibits[1]
+    citation = GraphRagCitation(
+        source_id=cited_exhibit.id,
+        source_type="exhibit",
+        title=cited_exhibit.name,
+        snippet="grounded source",
+    )
+    seen = {}
+
+    def search_with_mixed_citations(query, exhibits, top_k=3, filters=None, semantic_scores=None, snapshot=None):
+        return GraphRagSearchResponse(
+            query=query,
+            total=2,
+            items=[
+                GraphRagSearchHit(
+                    exhibit=cited_exhibit,
+                    score=2,
+                    reasons=["grounded reason"],
+                    citations=[citation],
+                    graph=GraphResponse(nodes=[], edges=[]),
+                ),
+                GraphRagSearchHit(
+                    exhibit=uncited_exhibit,
+                    score=1,
+                    reasons=["ungrounded reason"],
+                    citations=[],
+                    graph=GraphResponse(nodes=[], edges=[]),
+                ),
+            ],
+        )
+
+    def recording_answer_rag(inputs):
+        seen["inputs"] = inputs
+        return RagAnswerResult(
+            answer="answerer composed text",
+            used_citation_keys=[("exhibit", cited_exhibit.id)],
+            refusal_reason=None,
+            confidence=0.8,
+            warnings=[],
+        )
+
+    monkeypatch.setattr(graphrag_service, "search_graphrag_context", search_with_mixed_citations)
+    monkeypatch.setattr(graphrag_service, "answer_rag", recording_answer_rag)
+
+    result = graphrag_service.answer_from_graphrag_context(
+        "grounded query",
+        seed_exhibits,
+        top_k=2,
+    )
+
+    assert result.answer == "answerer composed text"
+    assert result.citations == [citation]
+    assert [item.exhibit.id for item in result.items] == [cited_exhibit.id, uncited_exhibit.id]
+    assert [item.exhibit_id for item in seen["inputs"].matched_exhibits] == [cited_exhibit.id]
+    assert seen["inputs"].matched_exhibits[0].reasons == ["grounded reason"]
+    assert seen["inputs"].citations[0].source_id == cited_exhibit.id
+
+
 def test_graphrag_answer_reports_when_no_evidence_is_found():
     response = client.post(
         "/api/graphrag/answer",

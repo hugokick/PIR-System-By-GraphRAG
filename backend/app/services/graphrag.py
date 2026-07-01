@@ -1,5 +1,11 @@
 from collections.abc import Mapping
 
+from app.ai.rag_answerer import (
+    RagAnswerInputs,
+    RagCitation,
+    RagMatchedExhibit,
+    answer_rag,
+)
 from app.graphrag.contract import (
     GraphRAGContractFilters,
     GraphRAGContractQueryInput,
@@ -83,7 +89,7 @@ def answer_from_graphrag_context(
         )
 
     grounded_items = [item for item in search_response.items if item.citations]
-    answer = _compose_grounded_answer(query, grounded_items, citations)
+    answer = answer_rag(_to_rag_answer_inputs(query, grounded_items, citations)).answer
     return GraphRagAnswerResponse(
         query=query,
         answer=answer,
@@ -171,6 +177,36 @@ def _deduplicate_citations(citations) -> list[GraphRagCitation]:
         seen.add(key)
         unique.append(citation)
     return unique
+
+
+def _to_rag_answer_inputs(
+    query: str,
+    items: list[GraphRagSearchHit],
+    citations: list[GraphRagCitation],
+) -> RagAnswerInputs:
+    return RagAnswerInputs(
+        query=query,
+        matched_exhibits=[
+            RagMatchedExhibit(
+                exhibit_id=item.exhibit.id,
+                exhibit_name=item.exhibit.name,
+                exhibit_description=item.exhibit.description,
+                reasons=item.reasons,
+                citations=[_to_rag_citation(citation) for citation in item.citations],
+            )
+            for item in items
+        ],
+        citations=[_to_rag_citation(citation) for citation in citations],
+    )
+
+
+def _to_rag_citation(citation: GraphRagCitation) -> RagCitation:
+    return RagCitation(
+        source_id=citation.source_id,
+        source_type=citation.source_type,
+        title=citation.title,
+        snippet=citation.snippet,
+    )
 
 
 def _compose_grounded_answer(
