@@ -155,6 +155,25 @@ def test_graphrag_search_applies_category_and_project_filters():
     assert project_payload["items"] == []
 
 
+def test_graphrag_search_excludes_query_understanding_exclusions():
+    response = client.post(
+        "/api/graphrag/search",
+        json={
+            "query": "水循环展项，但不考虑数字投影",
+            "top_k": 5,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    ids = [item["exhibit"]["id"] for item in payload["items"]]
+    assert "water-cycle" not in ids
+    assert all(
+        "数字投影" not in "；".join(item["reasons"])
+        for item in payload["items"]
+    )
+
+
 def test_graphrag_search_total_counts_all_matches_before_top_k():
     response = client.post(
         "/api/graphrag/search",

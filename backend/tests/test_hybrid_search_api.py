@@ -91,6 +91,25 @@ def test_hybrid_search_uses_query_understanding_for_chinese_business_intent():
     assert "查询理解：人群 low_age_children" in joined_reasons
 
 
+def test_hybrid_search_excludes_query_understanding_exclusions():
+    response = client.post(
+        "/api/search/hybrid",
+        json={
+            "query": "水循环展项，但不考虑数字投影",
+            "limit": 5,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    ids = [item["exhibit"]["id"] for item in payload["items"]]
+    assert "water-cycle" not in ids
+    assert all(
+        "数字投影" not in "；".join(item["reasons"])
+        for item in payload["items"]
+    )
+
+
 def test_hybrid_search_total_counts_all_matches_before_limit():
     response = client.post(
         "/api/search/hybrid",

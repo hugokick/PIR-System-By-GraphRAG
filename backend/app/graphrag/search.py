@@ -26,20 +26,20 @@ def search_graph_rag(
     active_snapshot = snapshot or build_exhibit_kg_snapshot(exhibits)
     understanding = understand_query(query)
     filtered = _apply_filters(exhibits, filters)
-    hits = [
-        hit
-        for exhibit in filtered
-        if (
-            hit := _score_exhibit(
-                query,
-                exhibit,
-                active_snapshot,
-                understanding,
-                semantic_score=(semantic_scores or {}).get(exhibit.id, 0.0),
-            )
+    hits: list[GraphRAGHit] = []
+    for exhibit in filtered:
+        if _is_excluded_by_query_understanding(understanding, exhibit):
+            continue
+        hit = _score_exhibit(
+            query,
+            exhibit,
+            active_snapshot,
+            understanding,
+            semantic_score=(semantic_scores or {}).get(exhibit.id, 0.0),
         )
-        is not None
-    ]
+        if hit is not None:
+            hits.append(hit)
+
     hits.sort(key=lambda item: (-item.score, item.exhibit.id))
     total = len(hits)
     items = hits[:top_k]
@@ -236,10 +236,17 @@ def _query_understanding_score(
     if matched_tags:
         score += len(matched_tags)
         reasons.append(f"查询理解：标签 {'、'.join(matched_tags)}")
-    if understanding.exclusions and _exhibit_matches_exclusions(exhibit, understanding.exclusions):
-        score -= 4.0
-        reasons.append(f"查询理解：排除 {'、'.join(understanding.exclusions)}")
     return score, reasons
+
+
+def _is_excluded_by_query_understanding(
+    understanding: QueryUnderstandingResult,
+    exhibit: ExhibitResponse,
+) -> bool:
+    return bool(
+        understanding.exclusions
+        and _exhibit_matches_exclusions(exhibit, understanding.exclusions)
+    )
 
 
 def _document_match_score(tokens: list[str], exhibit: ExhibitResponse) -> tuple[float, list[str]]:

@@ -33,6 +33,8 @@ def search_hybrid_exhibits(
     hits: list[tuple[int, HybridSearchHit]] = []
 
     for index, exhibit in enumerate(filtered):
+        if _is_excluded_by_query_understanding(understanding, exhibit):
+            continue
         score, reasons = _score_exhibit(query, exhibit, filters, understanding)
         semantic_score = (semantic_scores or {}).get(exhibit.id, 0.0)
         if semantic_score >= SEMANTIC_RECALL_THRESHOLD:
@@ -256,10 +258,17 @@ def _query_understanding_score(
     if matched_tags:
         score += len(matched_tags)
         reasons.append(f"查询理解：标签 {'、'.join(matched_tags)}")
-    if understanding.exclusions and _exhibit_matches_exclusions(exhibit, understanding.exclusions):
-        score -= 4.0
-        reasons.append(f"查询理解：排除 {'、'.join(understanding.exclusions)}")
     return score, reasons
+
+
+def _is_excluded_by_query_understanding(
+    understanding: QueryUnderstandingResult,
+    exhibit: ExhibitResponse,
+) -> bool:
+    return bool(
+        understanding.exclusions
+        and _exhibit_matches_exclusions(exhibit, understanding.exclusions)
+    )
 
 
 def _mentions_child_audience(compact_query: str) -> bool:
