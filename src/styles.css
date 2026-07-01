@@ -638,13 +638,11 @@ textarea:focus {
 }
 
 .graphrag-citation-card {
-  appearance: none;
   max-width: 420px;
   border: 1px solid #d9e1dc;
   border-radius: 6px;
   background: #f8fbf9;
   color: #52645f;
-  cursor: pointer;
   padding: 9px 10px;
   line-height: 1.5;
   font-size: 13px;
@@ -652,9 +650,26 @@ textarea:focus {
 }
 
 .graphrag-citation-card:hover,
-.graphrag-citation-card:focus-visible {
+.graphrag-citation-card:focus-within {
   border-color: #4361a8;
   box-shadow: 0 0 0 3px rgba(67, 97, 168, 0.14);
+  outline: none;
+}
+
+.graphrag-citation-main {
+  appearance: none;
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-align: left;
+}
+
+.graphrag-citation-main:focus-visible {
   outline: none;
 }
 
@@ -688,6 +703,30 @@ textarea:focus {
 .graphrag-citation-card strong {
   color: #203b39;
   margin-bottom: 3px;
+}
+
+.graphrag-citation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 9px;
+}
+
+.graphrag-citation-actions a {
+  border: 1px solid #c8d5d0;
+  border-radius: 999px;
+  color: #203b39;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 4px 9px;
+  text-decoration: none;
+}
+
+.graphrag-citation-actions a:hover,
+.graphrag-citation-actions a:focus-visible {
+  border-color: #4361a8;
+  color: #2f4f95;
+  outline: none;
 }
 
 .workspace {

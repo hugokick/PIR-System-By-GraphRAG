@@ -289,6 +289,25 @@ function downloadUrl(url: string) {
   return nextUrl.toString();
 }
 
+function findGraphRagCitationDocument(answer: GraphRagAnswer | null, citation: GraphRagCitation) {
+  if (!answer || citation.sourceType !== 'document') return null;
+
+  for (const hit of answer.items) {
+    const ownsCitation = hit.citations.some(
+      (itemCitation) =>
+        itemCitation.sourceType === citation.sourceType && itemCitation.sourceId === citation.sourceId
+    );
+    if (!ownsCitation) continue;
+
+    const document = hit.exhibit.documents.find((item) => item.id === citation.sourceId);
+    if (document) {
+      return document;
+    }
+  }
+
+  return null;
+}
+
 function mergeImportedExhibits(currentItems: Exhibit[], importedItems: Exhibit[]) {
   const importedIds = new Set(importedItems.map((item) => item.id));
   return [...importedItems, ...currentItems.filter((item) => !importedIds.has(item.id))];
@@ -1413,20 +1432,34 @@ export function App() {
               )}
               {graphRagAnswer.citations.length > 0 && (
                 <div className="graphrag-citations">
-                  {graphRagAnswer.citations.map((citation, index) => (
-                    <button
-                      type="button"
-                      className="graphrag-citation-card"
-                      key={`${citation.sourceType}-${citation.sourceId}`}
-                      aria-label={`引用来源 [${index + 1}]`}
-                      onClick={() => selectGraphRagCitation(citation)}
-                    >
-                      <em>[{index + 1}]</em>
-                      <small>{citation.sourceType}</small>
-                      <strong>{citation.title}</strong>
-                      <span>{citation.snippet}</span>
-                    </button>
-                  ))}
+                  {graphRagAnswer.citations.map((citation, index) => {
+                    const citedDocument = findGraphRagCitationDocument(graphRagAnswer, citation);
+                    return (
+                      <article className="graphrag-citation-card" key={`${citation.sourceType}-${citation.sourceId}`}>
+                        <button
+                          type="button"
+                          className="graphrag-citation-main"
+                          aria-label={`引用来源 [${index + 1}]`}
+                          onClick={() => selectGraphRagCitation(citation)}
+                        >
+                          <em>[{index + 1}]</em>
+                          <small>{citation.sourceType}</small>
+                          <strong>{citation.title}</strong>
+                          <span>{citation.snippet}</span>
+                        </button>
+                        {citedDocument && (
+                          <div className="graphrag-citation-actions">
+                            <a href={citedDocument.url} target="_blank" rel="noreferrer">
+                              打开资料
+                            </a>
+                            <a href={downloadUrl(citedDocument.url)} download={citedDocument.name}>
+                              下载资料
+                            </a>
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
                 </div>
               )}
             </div>

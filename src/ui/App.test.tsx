@@ -1152,6 +1152,76 @@ describe('App exhibit management', () => {
     });
   });
 
+  it('renders original document actions on GraphRAG document citations', async () => {
+    const citedExhibit: Exhibit = {
+      ...frontendExhibit,
+      id: 'thermal-studio',
+      name: 'Thermal Studio',
+      documents: [
+        {
+          id: 'doc-thermal-plan',
+          name: 'thermal-plan.pdf',
+          fileType: 'pdf',
+          url: '/api/files/source-file',
+          sourceNote: '方案说明',
+          chunks: [{ id: 'doc-thermal-plan:chunk-1', text: '热学互动方案依据', sequence: 1 }]
+        }
+      ]
+    };
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/api/graphrag/answer')) {
+        expect(init?.method).toBe('POST');
+        return okJson({
+          query: 'thermal',
+          answer: 'Use the cited document to verify the thermal exhibit.',
+          citations: [
+            {
+              source_id: 'doc-thermal-plan',
+              source_type: 'document',
+              title: 'thermal-plan.pdf',
+              snippet: '热学互动方案依据'
+            }
+          ],
+          items: [
+            {
+              exhibit: apiExhibit(citedExhibit),
+              score: 9,
+              reasons: ['document citation'],
+              citations: [
+                {
+                  source_id: 'doc-thermal-plan',
+                  source_type: 'document',
+                  title: 'thermal-plan.pdf',
+                  snippet: '热学互动方案依据'
+                }
+              ],
+              graph: { nodes: [], edges: [] }
+            }
+          ]
+        });
+      }
+      return okJson({ total: 2, items: [apiExhibit(), apiExhibit(citedExhibit)] });
+    });
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: frontendExhibit.name });
+    fireEvent.change(screen.getByLabelText(/GraphRAG/), { target: { value: 'thermal' } });
+    fireEvent.click(screen.getByRole('button', { name: '生成答案' }));
+
+    const citationButton = await screen.findByLabelText('引用来源 [1]');
+    const citationCard = citationButton.closest('.graphrag-citation-card') as HTMLElement;
+    const openLink = within(citationCard).getByRole('link', { name: '打开资料' });
+    const downloadLink = within(citationCard).getByRole('link', { name: '下载资料' });
+
+    expect(openLink.getAttribute('href')).toContain('/api/files/source-file');
+    expect(openLink.getAttribute('target')).toBe('_blank');
+    expect(downloadLink.getAttribute('href')).toContain('/api/files/source-file');
+    expect(downloadLink.getAttribute('href')).toContain('download=1');
+    expect(downloadLink.getAttribute('download')).toBe('thermal-plan.pdf');
+  });
+
   it('shows a clear no-evidence state when GraphRAG cannot find grounded sources', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = String(input);
