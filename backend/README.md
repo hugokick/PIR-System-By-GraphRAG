@@ -9,7 +9,7 @@ FastAPI 后端为展项数字档案、结构化检索、轻量图谱、Neo4j 演
 - PostgreSQL 仓储已支持 JSONB 档案、软删除、操作日志、pgvector 检索向量、文档 chunk embedding，以及 `kg_nodes` / `kg_edges` 运行时图谱投影表
 - 文件上传支持图片、视频、PDF、Office、Excel/CSV、文本资料，本地对象存储路径可通过 `FILE_STORAGE_ROOT` 配置
 - CSV / XLSX 导入支持预览、错误行提示、提交写入和相似展项引用校验
-- Neo4j 演示图谱支持当前展项子图和全库演示图谱查询
+- 当前展项图谱 API 优先读取 PostgreSQL `kg_nodes` / `kg_edges` 投影表；Neo4j 演示图谱继续支持回退查询和全库演示图谱
 - GraphRAG 检索 / 问答接口已返回编号引用来源，上传文本和 PDF 资料可进入引用链路
 - 管理员、编辑、访客角色权限和 Bearer token 演示登录已接入
 
@@ -93,6 +93,6 @@ GET /api/admin/audit-logs
 
 ## 下一步
 
-- 将当前 KG 投影表逐步接入图谱查询 API，并继续把 JSONB 档案拆分为更标准的实体表 / 关系表
+- 继续把 JSONB 档案拆分为更标准的实体表 / 关系表，并让 GraphRAG 上下文逐步复用 KG 投影表
 - 接入真实 embedding 模型和 LLM 答案生成，同时保持现有 GraphRAG API 契约
 - 将本地文件存储替换或扩展为 MinIO / 云对象存储

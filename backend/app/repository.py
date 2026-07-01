@@ -6,7 +6,16 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .kg.builder import build_exhibit_kg_snapshot
-from .schemas import AuditLogEntry, DocumentAsset, EntityRef, ExhibitResponse, MediaAsset
+from .schemas import (
+    AuditLogEntry,
+    DocumentAsset,
+    EntityRef,
+    ExhibitResponse,
+    GraphEdge,
+    GraphNode,
+    GraphResponse,
+    MediaAsset,
+)
 from .services.embeddings import (
     embedding_text_for_document_chunk,
     embedding_text_for_exhibit,
@@ -693,6 +702,75 @@ class PostgresExhibitRepository:
             if score is not None and float(score) > 0:
                 scores[owner_id] = float(score)
         return scores
+
+    def get_exhibit_graph(self, exhibit_id: str) -> GraphResponse:
+        center_id = f"exhibit:{exhibit_id}"
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT source, target, label, type
+                    FROM kg_edges
+                    WHERE source = %s
+                    ORDER BY type ASC, target ASC
+                    """,
+                    (center_id,),
+                )
+                edge_rows = cursor.fetchall()
+
+                node_ids = {center_id}
+                ordered_node_ids = [center_id]
+                for row in edge_rows:
+                    source = row["source"] if isinstance(row, Mapping) else row[0]
+                    target = row["target"] if isinstance(row, Mapping) else row[1]
+                    for node_id in (source, target):
+                        if node_id not in node_ids:
+                            node_ids.add(node_id)
+                            ordered_node_ids.append(node_id)
+
+                cursor.execute(
+                    """
+                    SELECT id, label, type
+                    FROM kg_nodes
+                    WHERE id = ANY(%s)
+                    ORDER BY id ASC
+                    """,
+                    (list(node_ids),),
+                )
+                node_rows = cursor.fetchall()
+
+        nodes_by_id = {
+            self._kg_node_id(row): GraphNode(
+                id=self._kg_node_id(row),
+                label=self._kg_node_label(row),
+                type=self._kg_node_type(row),
+            )
+            for row in node_rows
+        }
+        return GraphResponse(
+            nodes=[nodes_by_id[node_id] for node_id in ordered_node_ids if node_id in nodes_by_id],
+            edges=[
+                GraphEdge(
+                    source=row["source"] if isinstance(row, Mapping) else row[0],
+                    target=row["target"] if isinstance(row, Mapping) else row[1],
+                    label=row["label"] if isinstance(row, Mapping) else row[2],
+                    type=row["type"] if isinstance(row, Mapping) else row[3],
+                )
+                for row in edge_rows
+            ],
+        )
+
+    @staticmethod
+    def _kg_node_id(row: Mapping[str, Any] | tuple[Any, ...]) -> str:
+        return row["id"] if isinstance(row, Mapping) else row[0]
+
+    @staticmethod
+    def _kg_node_label(row: Mapping[str, Any] | tuple[Any, ...]) -> str:
+        return row["label"] if isinstance(row, Mapping) else row[1]
+
+    @staticmethod
+    def _kg_node_type(row: Mapping[str, Any] | tuple[Any, ...]) -> str:
+        return row["type"] if isinstance(row, Mapping) else row[2]
 
     def add_audit_log(
         self,

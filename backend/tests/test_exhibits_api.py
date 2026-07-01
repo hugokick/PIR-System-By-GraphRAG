@@ -122,6 +122,52 @@ def test_get_exhibit_graph_can_use_neo4j_demo_service(monkeypatch):
     ]
 
 
+def test_get_exhibit_graph_prefers_repository_kg_projection(monkeypatch):
+    from app import main
+    from app.repository import seed_exhibits
+    from app.schemas import GraphEdge, GraphNode, GraphResponse
+
+    class StubRepository:
+        def get_exhibit(self, exhibit_id: str):
+            return seed_exhibits[0] if exhibit_id == "lever-play" else None
+
+        def get_exhibit_graph(self, exhibit_id: str) -> GraphResponse:
+            assert exhibit_id == "lever-play"
+            return GraphResponse(
+                nodes=[
+                    GraphNode(id="exhibit:lever-play", label="杠杆乐园", type="exhibit"),
+                    GraphNode(id="material:metal", label="金属", type="material"),
+                ],
+                edges=[
+                    GraphEdge(
+                        source="exhibit:lever-play",
+                        target="material:metal",
+                        label="使用材料",
+                        type="uses_material",
+                    )
+                ],
+            )
+
+        def list_exhibits(self):
+            return seed_exhibits
+
+    def fail_if_neo4j_is_used(_):
+        raise AssertionError("Neo4j fallback should not be used when repository KG projection is available")
+
+    monkeypatch.setattr(main, "repository", StubRepository())
+    monkeypatch.setattr(main, "create_neo4j_demo_graph_service", fail_if_neo4j_is_used)
+
+    response = client.get("/api/exhibits/lever-play/graph")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["nodes"] == [
+        {"id": "exhibit:lever-play", "label": "杠杆乐园", "type": "exhibit"},
+        {"id": "material:metal", "label": "金属", "type": "material"},
+    ]
+    assert payload["edges"][0]["type"] == "uses_material"
+
+
 def test_get_exhibit_graph_allows_demo_only_exhibit(monkeypatch):
     from app import main
     from app.schemas import GraphNode, GraphResponse

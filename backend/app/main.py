@@ -579,6 +579,12 @@ def download_file(file_id: str, download: bool = Query(default=False)) -> FileRe
 @app.get("/api/exhibits/{exhibit_id}/graph", response_model=GraphResponse)
 def get_exhibit_graph(exhibit_id: str) -> GraphResponse:
     exhibit = repository.get_exhibit(exhibit_id)
+    repository_graph_reader = getattr(repository, "get_exhibit_graph", None)
+    if exhibit is not None and callable(repository_graph_reader):
+        graph = repository_graph_reader(exhibit.id)
+        if graph.nodes:
+            return graph
+
     service = create_neo4j_demo_graph_service(repository.list_exhibits())
     try:
         graph = service.get_exhibit_graph(exhibit.id if exhibit else exhibit_id)
