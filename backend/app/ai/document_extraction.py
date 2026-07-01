@@ -22,6 +22,11 @@ INTERACTION_KEYWORDS = ["机械互动", "按钮互动", "触摸互动", "沉浸�
 NAME_PATTERNS = [
     re.compile(r"(?:展项名称|项目名称|方案名称)[:：]\s*(?P<name>[^。；\n]+)"),
 ]
+ORG_PATTERNS = {
+    "supplier": re.compile(r"(?:供应商|承建单位|实施单位)[:：]\s*(?P<value>[^。；\n,，]+)"),
+    "owner": re.compile(r"(?:业主|甲方|建设单位)[:：]\s*(?P<value>[^。；\n,，]+)"),
+}
+YEAR_PATTERN = re.compile(r"(?:项目年份|年份)[:：]?\s*(?P<value>20\d{2}|19\d{2})")
 
 
 class DocumentTextInput(BaseModel):
@@ -126,8 +131,72 @@ def build_summary(text: str, name: str | None, theme: str | None) -> str:
     return "。".join(preferred[:2] or sentences[:2])
 
 
+def iter_source_segments(payload: DocumentExtractionInput) -> list[DocumentTextInput]:
+    if payload.chunks:
+        return payload.chunks
+    if payload.text:
+        return [DocumentTextInput(chunk_id=None, text=payload.text, sequence=1, source_locator=None)]
+    return []
+
+
+def build_searchable_text(payload: DocumentExtractionInput) -> str:
+    return normalize_text(" ".join(segment.text for segment in iter_source_segments(payload)))
+
+
+def add_source(
+    field_sources: dict[str, list[SuggestedFieldSource]],
+    field_name: str,
+    segment: DocumentTextInput,
+    snippet: str,
+    reason: str,
+    document_id: str,
+) -> None:
+    field_sources.setdefault(field_name, []).append(
+        SuggestedFieldSource(
+            document_id=document_id,
+            field_name=field_name,
+            chunk_id=segment.chunk_id,
+            source_locator=segment.source_locator,
+            snippet=snippet,
+            reason=reason,
+        )
+    )
+
+
+def find_segment_for_keyword(segments: list[DocumentTextInput], keyword: str) -> DocumentTextInput | None:
+    for segment in segments:
+        if keyword in normalize_text(segment.text):
+            return segment
+    return None
+
+
+def find_segment_for_budget(segments: list[DocumentTextInput]) -> DocumentTextInput | None:
+    for segment in segments:
+        if extract_budget_range(normalize_text(segment.text)) != (None, None):
+            return segment
+    return None
+
+
+def extract_labeled_value(segments: list[DocumentTextInput], field_name: str) -> tuple[str | None, DocumentTextInput | None]:
+    pattern = ORG_PATTERNS[field_name]
+    for segment in segments:
+        match = pattern.search(normalize_text(segment.text))
+        if match:
+            return match.group("value").strip(), segment
+    return None, None
+
+
+def extract_project_year(segments: list[DocumentTextInput]) -> tuple[int | None, DocumentTextInput | None]:
+    for segment in segments:
+        match = YEAR_PATTERN.search(normalize_text(segment.text))
+        if match:
+            return int(match.group("value")), segment
+    return None, None
+
+
 def build_field_sources(
     payload: DocumentExtractionInput,
+    segments: list[DocumentTextInput],
     normalized_text: str,
     exhibit_name: str | None,
     theme: str | None,
@@ -135,78 +204,127 @@ def build_field_sources(
     budget_max: int | None,
     materials: list[str],
     interactions: list[str],
+    supplier: str | None,
+    owner: str | None,
+    project_year: int | None,
 ) -> dict[str, list[SuggestedFieldSource]]:
     field_sources: dict[str, list[SuggestedFieldSource]] = {}
-    snippet = normalized_text[:200]
 
     if exhibit_name is not None:
-        field_sources["exhibit_name"] = [
-            SuggestedFieldSource(
-                document_id=payload.document_id,
-                field_name="exhibit_name",
-                snippet=snippet,
-                reason=f"matched exhibit name: {exhibit_name}",
+        segment = find_segment_for_keyword(segments, exhibit_name) or (segments[0] if segments else None)
+        if segment is not None:
+            add_source(
+                field_sources,
+                "exhibit_name",
+                segment,
+                normalize_text(segment.text)[:200],
+                f"matched exhibit name: {exhibit_name}",
+                payload.document_id,
             )
-        ]
     if theme is not None:
-        field_sources["theme"] = [
-            SuggestedFieldSource(
-                document_id=payload.document_id,
-                field_name="theme",
-                snippet=snippet,
-                reason=f"matched theme keyword: {theme}",
+        segment = find_segment_for_keyword(segments, theme)
+        if segment is not None:
+            add_source(
+                field_sources,
+                "theme",
+                segment,
+                normalize_text(segment.text)[:200],
+                f"matched theme keyword: {theme}",
+                payload.document_id,
             )
-        ]
     if budget_min is not None:
-        field_sources["budget_min"] = [
-            SuggestedFieldSource(
-                document_id=payload.document_id,
-                field_name="budget_min",
-                snippet=snippet,
-                reason="matched budget range",
+        segment = find_segment_for_budget(segments)
+        if segment is not None:
+            add_source(
+                field_sources,
+                "budget_min",
+                segment,
+                normalize_text(segment.text)[:200],
+                "matched budget range",
+                payload.document_id,
             )
-        ]
     if budget_max is not None:
-        field_sources["budget_max"] = [
-            SuggestedFieldSource(
-                document_id=payload.document_id,
-                field_name="budget_max",
-                snippet=snippet,
-                reason="matched budget range",
+        segment = find_segment_for_budget(segments)
+        if segment is not None:
+            add_source(
+                field_sources,
+                "budget_max",
+                segment,
+                normalize_text(segment.text)[:200],
+                "matched budget range",
+                payload.document_id,
             )
-        ]
     if materials:
-        field_sources["materials"] = [
-            SuggestedFieldSource(
-                document_id=payload.document_id,
-                field_name="materials",
-                snippet=snippet,
-                reason=f"matched material keywords: {', '.join(materials)}",
-            )
-        ]
+        for material in materials:
+            segment = find_segment_for_keyword(segments, material)
+            if segment is not None:
+                add_source(
+                    field_sources,
+                    "materials",
+                    segment,
+                    normalize_text(segment.text)[:200],
+                    f"matched material keyword: {material}",
+                    payload.document_id,
+                )
     if interactions:
-        field_sources["interactions"] = [
-            SuggestedFieldSource(
-                document_id=payload.document_id,
-                field_name="interactions",
-                snippet=snippet,
-                reason=f"matched interaction keywords: {', '.join(interactions)}",
+        for interaction in interactions:
+            segment = find_segment_for_keyword(segments, interaction)
+            if segment is not None:
+                add_source(
+                    field_sources,
+                    "interactions",
+                    segment,
+                    normalize_text(segment.text)[:200],
+                    f"matched interaction keyword: {interaction}",
+                    payload.document_id,
+                )
+    if supplier is not None:
+        segment = find_segment_for_keyword(segments, supplier)
+        if segment is not None:
+            add_source(
+                field_sources,
+                "supplier",
+                segment,
+                normalize_text(segment.text)[:200],
+                f"matched supplier: {supplier}",
+                payload.document_id,
             )
-        ]
+    if owner is not None:
+        segment = find_segment_for_keyword(segments, owner)
+        if segment is not None:
+            add_source(
+                field_sources,
+                "owner",
+                segment,
+                normalize_text(segment.text)[:200],
+                f"matched owner: {owner}",
+                payload.document_id,
+            )
+    if project_year is not None:
+        segment = find_segment_for_keyword(segments, str(project_year))
+        if segment is not None:
+            add_source(
+                field_sources,
+                "project_year",
+                segment,
+                normalize_text(segment.text)[:200],
+                f"matched project year: {project_year}",
+                payload.document_id,
+            )
     return field_sources
 
 
-def extract_document_suggestions(
-    payload: DocumentExtractionInput,
-    provider: DocumentExtractionProvider | None = None,
-) -> DocumentExtractionResult:
-    _ = provider
-    normalized_text = normalize_text(payload.text or "")
+def extract_by_rules(payload: DocumentExtractionInput) -> DocumentExtractionResult:
+    segments = iter_source_segments(payload)
+    normalized_text = build_searchable_text(payload)
     exhibit_name = extract_name(normalized_text, payload.file_name)
     theme, category = extract_theme(normalized_text)
     budget_min, budget_max = extract_budget_range(normalized_text)
     materials = collect_keywords(normalized_text, MATERIAL_KEYWORDS)
     interactions = collect_keywords(normalized_text, INTERACTION_KEYWORDS)
+    supplier, _ = extract_labeled_value(segments, "supplier")
+    owner, _ = extract_labeled_value(segments, "owner")
+    project_year, _ = extract_project_year(segments)
     summary = build_summary(normalized_text, exhibit_name, theme)
     return DocumentExtractionResult(
         document_id=payload.document_id,
@@ -220,9 +338,13 @@ def extract_document_suggestions(
         budget_max=budget_max,
         materials=materials,
         interactions=interactions,
+        supplier=supplier,
+        owner=owner,
+        project_year=project_year,
         summary=summary,
         field_sources=build_field_sources(
             payload,
+            segments,
             normalized_text,
             exhibit_name,
             theme,
@@ -230,6 +352,23 @@ def extract_document_suggestions(
             budget_max,
             materials,
             interactions,
+            supplier,
+            owner,
+            project_year,
         ),
-        confidence=0.7 if any([exhibit_name, theme, budget_min is not None, budget_max is not None, materials, interactions]) else 0.0,
+        confidence=0.7 if any([exhibit_name, theme, budget_min is not None, budget_max is not None, materials, interactions, supplier, owner, project_year]) else 0.0,
     )
+
+
+def extract_document_suggestions(
+    payload: DocumentExtractionInput,
+    provider: DocumentExtractionProvider | None = None,
+) -> DocumentExtractionResult:
+    if provider is not None:
+        try:
+            provider_result = provider.extract(payload)
+        except Exception:
+            provider_result = None
+        if provider_result is not None and provider_result.confidence >= 0.6:
+            return provider_result
+    return extract_by_rules(payload)
