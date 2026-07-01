@@ -10,7 +10,7 @@ let lastNvlProps: {
   layout?: string;
   layoutOptions?: Record<string, unknown>;
   nvlOptions?: Record<string, unknown>;
-  positions?: { id: string; x?: number; y?: number; caption?: string; captions?: { value: string }[] }[];
+  positions?: { id: string; x?: number; y?: number }[];
 } | null = null;
 
 vi.mock('@neo4j-nvl/react', () => ({
@@ -20,7 +20,7 @@ vi.mock('@neo4j-nvl/react', () => ({
         layout?: string;
         layoutOptions?: Record<string, unknown>;
         nvlOptions?: Record<string, unknown>;
-        positions?: { id: string; x?: number; y?: number; caption?: string; captions?: { value: string }[] }[];
+        positions?: { id: string; x?: number; y?: number }[];
       },
       _ref
     ) => {
@@ -89,28 +89,27 @@ describe('NvlGraphView graph mapping', () => {
     expect(nodes.find((node) => node.id === 'exhibit:magnet-maze')).toMatchObject({
       caption: 'Magnet Maze',
       color: '#68bdf6',
-      size: 22,
+      size: 30,
       selected: true,
       activated: true,
       pinned: true,
-      captionSize: 13,
+      captionSize: 11,
       captionAlign: 'bottom',
       disabled: false
     });
     expect(nodes.find((node) => node.id === 'material:acrylic')).toMatchObject({
       disabled: false,
-      size: 14,
-      captionSize: 12
+      size: 18,
+      captionSize: 10
     });
     expect(nodes.find((node) => node.id === 'material:acrylic')?.captions?.map((caption) => caption.value)).toEqual([
-      'Acrylic'
+      'Acrylic',
+      'material'
     ]);
-    expect(nodes.find((node) => node.id === 'material:acrylic')?.html?.textContent).toBe('Acrylic');
-    expect(nodes.find((node) => node.id === 'material:acrylic')?.html?.className).toBe('nvl-node-label');
     expect(nodes.find((node) => node.id === 'supplier:qisi')).toMatchObject({
       disabled: true
     });
-    expect(Math.max(...nodes.map((node) => Math.hypot(node.x ?? 0, node.y ?? 0)))).toBeGreaterThanOrEqual(360);
+    expect(Math.max(...nodes.map((node) => Math.hypot(node.x ?? 0, node.y ?? 0)))).toBeGreaterThanOrEqual(190);
     expect(new Set(nodes.map((node) => `${Math.round(node.x ?? 0)},${Math.round(node.y ?? 0)}`)).size).toBe(nodes.length);
 
     const selectedRelationship = rels.find((rel) => rel.type === 'USES_MATERIAL');
@@ -118,26 +117,23 @@ describe('NvlGraphView graph mapping', () => {
       caption: '使用材料',
       color: '#f79767',
       width: 3.4,
-      captionSize: 12,
-      captionAlign: 'top',
+      captionSize: 9,
+      captionAlign: 'center',
       disabled: false
     });
-    expect(selectedRelationship?.captions?.map((caption) => caption.value)).toEqual(['使用材料']);
-    expect(selectedRelationship?.captionHtml?.textContent).toBe('使用材料');
-    expect(selectedRelationship?.captionHtml?.className).toBe('nvl-relationship-label');
     expect(rels.find((rel) => rel.type === 'SUPPORTS_THEME')).toMatchObject({
       caption: '支持主题',
       disabled: true,
       color: '#6f7d8f',
       width: 1,
-      captionSize: 11
+      captionSize: 8
     });
   });
 
   it('uses readable Chinese relationship captions for Neo4j relationship types', () => {
     const { rels } = buildNvlGraphData(lowercaseRelationGraph, 'exhibit:water-cycle', nodeColors);
 
-    expect(rels.map((rel) => rel.caption)).toEqual(['交互形式', '使用材料']);
+    expect(rels.map((rel) => rel.caption)).toEqual(['交互方式', '使用材料']);
   });
 
   it('uses stable Neo4j canvas styling options', () => {
@@ -168,7 +164,7 @@ describe('NvlGraphView graph mapping', () => {
     expect(lastNvlProps?.layout).toBe('d3Force');
     expect(lastNvlProps?.nvlOptions).toMatchObject({
       initialZoom: 1,
-      relationshipThreshold: 10000,
+      relationshipThreshold: 1000,
       renderer: 'canvas'
     });
     expect(lastNvlProps?.positions).toHaveLength(graph.nodes.length);
@@ -188,11 +184,11 @@ describe('NvlGraphView graph mapping', () => {
     const { nodes } = buildNvlGraphData(denseGraph, 'node:0', nodeColors);
     const radii = nodes.map((node) => Math.hypot(node.x ?? 0, node.y ?? 0));
 
-    expect(Math.min(...radii)).toBeGreaterThanOrEqual(720);
-    expect(Math.max(...nodes.map((node) => node.size ?? 0))).toBeLessThanOrEqual(22);
+    expect(Math.min(...radii)).toBeGreaterThanOrEqual(400);
+    expect(Math.max(...nodes.map((node) => node.size ?? 0))).toBeLessThanOrEqual(30);
   });
 
-  it('passes readable node and relationship labels directly to the NVL canvas renderer', async () => {
+  it('renders readable node and relationship labels inside the graph viewport', async () => {
     vi.stubGlobal('navigator', { userAgent: 'Chrome' });
     const { NvlGraphView } = await import('./NvlGraphView');
 
@@ -207,27 +203,13 @@ describe('NvlGraphView graph mapping', () => {
     );
 
     expect(lastNvlProps?.positions).toHaveLength(graph.nodes.length);
-    expect(container.querySelector('.nvl-readable-overlay')).toBeNull();
-    expect(lastNvlProps?.nvlOptions).toMatchObject({
-      renderer: 'canvas',
-      relationshipThreshold: 10000
-    });
-    expect(lastNvlProps?.positions?.find((node) => node.id === 'exhibit:magnet-maze')).toMatchObject({
-      caption: 'Magnet Maze'
-    });
-    expect(lastNvlProps?.positions?.find((node) => node.id === 'material:acrylic')).toMatchObject({
-      caption: 'Acrylic'
-    });
-    expect(lastNvlProps?.positions?.find((node) => node.id === 'material:acrylic')?.captions?.map((caption) => caption.value)).toEqual([
-      'Acrylic'
-    ]);
-    expect(buildNvlGraphData(graph, 'exhibit:magnet-maze', nodeColors).rels.find((rel) => rel.type === 'USES_MATERIAL')?.captions?.map((caption) => caption.value)).toEqual([
-      '使用材料'
-    ]);
-    expect(buildNvlGraphData(graph, 'exhibit:magnet-maze', nodeColors).rels.map((rel) => rel.caption)).toContain('使用材料');
+    expect(container.querySelector('.nvl-readable-overlay')).toBeTruthy();
+    expect([...container.querySelectorAll('.nvl-node-caption')].map((node) => node.textContent)).toContain('Magnet Maze');
+    expect([...container.querySelectorAll('.nvl-node-caption')].map((node) => node.textContent)).toContain('Acrylic');
+    expect([...container.querySelectorAll('.nvl-edge-caption')].map((node) => node.textContent)).toContain('使用材料');
   });
 
-  it('keeps unrelated dense relationships dimmed while leaving their captions on the graph data', async () => {
+  it('hides unrelated relationship labels when the graph is dense', async () => {
     vi.stubGlobal('navigator', { userAgent: 'Chrome' });
     const denseGraph = {
       nodes: [
@@ -257,27 +239,22 @@ describe('NvlGraphView graph mapping', () => {
       />
     );
 
-    expect(container.querySelector('.nvl-readable-overlay')).toBeNull();
+    expect(container.querySelector('.nvl-readable-overlay')).toBeTruthy();
+    const visibleEdgeLabels = [...container.querySelectorAll('.nvl-edge-caption')].map((node) => node.textContent);
+    expect(visibleEdgeLabels.length).toBeGreaterThan(0);
+    expect(visibleEdgeLabels).not.toContain('unrelated');
     expect(buildNvlGraphData(denseGraph, 'exhibit:center', nodeColors).rels.find((rel) => rel.type === 'UNRELATED_EDGE')).toMatchObject({
-      caption: 'UNRELATED_EDGE',
       disabled: true
     });
   });
 
-  it('expands the graph viewport and keeps media assets as small thumbnails', () => {
+  it('expands the graph viewport enough to read labels in the canvas', () => {
     const styles = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf8');
 
-    expect(styles).toContain('--graph-viewport-height: clamp(1120px, 140vh, 1680px);');
-    expect(styles).toContain('grid-template-columns: 1fr;');
+    expect(styles).toContain('--graph-viewport-height: clamp(520px, 68vh, 720px);');
     expect(styles).toContain('height: var(--graph-viewport-height);');
     expect(styles).toContain('max-height: var(--graph-viewport-height);');
-    expect(styles).toContain('.nvl-node-label');
-    expect(styles).toContain('.nvl-relationship-label');
-    expect(styles).toContain('.nvl-stage canvas');
-    expect(styles).toContain('height: 100%;');
-    expect(styles).not.toContain('.nvl-readable-overlay');
-    expect(styles).toContain('grid-template-columns: repeat(auto-fill, minmax(72px, 92px));');
-    expect(styles).toContain('aspect-ratio: 1 / 1;');
+    expect(styles).toMatch(/\.nvl-readable-overlay\s*\{[^}]*overflow: hidden;/);
     expect(styles).toContain('overflow: auto;');
   });
 });

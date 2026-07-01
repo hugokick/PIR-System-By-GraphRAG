@@ -159,7 +159,7 @@ describe('App exhibit management', () => {
     render(<App />);
 
     expect(await screen.findByText('Neo4j 知识图谱')).toBeTruthy();
-    expect(await screen.findByText('数据源：PostgreSQL KG 投影')).toBeTruthy();
+    expect(await screen.findByText('数据源：Neo4j 图数据库')).toBeTruthy();
     expect(await screen.findByText('节点 3')).toBeTruthy();
     expect(await screen.findByText('关系 2')).toBeTruthy();
     expect(screen.queryByText('USES_MATERIAL')).toBeNull();
@@ -225,7 +225,6 @@ describe('App exhibit management', () => {
     render(<App />);
 
     expect(await screen.findByText('Current Material')).toBeTruthy();
-    expect(await screen.findByText('数据源：PostgreSQL KG 投影')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: '全库演示' }));
 
@@ -803,12 +802,6 @@ describe('App exhibit management', () => {
   });
 
   it('submits GraphRAG questions and renders answers with citations', async () => {
-    const citedExhibit = {
-      ...frontendExhibit,
-      id: 'lever-play',
-      name: 'Lever Source',
-      relatedExhibitIds: ['magnet-maze']
-    };
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = String(input);
       if (url.endsWith('/api/graphrag/answer')) {
@@ -825,10 +818,10 @@ describe('App exhibit management', () => {
           answer: 'Based on exhibit records and graph context.',
           citations: [
             {
-              source_id: 'lever-play',
+              source_id: 'magnet-maze',
               source_type: 'exhibit',
-              title: 'Lever Source',
-              snippet: 'Source exhibit evidence.'
+              title: '磁力迷宫',
+              snippet: '通过磁铁和轨道迷宫演示磁力吸引与排斥。'
             }
           ],
           items: [
@@ -845,9 +838,6 @@ describe('App exhibit management', () => {
           ]
         });
       }
-      if (url.includes('/api/exhibits')) {
-        return okJson({ total: 2, items: [apiExhibit(), apiExhibit(citedExhibit)] });
-      }
       return okJson({ total: 1, items: [apiExhibit()] });
     });
 
@@ -863,8 +853,6 @@ describe('App exhibit management', () => {
     const citationCard = screen.getByLabelText('引用来源 [1]');
     expect(within(citationCard).getByText('[1]')).toBeTruthy();
     expect(within(citationCard).getByText('exhibit')).toBeTruthy();
-    fireEvent.click(citationCard);
-    expect(await screen.findByRole('heading', { name: 'Lever Source' })).toBeTruthy();
     expect(screen.getByText(/matched identity/)).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledWith(
       'http://127.0.0.1:8000/api/graphrag/answer',

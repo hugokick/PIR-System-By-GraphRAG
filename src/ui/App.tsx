@@ -54,7 +54,6 @@ import type {
   GraphEdge,
   GraphNode,
   GraphRagAnswer,
-  GraphRagCitation,
   MediaAsset,
   ReviewStatus,
   SearchResults,
@@ -387,12 +386,7 @@ export function App() {
       : remoteGraph && remoteGraph.exhibitId === selected?.id
         ? remoteGraph
         : fallbackGraph;
-  const graphSourceLabel =
-    graphMode === 'demo'
-      ? 'Neo4j 图数据库'
-      : isRemoteGraph
-        ? 'PostgreSQL KG 投影'
-        : '本地轻量图谱';
+  const graphSourceLabel = graphMode === 'demo' || isRemoteGraph ? 'Neo4j 图数据库' : '本地轻量图谱';
   const selectedGraphNode = graph.nodes.find((node) => node.id === selectedGraphNodeId) ?? graph.nodes[0] ?? null;
   const localStats = useMemo(() => graphStats(items), [items]);
   const stats = dashboardSummary ?? localStats;
@@ -872,23 +866,6 @@ export function App() {
     }
   };
 
-  const selectGraphRagCitation = (citation: GraphRagCitation) => {
-    if (citation.sourceType === 'exhibit') {
-      setSelectedId(citation.sourceId);
-      return;
-    }
-
-    const owningHit = graphRagAnswer?.items.find((hit) =>
-      hit.citations.some(
-        (itemCitation) =>
-          itemCitation.sourceType === citation.sourceType && itemCitation.sourceId === citation.sourceId
-      )
-    );
-    if (owningHit) {
-      setSelectedId(owningHit.exhibit.id);
-    }
-  };
-
   const confirmImportPreview = async () => {
     if (!importPreview || importPreview.result.errors.length > 0 || importPreview.result.validRows === 0 || isImporting) return;
     setIsImporting(true);
@@ -1260,18 +1237,16 @@ export function App() {
               {graphRagAnswer.citations.length > 0 && (
                 <div className="graphrag-citations">
                   {graphRagAnswer.citations.map((citation, index) => (
-                    <button
-                      type="button"
+                    <article
                       className="graphrag-citation-card"
                       key={`${citation.sourceType}-${citation.sourceId}`}
                       aria-label={`引用来源 [${index + 1}]`}
-                      onClick={() => selectGraphRagCitation(citation)}
                     >
                       <em>[{index + 1}]</em>
                       <small>{citation.sourceType}</small>
                       <strong>{citation.title}</strong>
                       <span>{citation.snippet}</span>
-                    </button>
+                    </article>
                   ))}
                 </div>
               )}
