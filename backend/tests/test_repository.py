@@ -61,6 +61,30 @@ def test_postgres_repository_schema_initializes_kg_projection_tables():
     assert "idx_kg_edges_target" in schema_sql
 
 
+def test_postgres_repository_schema_initializes_domain_entity_tables():
+    from app.repository import PostgresExhibitRepository
+
+    schema_sql = PostgresExhibitRepository.schema_sql()
+
+    for table_name in [
+        "owners",
+        "projects",
+        "suppliers",
+        "themes",
+        "materials",
+        "interactions",
+        "exhibits",
+        "exhibit_materials",
+        "exhibit_interactions",
+        "media_assets",
+        "documents",
+        "exhibit_documents",
+        "exhibit_relations",
+    ]:
+        assert f"CREATE TABLE IF NOT EXISTS {table_name}" in schema_sql
+    assert "review_status TEXT NOT NULL DEFAULT '待审核'" in schema_sql
+
+
 def test_postgres_repository_maps_json_payload_rows_to_exhibits():
     from app.repository import PostgresExhibitRepository
 
@@ -167,6 +191,39 @@ def test_postgres_repository_upsert_refreshes_kg_projection_tables():
     assert any("DELETE FROM kg_nodes" in query for query, _ in cursor.calls)
     assert any(params[0] == "exhibit:lever-play" for _, params in kg_node_inserts)
     assert any(params[1] == "exhibit:lever-play" and params[2] == "exhibit:pulley-wall" for _, params in kg_edge_inserts)
+
+
+def test_postgres_repository_upsert_refreshes_domain_entity_projection_tables():
+    from app.repository import PostgresExhibitRepository
+
+    class RecordingCursor:
+        def __init__(self):
+            self.calls = []
+
+        def execute(self, query, params=None):
+            self.calls.append((" ".join(query.split()), params))
+
+        def fetchall(self):
+            return [
+                {"payload": seed_exhibits[0].model_dump(mode="json")},
+                {"payload": seed_exhibits[1].model_dump(mode="json")},
+            ]
+
+    cursor = RecordingCursor()
+    repository = PostgresExhibitRepository("postgresql://example", initialize=False)
+
+    repository._insert_or_restore(cursor, seed_exhibits[0])
+
+    owner_inserts = [call for call in cursor.calls if "INSERT INTO owners" in call[0]]
+    exhibit_inserts = [call for call in cursor.calls if "INSERT INTO exhibits" in call[0]]
+    material_link_inserts = [call for call in cursor.calls if "INSERT INTO exhibit_materials" in call[0]]
+    relation_inserts = [call for call in cursor.calls if "INSERT INTO exhibit_relations" in call[0]]
+
+    assert any("DELETE FROM exhibit_materials" in query for query, _ in cursor.calls)
+    assert any(params[0] == "qinghe-owner" and params[1] == "青禾儿童科技馆" for _, params in owner_inserts)
+    assert any(params[0] == "lever-play" and params[3] == "mechanics" for _, params in exhibit_inserts)
+    assert any(params == ("lever-play", "metal") for _, params in material_link_inserts)
+    assert any(params[1:] == ("lever-play", "pulley-wall", "similar_to") for _, params in relation_inserts)
 
 
 def test_postgres_repository_reads_exhibit_graph_from_kg_projection_tables():

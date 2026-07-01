@@ -338,6 +338,138 @@ class PostgresExhibitRepository:
         ALTER TABLE exhibit_records
           ADD COLUMN IF NOT EXISTS embedding vector(1536);
 
+        CREATE TABLE IF NOT EXISTS owners (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL UNIQUE,
+          description TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        CREATE TABLE IF NOT EXISTS projects (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          owner_id TEXT NOT NULL REFERENCES owners(id),
+          venue_type TEXT NOT NULL,
+          project_year INTEGER NOT NULL,
+          location TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        CREATE TABLE IF NOT EXISTS suppliers (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL UNIQUE,
+          contact_note TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        CREATE TABLE IF NOT EXISTS themes (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          category TEXT NOT NULL,
+          description TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          UNIQUE (name, category)
+        );
+
+        CREATE TABLE IF NOT EXISTS materials (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL UNIQUE,
+          description TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        CREATE TABLE IF NOT EXISTS interactions (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL UNIQUE,
+          description TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        CREATE TABLE IF NOT EXISTS exhibits (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          category TEXT NOT NULL,
+          theme_id TEXT NOT NULL REFERENCES themes(id),
+          project_id TEXT NOT NULL REFERENCES projects(id),
+          supplier_id TEXT NOT NULL REFERENCES suppliers(id),
+          budget_min INTEGER NOT NULL CHECK (budget_min >= 0),
+          budget_max INTEGER NOT NULL CHECK (budget_max >= budget_min),
+          dimensions TEXT NOT NULL,
+          status TEXT NOT NULL,
+          review_status TEXT NOT NULL DEFAULT '待审核',
+          description TEXT NOT NULL,
+          tags TEXT[] NOT NULL DEFAULT '{}',
+          embedding vector(1536),
+          deleted_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        ALTER TABLE exhibits
+          ADD COLUMN IF NOT EXISTS review_status TEXT NOT NULL DEFAULT '待审核';
+
+        CREATE TABLE IF NOT EXISTS exhibit_materials (
+          exhibit_id TEXT NOT NULL REFERENCES exhibits(id) ON DELETE CASCADE,
+          material_id TEXT NOT NULL REFERENCES materials(id),
+          PRIMARY KEY (exhibit_id, material_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS exhibit_interactions (
+          exhibit_id TEXT NOT NULL REFERENCES exhibits(id) ON DELETE CASCADE,
+          interaction_id TEXT NOT NULL REFERENCES interactions(id),
+          PRIMARY KEY (exhibit_id, interaction_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS media_assets (
+          id TEXT PRIMARY KEY,
+          exhibit_id TEXT NOT NULL REFERENCES exhibits(id) ON DELETE CASCADE,
+          type TEXT NOT NULL,
+          name TEXT NOT NULL,
+          object_key TEXT NOT NULL,
+          public_url TEXT,
+          note TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        CREATE TABLE IF NOT EXISTS documents (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          file_type TEXT NOT NULL,
+          object_key TEXT NOT NULL,
+          source_note TEXT,
+          embedding vector(1536),
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        CREATE TABLE IF NOT EXISTS exhibit_documents (
+          exhibit_id TEXT NOT NULL REFERENCES exhibits(id) ON DELETE CASCADE,
+          document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+          PRIMARY KEY (exhibit_id, document_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS exhibit_relations (
+          id TEXT PRIMARY KEY,
+          source_exhibit_id TEXT NOT NULL REFERENCES exhibits(id) ON DELETE CASCADE,
+          target_exhibit_id TEXT NOT NULL REFERENCES exhibits(id) ON DELETE CASCADE,
+          relation_type TEXT NOT NULL,
+          weight NUMERIC(5, 4) NOT NULL DEFAULT 1.0,
+          note TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          CHECK (source_exhibit_id <> target_exhibit_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_exhibits_project_id ON exhibits(project_id);
+        CREATE INDEX IF NOT EXISTS idx_exhibits_theme_id ON exhibits(theme_id);
+        CREATE INDEX IF NOT EXISTS idx_exhibits_supplier_id ON exhibits(supplier_id);
+        CREATE INDEX IF NOT EXISTS idx_exhibit_relations_source ON exhibit_relations(source_exhibit_id);
+        CREATE INDEX IF NOT EXISTS idx_exhibit_relations_target ON exhibit_relations(target_exhibit_id);
+
         CREATE TABLE IF NOT EXISTS search_embeddings (
           id TEXT PRIMARY KEY,
           owner_type TEXT NOT NULL,
@@ -521,7 +653,9 @@ class PostgresExhibitRepository:
         return [self.exhibit_from_row(row) for row in cursor.fetchall()]
 
     def _sync_kg_projection(self, cursor: Any) -> None:
-        snapshot = build_exhibit_kg_snapshot(self._list_active_exhibits_with_cursor(cursor))
+        active_exhibits = self._list_active_exhibits_with_cursor(cursor)
+        self._sync_domain_projection(cursor, active_exhibits)
+        snapshot = build_exhibit_kg_snapshot(active_exhibits)
 
         cursor.execute("DELETE FROM kg_edges")
         cursor.execute("DELETE FROM kg_nodes")
@@ -574,6 +708,218 @@ class PostgresExhibitRepository:
                     edge.source_refs,
                 ),
             )
+
+    def _sync_domain_projection(self, cursor: Any, exhibits: list[ExhibitResponse]) -> None:
+        for table_name in [
+            "exhibit_relations",
+            "exhibit_documents",
+            "exhibit_interactions",
+            "exhibit_materials",
+            "media_assets",
+            "exhibits",
+            "documents",
+        ]:
+            cursor.execute(f"DELETE FROM {table_name}")
+
+        for exhibit in exhibits:
+            cursor.execute(
+                """
+                INSERT INTO owners (id, name, updated_at)
+                VALUES (%s, %s, now())
+                ON CONFLICT (id) DO UPDATE
+                SET name = EXCLUDED.name,
+                    updated_at = now()
+                """,
+                (exhibit.owner.id, exhibit.owner.name),
+            )
+            cursor.execute(
+                """
+                INSERT INTO projects (id, name, owner_id, venue_type, project_year, updated_at)
+                VALUES (%s, %s, %s, %s, %s, now())
+                ON CONFLICT (id) DO UPDATE
+                SET name = EXCLUDED.name,
+                    owner_id = EXCLUDED.owner_id,
+                    venue_type = EXCLUDED.venue_type,
+                    project_year = EXCLUDED.project_year,
+                    updated_at = now()
+                """,
+                (
+                    exhibit.project.id,
+                    exhibit.project.name,
+                    exhibit.owner.id,
+                    exhibit.venue_type,
+                    exhibit.project_year,
+                ),
+            )
+            cursor.execute(
+                """
+                INSERT INTO suppliers (id, name, updated_at)
+                VALUES (%s, %s, now())
+                ON CONFLICT (id) DO UPDATE
+                SET name = EXCLUDED.name,
+                    updated_at = now()
+                """,
+                (exhibit.supplier.id, exhibit.supplier.name),
+            )
+            cursor.execute(
+                """
+                INSERT INTO themes (id, name, category, updated_at)
+                VALUES (%s, %s, %s, now())
+                ON CONFLICT (id) DO UPDATE
+                SET name = EXCLUDED.name,
+                    category = EXCLUDED.category,
+                    updated_at = now()
+                """,
+                (exhibit.theme.id, exhibit.theme.name, exhibit.category),
+            )
+            for material in exhibit.materials:
+                cursor.execute(
+                    """
+                    INSERT INTO materials (id, name, updated_at)
+                    VALUES (%s, %s, now())
+                    ON CONFLICT (id) DO UPDATE
+                    SET name = EXCLUDED.name,
+                        updated_at = now()
+                    """,
+                    (material.id, material.name),
+                )
+            for interaction in exhibit.interactions:
+                cursor.execute(
+                    """
+                    INSERT INTO interactions (id, name, updated_at)
+                    VALUES (%s, %s, now())
+                    ON CONFLICT (id) DO UPDATE
+                    SET name = EXCLUDED.name,
+                        updated_at = now()
+                    """,
+                    (interaction.id, interaction.name),
+                )
+
+        for exhibit in exhibits:
+            cursor.execute(
+                """
+                INSERT INTO exhibits
+                  (id, name, category, theme_id, project_id, supplier_id,
+                   budget_min, budget_max, dimensions, status, review_status,
+                   description, tags, embedding, deleted_at, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NULL, NULL, now())
+                ON CONFLICT (id) DO UPDATE
+                SET name = EXCLUDED.name,
+                    category = EXCLUDED.category,
+                    theme_id = EXCLUDED.theme_id,
+                    project_id = EXCLUDED.project_id,
+                    supplier_id = EXCLUDED.supplier_id,
+                    budget_min = EXCLUDED.budget_min,
+                    budget_max = EXCLUDED.budget_max,
+                    dimensions = EXCLUDED.dimensions,
+                    status = EXCLUDED.status,
+                    review_status = EXCLUDED.review_status,
+                    description = EXCLUDED.description,
+                    tags = EXCLUDED.tags,
+                    deleted_at = NULL,
+                    updated_at = now()
+                """,
+                (
+                    exhibit.id,
+                    exhibit.name,
+                    exhibit.category,
+                    exhibit.theme.id,
+                    exhibit.project.id,
+                    exhibit.supplier.id,
+                    exhibit.budget_min,
+                    exhibit.budget_max,
+                    exhibit.dimensions,
+                    exhibit.status,
+                    exhibit.review_status,
+                    exhibit.description,
+                    exhibit.tags,
+                ),
+            )
+            for material in exhibit.materials:
+                cursor.execute(
+                    """
+                    INSERT INTO exhibit_materials (exhibit_id, material_id)
+                    VALUES (%s, %s)
+                    ON CONFLICT DO NOTHING
+                    """,
+                    (exhibit.id, material.id),
+                )
+            for interaction in exhibit.interactions:
+                cursor.execute(
+                    """
+                    INSERT INTO exhibit_interactions (exhibit_id, interaction_id)
+                    VALUES (%s, %s)
+                    ON CONFLICT DO NOTHING
+                    """,
+                    (exhibit.id, interaction.id),
+                )
+            for asset in exhibit.media_assets:
+                cursor.execute(
+                    """
+                    INSERT INTO media_assets (id, exhibit_id, type, name, object_key, public_url, note)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (id) DO UPDATE
+                    SET exhibit_id = EXCLUDED.exhibit_id,
+                        type = EXCLUDED.type,
+                        name = EXCLUDED.name,
+                        object_key = EXCLUDED.object_key,
+                        public_url = EXCLUDED.public_url,
+                        note = EXCLUDED.note
+                    """,
+                    (asset.id, exhibit.id, asset.type, asset.name, asset.url, asset.url, asset.note),
+                )
+            for document in exhibit.documents:
+                document_text = embedding_text_for_document_chunk(
+                    exhibit,
+                    document,
+                    document.chunks[0],
+                ) if document.chunks else embedding_text_for_exhibit(exhibit)
+                cursor.execute(
+                    """
+                    INSERT INTO documents (id, name, file_type, object_key, source_note, embedding)
+                    VALUES (%s, %s, %s, %s, %s, %s::vector)
+                    ON CONFLICT (id) DO UPDATE
+                    SET name = EXCLUDED.name,
+                        file_type = EXCLUDED.file_type,
+                        object_key = EXCLUDED.object_key,
+                        source_note = EXCLUDED.source_note,
+                        embedding = EXCLUDED.embedding
+                    """,
+                    (
+                        document.id,
+                        document.name,
+                        document.file_type,
+                        document.url,
+                        document.source_note,
+                        vector_literal(stable_embedding(document_text)),
+                    ),
+                )
+                cursor.execute(
+                    """
+                    INSERT INTO exhibit_documents (exhibit_id, document_id)
+                    VALUES (%s, %s)
+                    ON CONFLICT DO NOTHING
+                    """,
+                    (exhibit.id, document.id),
+                )
+
+        active_ids = {exhibit.id for exhibit in exhibits}
+        for exhibit in exhibits:
+            for target_id in exhibit.related_exhibit_ids:
+                if target_id not in active_ids:
+                    continue
+                cursor.execute(
+                    """
+                    INSERT INTO exhibit_relations
+                      (id, source_exhibit_id, target_exhibit_id, relation_type)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (id) DO UPDATE
+                    SET source_exhibit_id = EXCLUDED.source_exhibit_id,
+                        target_exhibit_id = EXCLUDED.target_exhibit_id,
+                        relation_type = EXCLUDED.relation_type
+                    """,
+                    (f"{exhibit.id}|similar_to|{target_id}", exhibit.id, target_id, "similar_to"),
+                )
 
     def exhibit_from_row(self, row: Mapping[str, Any] | tuple[Any, ...]) -> ExhibitResponse:
         payload = row["payload"] if isinstance(row, Mapping) else row[0]

@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS exhibits (
   budget_max INTEGER NOT NULL CHECK (budget_max >= budget_min),
   dimensions TEXT NOT NULL,
   status TEXT NOT NULL,
+  review_status TEXT NOT NULL DEFAULT '待审核',
   description TEXT NOT NULL,
   tags TEXT[] NOT NULL DEFAULT '{}',
   embedding vector(1536),
