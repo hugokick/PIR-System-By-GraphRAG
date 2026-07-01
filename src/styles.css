@@ -931,6 +931,75 @@ textarea:focus {
   opacity: 0.65;
 }
 
+.relation-recommendations {
+  border-top: 1px solid #e1eae5;
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+}
+
+.relation-recommendations-title,
+.relation-recommendation-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.relation-recommendations-title {
+  color: #203b39;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.relation-recommendations-title small,
+.relation-recommendation-item small {
+  color: #60766f;
+  font-weight: 600;
+}
+
+.relation-recommendation-list {
+  display: grid;
+  gap: 8px;
+}
+
+.relation-recommendation-item {
+  border: 1px solid #d8e5df;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 8px 10px;
+}
+
+.relation-recommendation-item div {
+  display: grid;
+  gap: 2px;
+  min-width: min(180px, 100%);
+}
+
+.relation-recommendation-item strong {
+  color: #203b39;
+}
+
+.relation-recommendation-item p {
+  color: #4a625c;
+  flex: 1 1 260px;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.relation-recommendation-item button {
+  border: 0;
+  border-radius: 6px;
+  background: #0f172a;
+  color: #ffffff;
+  padding: 8px 10px;
+}
+
+.relation-recommendation-item button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 .media-row {
   gap: 10px;
   flex-wrap: wrap;

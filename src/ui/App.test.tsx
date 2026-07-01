@@ -606,6 +606,81 @@ describe('App exhibit management', () => {
     expect(within(screen.getByLabelText('相似展项关系')).getByText('杠杆乐园')).toBeTruthy();
   });
 
+  it('renders KG relation recommendations and lets editors accept a similar exhibit', async () => {
+    const primary = { ...frontendExhibit, relatedExhibitIds: [] };
+    const recommended = {
+      ...frontendExhibit,
+      id: 'lever-play',
+      name: '杠杆乐园',
+      theme: '力学',
+      relatedExhibitIds: []
+    };
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/api/exhibits/magnet-maze/relation-recommendations')) {
+        return okJson({
+          target_exhibit_id: 'magnet-maze',
+          warnings: [],
+          recommendations: [
+            {
+              relation_type: 'similar_to',
+              source_id: 'magnet-maze',
+              target_id: 'lever-play',
+              target_label: '杠杆乐园',
+              confidence: 0.72,
+              reasons: ['共同主题：力学', '共同互动（1）：动手实验'],
+              evidence_refs: ['theme:mechanics'],
+              already_exists: false
+            },
+            {
+              relation_type: 'uses_material',
+              source_id: 'magnet-maze',
+              target_id: 'acrylic',
+              target_label: '亚克力',
+              confidence: 1,
+              reasons: ['已存在的图谱边：uses_material'],
+              evidence_refs: ['material:acrylic'],
+              already_exists: true
+            }
+          ]
+        });
+      }
+      if (url.endsWith('/api/exhibits/magnet-maze/related-exhibits') && init?.method === 'PATCH') {
+        expect(init.body).toBe(JSON.stringify({ related_exhibit_ids: ['lever-play'] }));
+        return okJson(apiExhibit({ ...primary, relatedExhibitIds: ['lever-play'] }));
+      }
+      if (url.endsWith('/api/exhibits/magnet-maze/graph')) {
+        return okJson({
+          nodes: [{ id: 'exhibit:magnet-maze', label: '磁力迷宫', type: 'exhibit' }],
+          edges: []
+        });
+      }
+      return okJson({ total: 2, items: [apiExhibit(primary), apiExhibit(recommended)] });
+    });
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: '磁力迷宫' });
+    const recommendationPanel = await screen.findByLabelText('KG 关系推荐');
+    expect(within(recommendationPanel).getByText('杠杆乐园')).toBeTruthy();
+    expect(within(recommendationPanel).getByText('置信度 72%')).toBeTruthy();
+    expect(within(recommendationPanel).getByText(/共同主题/)).toBeTruthy();
+    expect(within(recommendationPanel).queryByText('亚克力')).toBeNull();
+
+    fireEvent.click(within(recommendationPanel).getByRole('button', { name: '采纳杠杆乐园为相似展项' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://127.0.0.1:8000/api/exhibits/magnet-maze/related-exhibits',
+        expect.objectContaining({
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'X-User-Role': 'admin' }
+        })
+      );
+    });
+    expect(within(screen.getByLabelText('相似展项关系')).getByText('杠杆乐园')).toBeTruthy();
+  });
+
   it('shows budget bands and hot themes in the dashboard', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
       okJson({

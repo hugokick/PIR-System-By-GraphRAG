@@ -28,6 +28,7 @@ import {
   fetchDashboardSummary,
   fetchDemoGraph,
   fetchExhibitGraph,
+  fetchExhibitRelationRecommendations,
   fetchExhibits,
   hybridSearchExhibits,
   importTemplateUrl,
@@ -57,6 +58,7 @@ import type {
   GraphRagAnswer,
   GraphRagCitation,
   MediaAsset,
+  RelationRecommendation,
   ReviewStatus,
   SearchResults,
   UserSession
@@ -385,6 +387,12 @@ export function App() {
   const [isReviewing, setIsReviewing] = useState(false);
   const [isUpdatingRelations, setIsUpdatingRelations] = useState(false);
   const [selectedRelatedId, setSelectedRelatedId] = useState('');
+  const [relationRecommendations, setRelationRecommendations] = useState<{
+    exhibitId: string;
+    items: RelationRecommendation[];
+  } | null>(null);
+  const [relationRecommendationError, setRelationRecommendationError] = useState<string | null>(null);
+  const [isLoadingRelationRecommendations, setIsLoadingRelationRecommendations] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importPreview, setImportPreview] = useState<{ file: File; result: ExhibitImportResult } | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
@@ -524,6 +532,21 @@ export function App() {
         : [],
     [items, selected]
   );
+  const recommendedSimilarRelations = useMemo(
+    () =>
+      selected && relationRecommendations?.exhibitId === selected.id
+        ? relationRecommendations.items
+            .filter(
+              (item) =>
+                item.relationType === 'similar_to' &&
+                !item.alreadyExists &&
+                !selected.relatedExhibitIds.includes(item.targetId)
+            )
+            .filter((item) => items.some((exhibit) => exhibit.id === item.targetId))
+            .slice(0, 4)
+        : [],
+    [items, relationRecommendations, selected]
+  );
 
   useEffect(() => {
     if (session) {
@@ -562,6 +585,40 @@ export function App() {
     // Validate only the session restored during initial page load.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!selected || !canWrite || dataSource !== 'api') {
+      setRelationRecommendations(null);
+      setRelationRecommendationError(null);
+      setIsLoadingRelationRecommendations(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoadingRelationRecommendations(true);
+    setRelationRecommendationError(null);
+    fetchExhibitRelationRecommendations(selected.id)
+      .then((result) => {
+        if (cancelled) return;
+        setRelationRecommendations({
+          exhibitId: selected.id,
+          items: result.recommendations
+        });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setRelationRecommendations(null);
+        setRelationRecommendationError('KG 关系推荐暂不可用');
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setIsLoadingRelationRecommendations(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canWrite, dataSource, selected?.id]);
 
   const refreshAuditLogs = async () => {
     if (role !== 'admin') {
@@ -947,6 +1004,11 @@ export function App() {
   const addRelatedExhibit = () => {
     if (!selected || !selectedRelatedId) return;
     changeRelatedExhibits([...selected.relatedExhibitIds, selectedRelatedId]);
+  };
+
+  const acceptRecommendedRelation = (targetId: string) => {
+    if (!selected) return;
+    changeRelatedExhibits(Array.from(new Set([...selected.relatedExhibitIds, targetId])));
   };
 
   const removeRelatedExhibit = (relatedId: string) => {
@@ -1561,6 +1623,42 @@ export function App() {
                     添加关系
                   </button>
                 </div>
+                {canWrite && (
+                  <div className="relation-recommendations" aria-label="KG 关系推荐">
+                    <div className="relation-recommendations-title">
+                      <Sparkles size={16} />
+                      <span>KG 关系推荐</span>
+                      {isLoadingRelationRecommendations && <small>加载中</small>}
+                    </div>
+                    {relationRecommendationError ? (
+                      <span className="empty-relations">{relationRecommendationError}</span>
+                    ) : recommendedSimilarRelations.length > 0 ? (
+                      <div className="relation-recommendation-list">
+                        {recommendedSimilarRelations.map((item) => (
+                          <div key={`${item.relationType}:${item.targetId}`} className="relation-recommendation-item">
+                            <div>
+                              <strong>{item.targetLabel}</strong>
+                              <small>置信度 {Math.round(item.confidence * 100)}%</small>
+                            </div>
+                            {item.reasons.length > 0 && <p>{item.reasons.slice(0, 2).join('；')}</p>}
+                            <button
+                              type="button"
+                              onClick={() => acceptRecommendedRelation(item.targetId)}
+                              disabled={isUpdatingRelations}
+                              aria-label={`采纳${item.targetLabel}为相似展项`}
+                            >
+                              采纳
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="empty-relations">
+                        {isLoadingRelationRecommendations ? '正在分析可采纳关系' : '暂无可采纳推荐'}
+                      </span>
+                    )}
+                  </div>
+                )}
               </section>
 
               <div className="media-row">

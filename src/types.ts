@@ -123,6 +123,23 @@ export type GraphRagAnswer = {
   items: GraphRagHit[];
 };
 
+export type RelationRecommendation = {
+  relationType: string;
+  sourceId: string;
+  targetId: string;
+  targetLabel: string;
+  confidence: number;
+  reasons: string[];
+  evidenceRefs: string[];
+  alreadyExists: boolean;
+};
+
+export type RelationRecommendationResult = {
+  targetExhibitId: string | null;
+  warnings: string[];
+  recommendations: RelationRecommendation[];
+};
+
 export type AuditLogEntry = {
   id: string;
   actorRole: string;

@@ -7,6 +7,7 @@ import type {
   GraphNode,
   GraphRagAnswer,
   MediaAsset,
+  RelationRecommendationResult,
   ReviewStatus,
   SearchResults,
   UserSession
@@ -136,6 +137,23 @@ type ApiHybridSearchResponse = {
   query: string;
   total: number;
   items: ApiHybridSearchHit[];
+};
+
+type ApiRelationRecommendation = {
+  relation_type: string;
+  source_id: string;
+  target_id: string;
+  target_label: string;
+  confidence: number;
+  reasons: string[];
+  evidence_refs: string[];
+  already_exists: boolean;
+};
+
+type ApiRelationRecommendationResult = {
+  target_exhibit_id: string | null;
+  warnings: string[];
+  recommendations: ApiRelationRecommendation[];
 };
 
 type ApiExhibitImportError = {
@@ -417,6 +435,25 @@ function mapApiGraphRagAnswer(payload: ApiGraphRagAnswerResponse): GraphRagAnswe
   };
 }
 
+function mapApiRelationRecommendationResult(
+  payload: ApiRelationRecommendationResult
+): RelationRecommendationResult {
+  return {
+    targetExhibitId: payload.target_exhibit_id,
+    warnings: payload.warnings,
+    recommendations: payload.recommendations.map((item) => ({
+      relationType: item.relation_type,
+      sourceId: item.source_id,
+      targetId: item.target_id,
+      targetLabel: item.target_label,
+      confidence: item.confidence,
+      reasons: item.reasons,
+      evidenceRefs: item.evidence_refs,
+      alreadyExists: item.already_exists
+    }))
+  };
+}
+
 function mapApiAuditLogEntry(entry: ApiAuditLogEntry): AuditLogEntry {
   return {
     id: entry.id,
@@ -666,6 +703,21 @@ export async function fetchExhibitGraph(exhibitId: string) {
 export async function fetchDemoGraph() {
   const payload = await requestJson<ApiGraphResponse>('/api/neo4j-demo/graph');
   return mapApiGraph(payload);
+}
+
+export async function fetchExhibitRelationRecommendations(
+  exhibitId: string
+): Promise<RelationRecommendationResult> {
+  const response = await fetch(
+    `${apiBaseUrl}/api/exhibits/${encodeURIComponent(exhibitId)}/relation-recommendations`,
+    {
+      headers: authHeaders()
+    }
+  );
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+  }
+  return mapApiRelationRecommendationResult((await response.json()) as ApiRelationRecommendationResult);
 }
 
 export async function askGraphRag(query: string, topK = 3, filters: ExhibitFilters = {}): Promise<GraphRagAnswer> {
