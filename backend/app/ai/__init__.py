@@ -19,6 +19,18 @@ from .query_understanding import (
     QueryUnderstandingResult,
     understand_query,
 )
+from .rag_answerer import (
+    NO_CITATION_REFUSAL,
+    NO_DESCRIPTION_WARNING,
+    NO_MATCH_REFUSAL,
+    RagAnswerInputs,
+    RagAnswerProvider,
+    RagAnswerResult,
+    RagCitation,
+    RagMatchedExhibit,
+    RagReasoningSignal,
+    answer_rag,
+)
 
 __all__ = [
     "DocumentExtractionInput",
@@ -38,4 +50,14 @@ __all__ = [
     "BUDGET_UNKNOWN",
     "QueryUnderstandingResult",
     "understand_query",
+    "NO_CITATION_REFUSAL",
+    "NO_DESCRIPTION_WARNING",
+    "NO_MATCH_REFUSAL",
+    "RagAnswerInputs",
+    "RagAnswerProvider",
+    "RagAnswerResult",
+    "RagCitation",
+    "RagMatchedExhibit",
+    "RagReasoningSignal",
+    "answer_rag",
 ]
