@@ -56,3 +56,28 @@ def test_contract_queries_are_pure_models_not_fastapi_route_responses():
     assert not hasattr(subgraph_result, "status_code")
     assert not hasattr(search_result, "status_code")
     assert "matched_exhibits" in search_result.model_dump()
+
+
+def test_query_graphrag_contract_expands_neighborhood_and_dedupes_edges():
+    result = query_graphrag_contract(
+        GraphRAGContractQueryInput(query_text="力学 启思互动工坊", top_k=2),
+        exhibits=seed_exhibits,
+    )
+
+    edge_keys = {
+        f"{edge.source}|{edge.type}|{edge.target}"
+        for edge in result.graph_context.edges
+    }
+
+    assert any(edge.type == "belongs_to_project" for edge in result.graph_context.edges)
+    assert any(edge.type == "supplied_by" for edge in result.graph_context.edges)
+    assert len(edge_keys) == len(result.graph_context.edges)
+
+
+def test_query_graphrag_contract_prefers_chunk_level_reasoning_signal_when_available():
+    result = query_graphrag_contract(
+        GraphRAGContractQueryInput(query_text="样例文档 来源链路", top_k=1),
+        exhibits=seed_exhibits,
+    )
+
+    assert any(signal.signal_type == "document_chunk_match" for signal in result.reasoning_signals)

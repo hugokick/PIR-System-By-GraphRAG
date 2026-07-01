@@ -75,7 +75,7 @@ def query_subgraph_by_exhibit_id(
         )
 
     center_id = f"exhibit:{query.exhibit_id}"
-    nodes, edges = _center_subgraph(active_snapshot, center_id)
+    nodes, edges = _expanded_subgraph(active_snapshot, center_id)
     citations = _contract_citations(
         [evidence for evidence in active_snapshot.evidences if center_id in evidence.linked_node_ids]
     )
@@ -114,11 +114,19 @@ def query_graphrag_contract(
         MatchedExhibit(exhibit=item.exhibit, score=item.score) for item in search_response.items
     ]
     graph_nodes = _dedupe_by_id(
-        [node for item in search_response.items for node in item.neighborhood.nodes],
+        [
+            node
+            for item in search_response.items
+            for node in _expanded_subgraph(active_snapshot, f"exhibit:{item.exhibit.id}")[0]
+        ],
         key=lambda node: node.id,
     )
     graph_edges = _dedupe_by_id(
-        [edge for item in search_response.items for edge in item.neighborhood.edges],
+        [
+            edge
+            for item in search_response.items
+            for edge in _expanded_subgraph(active_snapshot, f"exhibit:{item.exhibit.id}")[1]
+        ],
         key=lambda edge: f"{edge.source}|{edge.type}|{edge.target}",
     )
     citations = _contract_citations(
@@ -127,7 +135,7 @@ def query_graphrag_contract(
     reasoning_signals = [
         ReasoningSignal(
             exhibit_id=item.exhibit.id,
-            signal_type="rule_match",
+            signal_type=_reasoning_signal_type(reason),
             detail=reason,
             score=item.score,
         )
@@ -184,15 +192,32 @@ def _search_filters(filters: GraphRAGContractFilters | None) -> GraphRAGFilters 
     )
 
 
-def _center_subgraph(snapshot: KGSnapshot, center_id: str) -> tuple[list[KGNode], list[KGEdge]]:
-    neighbor_ids = [center_id, *snapshot.adjacency.get(center_id, [])]
+def _expanded_subgraph(snapshot: KGSnapshot, center_id: str) -> tuple[list[KGNode], list[KGEdge]]:
+    neighbor_ids = {center_id, *snapshot.adjacency.get(center_id, [])}
     nodes = [node for node in snapshot.nodes if node.id in neighbor_ids]
     edges = [
         edge
         for edge in snapshot.edges
-        if edge.source == center_id and edge.target in neighbor_ids
+        if (
+            edge.source == center_id
+            and edge.target in neighbor_ids
+        )
+        or (
+            edge.target == center_id
+            and edge.source in neighbor_ids
+        )
     ]
-    return nodes, edges
+    return nodes, _dedupe_by_id(edges, key=lambda edge: f"{edge.source}|{edge.type}|{edge.target}")
+
+
+def _reasoning_signal_type(reason: str) -> str:
+    if reason.startswith("向量召回"):
+        return "semantic_recall"
+    if "documents" in reason:
+        return "document_chunk_match"
+    if "project" in reason or "materials" in reason or "interactions" in reason:
+        return "graph_neighbor_match"
+    return "rule_match"
 
 
 def _contract_citations(evidences: list[KGEvidence]) -> list[ContractCitation]:
