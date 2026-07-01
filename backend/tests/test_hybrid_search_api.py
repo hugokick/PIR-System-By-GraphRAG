@@ -56,6 +56,24 @@ def test_hybrid_search_respects_budget_filters():
     assert payload["items"] == []
 
 
+def test_hybrid_search_total_counts_all_matches_before_limit():
+    response = client.post(
+        "/api/search/hybrid",
+        json={
+            "query": "力学",
+            "limit": 1,
+            "filters": {
+                "theme": "力学",
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 2
+    assert len(payload["items"]) == 1
+
+
 def test_hybrid_search_respects_project_case_filters():
     response = client.post(
         "/api/search/hybrid",

@@ -60,6 +60,7 @@ class ReasoningSignal(BaseModel):
 
 class KGGraphRAGQueryResult(BaseModel):
     matched_exhibits: list[MatchedExhibit] = Field(default_factory=list)
+    total_matches: int = 0
     graph_context: GraphContext = Field(default_factory=GraphContext)
     citations: list[ContractCitation] = Field(default_factory=list)
     reasoning_signals: list[ReasoningSignal] = Field(default_factory=list)
@@ -86,6 +87,7 @@ def query_subgraph_by_exhibit_id(
     )
     return KGGraphRAGQueryResult(
         matched_exhibits=[MatchedExhibit(exhibit=exhibit, score=1.0)],
+        total_matches=1,
         graph_context=GraphContext(nodes=nodes, edges=edges, warnings=list(active_snapshot.warnings)),
         citations=citations,
         reasoning_signals=[
@@ -143,6 +145,7 @@ def query_graphrag_contract(
     ]
     return KGGraphRAGQueryResult(
         matched_exhibits=matched_exhibits,
+        total_matches=search_response.total,
         graph_context=GraphContext(
             nodes=graph_nodes,
             edges=graph_edges,

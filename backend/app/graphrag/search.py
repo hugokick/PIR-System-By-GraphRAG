@@ -32,8 +32,9 @@ def search_graph_rag(
         is not None
     ]
     hits.sort(key=lambda item: (-item.score, item.exhibit.id))
+    total = len(hits)
     items = hits[:top_k]
-    return GraphRAGSearchResponse(query=query, total=len(items), items=items)
+    return GraphRAGSearchResponse(query=query, total=total, items=items)
 
 
 def _apply_filters(

@@ -71,6 +71,24 @@ def test_graphrag_search_applies_review_status_filter():
     assert payload["items"][0]["exhibit"]["review_status"] == "待审核"
 
 
+def test_graphrag_search_total_counts_all_matches_before_top_k():
+    response = client.post(
+        "/api/graphrag/search",
+        json={
+            "query": "力学",
+            "top_k": 1,
+            "filters": {
+                "theme": "力学",
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 2
+    assert len(payload["items"]) == 1
+
+
 def test_graphrag_search_keeps_document_citations_with_their_exhibit():
     response = client.post(
         "/api/graphrag/search",

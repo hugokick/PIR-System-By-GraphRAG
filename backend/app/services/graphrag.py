@@ -100,7 +100,7 @@ def _contract_to_search_response(query: str, result: KGGraphRAGQueryResult) -> G
         )
         for match in result.matched_exhibits
     ]
-    return GraphRagSearchResponse(query=query, total=len(items), items=items)
+    return GraphRagSearchResponse(query=query, total=result.total_matches, items=items)
 
 
 def _graph_for_exhibit(exhibit_id: str, result: KGGraphRAGQueryResult) -> GraphResponse:

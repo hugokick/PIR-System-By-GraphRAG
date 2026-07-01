@@ -43,8 +43,9 @@ def search_hybrid_exhibits(
             )
 
     hits.sort(key=lambda item: (-item[1].score, item[0]))
+    total = len(hits)
     items = [hit for _, hit in hits[:limit]]
-    return HybridSearchResponse(query=query, total=len(items), items=items)
+    return HybridSearchResponse(query=query, total=total, items=items)
 
 
 def _apply_filters(
