@@ -1236,11 +1236,17 @@ export function App() {
               )}
               {graphRagAnswer.citations.length > 0 && (
                 <div className="graphrag-citations">
-                  {graphRagAnswer.citations.map((citation) => (
-                    <span key={`${citation.sourceType}-${citation.sourceId}`}>
+                  {graphRagAnswer.citations.map((citation, index) => (
+                    <article
+                      className="graphrag-citation-card"
+                      key={`${citation.sourceType}-${citation.sourceId}`}
+                      aria-label={`引用来源 [${index + 1}]`}
+                    >
+                      <em>[{index + 1}]</em>
+                      <small>{citation.sourceType}</small>
                       <strong>{citation.title}</strong>
-                      {citation.snippet}
-                    </span>
+                      <span>{citation.snippet}</span>
+                    </article>
                   ))}
                 </div>
               )}

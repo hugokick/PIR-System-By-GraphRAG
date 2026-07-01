@@ -850,6 +850,9 @@ describe('App exhibit management', () => {
 
     expect(await screen.findByText('Based on exhibit records and graph context.')).toBeTruthy();
     expect(screen.getAllByText('磁力迷宫').length).toBeGreaterThan(0);
+    const citationCard = screen.getByLabelText('引用来源 [1]');
+    expect(within(citationCard).getByText('[1]')).toBeTruthy();
+    expect(within(citationCard).getByText('exhibit')).toBeTruthy();
     expect(screen.getByText(/matched identity/)).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledWith(
       'http://127.0.0.1:8000/api/graphrag/answer',
