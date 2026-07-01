@@ -50,6 +50,7 @@ export type ExhibitFilters = {
   keyword?: string;
   category?: string;
   theme?: string;
+  tag?: string;
   projectId?: string;
   venueType?: string;
   budgetRange?: [number, number];

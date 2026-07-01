@@ -55,6 +55,7 @@ def _apply_filters(
             category=None,
             theme=filters.theme,
             project_id=None,
+            tag=filters.tag,
             material=filters.material,
             interaction=filters.interaction,
             status=filters.status,

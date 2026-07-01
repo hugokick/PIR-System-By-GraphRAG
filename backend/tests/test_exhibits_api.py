@@ -65,6 +65,16 @@ def test_list_exhibits_supports_review_status_filter():
     assert approved_payload["items"][0]["id"] == "lever-play"
 
 
+def test_list_exhibits_supports_tag_filter():
+    response = client.get("/api/exhibits", params={"tag": "低预算"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["id"] == "pulley-wall"
+    assert "低预算" in payload["items"][0]["tags"]
+
+
 def test_get_exhibit_detail_includes_documents_and_media():
     response = client.get("/api/exhibits/lever-play")
 

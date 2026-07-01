@@ -463,6 +463,23 @@ describe('App exhibit management', () => {
     });
   });
 
+  it('filters exhibits by tag through backend query parameters', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [apiExhibit()] }));
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: '磁力迷宫' });
+    fireEvent.change(screen.getByLabelText('标签'), { target: { value: '低龄儿童' } });
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([input]) =>
+          String(input).includes('/api/exhibits?tag=%E4%BD%8E%E9%BE%84%E5%84%BF%E7%AB%A5')
+        )
+      ).toBe(true);
+    });
+  });
+
   it('renders and filters exhibits by review status through backend query parameters', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [apiExhibit()] }));
 

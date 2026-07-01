@@ -66,6 +66,7 @@ def _apply_filters(
             category=filters.category,
             theme=filters.theme,
             project_id=filters.project_id,
+            tag=filters.tag,
             material=filters.material,
             interaction=filters.interaction,
             status=filters.status,
@@ -154,6 +155,8 @@ def _filter_reasons(
         reasons.append(f"筛选主题：{filters.theme}")
     if filters.project_id:
         reasons.append(f"筛选项目：{filters.project_id}")
+    if filters.tag:
+        reasons.append(f"筛选标签：{filters.tag}")
     if filters.material:
         reasons.append(f"筛选材料：{filters.material}")
     if filters.interaction:

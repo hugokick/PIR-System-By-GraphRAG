@@ -151,6 +151,7 @@ class GraphRagRequestFilters(BaseModel):
     theme: str | None = None
     material: str | None = None
     interaction: str | None = None
+    tag: str | None = None
     venue_type: str | None = None
     status: str | None = None
     review_status: str | None = None
@@ -189,6 +190,7 @@ class HybridSearchFilters(BaseModel):
     category: str | None = None
     theme: str | None = None
     project_id: str | None = None
+    tag: str | None = None
     material: str | None = None
     interaction: str | None = None
     venue_type: str | None = None

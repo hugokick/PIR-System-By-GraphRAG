@@ -363,6 +363,7 @@ export function buildExhibitQuery(filters: ExhibitFilters) {
   if (filters.category) query.set('category', filters.category);
   if (filters.theme) query.set('theme', filters.theme);
   if (filters.projectId) query.set('project_id', filters.projectId);
+  if (filters.tag) query.set('tag', filters.tag);
   if (filters.reviewStatus) query.set('review_status', filters.reviewStatus);
   if (filters.material) query.set('material', filters.material);
   if (filters.interaction) query.set('interaction', filters.interaction);
@@ -706,6 +707,7 @@ function mapHybridSearchFilters(filters: ExhibitFilters) {
   if (filters.category) payload.category = filters.category;
   if (filters.theme) payload.theme = filters.theme;
   if (filters.projectId) payload.project_id = filters.projectId;
+  if (filters.tag) payload.tag = filters.tag;
   if (filters.reviewStatus) payload.review_status = filters.reviewStatus;
   if (filters.material) payload.material = filters.material;
   if (filters.interaction) payload.interaction = filters.interaction;
@@ -723,6 +725,7 @@ function mapGraphRagFilters(filters: ExhibitFilters) {
   if (filters.theme) payload.theme = filters.theme;
   if (filters.material) payload.material = filters.material;
   if (filters.interaction) payload.interaction = filters.interaction;
+  if (filters.tag) payload.tag = filters.tag;
   if (filters.venueType) payload.venue_type = filters.venueType;
   if (filters.status) payload.status = filters.status;
   if (filters.reviewStatus) payload.review_status = filters.reviewStatus;

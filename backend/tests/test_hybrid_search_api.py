@@ -127,6 +127,25 @@ def test_hybrid_search_respects_review_status_filters():
     assert any("待审核" in reason for reason in payload["items"][0]["reasons"])
 
 
+def test_hybrid_search_respects_tag_filters():
+    response = client.post(
+        "/api/search/hybrid",
+        json={
+            "query": "力学",
+            "limit": 5,
+            "filters": {
+                "tag": "低预算",
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["exhibit"]["id"] == "pulley-wall"
+    assert "筛选标签：低预算" in payload["items"][0]["reasons"]
+
+
 def test_hybrid_search_matches_exhibit_ids_for_smoke_checks_and_exact_lookup():
     response = client.post(
         "/api/search/hybrid",

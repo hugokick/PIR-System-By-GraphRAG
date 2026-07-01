@@ -42,3 +42,17 @@ def test_dashboard_summary_respects_exhibit_filters() -> None:
     assert payload["landed"] == 0
     assert payload["pending_review"] == 1
     assert payload["rejected_review"] == 0
+
+
+def test_dashboard_summary_respects_tag_filter() -> None:
+    response = client.get("/api/dashboard/summary", params={"tag": "低预算"})
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["total"] == 1
+    assert payload["budget_bands"] == [
+        {"label": "20万以下", "count": 0},
+        {"label": "20-50万", "count": 1},
+        {"label": "50万以上", "count": 0},
+    ]

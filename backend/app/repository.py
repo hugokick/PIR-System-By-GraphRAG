@@ -216,6 +216,7 @@ class ExhibitRepository:
         category: str | None = None,
         theme: str | None = None,
         project_id: str | None = None,
+        tag: str | None = None,
         material: str | None = None,
         interaction: str | None = None,
         status: str | None = None,
@@ -234,6 +235,7 @@ class ExhibitRepository:
                 category=category,
                 theme=theme,
                 project_id=project_id,
+                tag=tag,
                 material=material,
                 interaction=interaction,
                 status=status,
@@ -251,6 +253,7 @@ class ExhibitRepository:
         category: str | None,
         theme: str | None,
         project_id: str | None,
+        tag: str | None,
         material: str | None,
         interaction: str | None,
         status: str | None,
@@ -282,6 +285,8 @@ class ExhibitRepository:
         if theme and item.theme.name != theme:
             return False
         if project_id and item.project.id != project_id:
+            return False
+        if tag and tag not in item.tags:
             return False
         if material and material not in [entity.name for entity in item.materials]:
             return False
@@ -640,6 +645,7 @@ class PostgresExhibitRepository:
         category: str | None = None,
         theme: str | None = None,
         project_id: str | None = None,
+        tag: str | None = None,
         material: str | None = None,
         interaction: str | None = None,
         status: str | None = None,
@@ -671,6 +677,7 @@ class PostgresExhibitRepository:
                 category=category,
                 theme=theme,
                 project_id=project_id,
+                tag=tag,
                 material=material,
                 interaction=interaction,
                 status=status,

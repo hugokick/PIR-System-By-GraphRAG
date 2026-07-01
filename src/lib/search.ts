@@ -36,6 +36,7 @@ export function filterExhibits(items: Exhibit[], filters: ExhibitFilters) {
       includesText(searchable, filters.keyword) &&
       (!filters.category || item.category === filters.category) &&
       (!filters.theme || item.theme === filters.theme) &&
+      (!filters.tag || item.tags.includes(filters.tag)) &&
       (!filters.projectId || item.relatedProjectIds.includes(filters.projectId)) &&
       (!filters.venueType || item.venueType === filters.venueType) &&
       (!filters.status || item.status === filters.status) &&

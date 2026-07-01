@@ -15,6 +15,7 @@ class GraphRAGContractFilters(BaseModel):
     theme: str | None = None
     material: str | None = None
     interaction: str | None = None
+    tag: str | None = None
     venue_type: str | None = None
     status: str | None = None
     review_status: str | None = None
@@ -176,6 +177,7 @@ def _apply_contract_filters(
             category=None,
             theme=filters.theme,
             project_id=None,
+            tag=filters.tag,
             material=filters.material,
             interaction=filters.interaction,
             status=filters.status,
@@ -193,6 +195,7 @@ def _search_filters(filters: GraphRAGContractFilters | None) -> GraphRAGFilters 
         theme=filters.theme,
         material=filters.material,
         interaction=filters.interaction,
+        tag=filters.tag,
         venue_type=filters.venue_type,
         status=filters.status,
         review_status=filters.review_status,
