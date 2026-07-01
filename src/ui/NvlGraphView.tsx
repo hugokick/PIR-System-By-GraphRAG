@@ -146,7 +146,9 @@ export function NvlGraphView({ graph, selectedNodeId, layoutVersion, nodeColors,
         interactionOptions={{ selectOnClick: true }}
       />
       <div className="nvl-readable-overlay" aria-hidden="true">
-        {overlayLabels.edges.map((edge) => (
+        {overlayLabels.edges
+          .filter((edge) => graph.edges.length <= 16 || !edge.disabled)
+          .map((edge) => (
           <span
             key={edge.id}
             className={`nvl-edge-caption${edge.disabled ? ' disabled' : ''}`}
@@ -154,7 +156,7 @@ export function NvlGraphView({ graph, selectedNodeId, layoutVersion, nodeColors,
           >
             {edge.label}
           </span>
-        ))}
+          ))}
         {overlayLabels.nodes.map((node) => (
           <span
             key={node.id}

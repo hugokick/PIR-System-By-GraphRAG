@@ -161,6 +161,41 @@ describe('NvlGraphView graph mapping', () => {
     expect([...container.querySelectorAll('.nvl-edge-caption')].map((edge) => edge.textContent)).toContain('USES_MATERIAL');
   });
 
+  it('hides unrelated relationship labels when the graph is dense', async () => {
+    vi.stubGlobal('navigator', { userAgent: 'Chrome' });
+    const denseGraph = {
+      nodes: [
+        { id: 'exhibit:center', label: 'Center', kind: 'exhibit' },
+        ...Array.from({ length: 20 }, (_, index) => ({
+          id: `material:item-${index}`,
+          label: `Item ${index}`,
+          kind: 'material'
+        }))
+      ],
+      edges: Array.from({ length: 20 }, (_, index) => ({
+        source: index === 19 ? 'material:item-18' : 'exhibit:center',
+        target: `material:item-${index}`,
+        label: index === 19 ? 'unrelated' : `selected ${index}`,
+        type: index === 19 ? 'UNRELATED_EDGE' : `SELECTED_EDGE_${index}`
+      }))
+    };
+    const { NvlGraphView } = await import('./NvlGraphView');
+
+    const { container } = render(
+      <NvlGraphView
+        graph={denseGraph}
+        selectedNodeId="exhibit:center"
+        layoutVersion={0}
+        nodeColors={nodeColors}
+        onNodeSelect={() => undefined}
+      />
+    );
+
+    const edgeLabels = [...container.querySelectorAll('.nvl-edge-caption')].map((edge) => edge.textContent);
+    expect(edgeLabels).toContain('SELECTED_EDGE_0');
+    expect(edgeLabels).not.toContain('UNRELATED_EDGE');
+  });
+
   it('keeps the graph viewport compact instead of reserving a tall empty area', () => {
     const styles = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf8');
 
