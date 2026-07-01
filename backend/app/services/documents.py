@@ -2,6 +2,12 @@ from pathlib import Path
 from xml.etree import ElementTree
 from zipfile import ZipFile
 
+from app.graphrag.document_chunks import (
+    DocumentChunkResult,
+    DocumentSource,
+    DocumentTextBlock,
+    chunk_document_source,
+)
 from app.schemas import DocumentChunk
 
 
@@ -18,14 +24,57 @@ WORD_NAMESPACE = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/
 DRAWING_NAMESPACE = {"a": "http://schemas.openxmlformats.org/drawingml/2006/main"}
 
 
-def extract_document_chunks(document_id: str, path: Path, file_type: str) -> list[DocumentChunk]:
-    text = extract_document_text(path, file_type)
-    if not text:
-        return []
+def extract_document_chunks(
+    document_id: str,
+    path: Path,
+    file_type: str,
+    exhibit_id: str = "",
+    file_name: str | None = None,
+    source_note: str | None = None,
+) -> list[DocumentChunk]:
+    result = extract_document_chunk_result(
+        exhibit_id=exhibit_id,
+        document_id=document_id,
+        file_name=file_name or path.name,
+        path=path,
+        file_type=file_type,
+        source_note=source_note,
+    )
     return [
-        DocumentChunk(id=f"{document_id}:chunk-{index + 1}", text=chunk, sequence=index + 1)
-        for index, chunk in enumerate(split_text(text))
+        DocumentChunk(id=chunk.chunk_id, text=chunk.text, sequence=index + 1)
+        for index, chunk in enumerate(result.chunks)
     ]
+
+
+def extract_document_chunk_result(
+    exhibit_id: str,
+    document_id: str,
+    file_name: str,
+    path: Path,
+    file_type: str,
+    source_note: str | None = None,
+) -> DocumentChunkResult:
+    text = extract_document_text(path, file_type)
+    source = DocumentSource(
+        exhibit_id=exhibit_id,
+        document_id=document_id,
+        file_name=file_name,
+        file_type=file_type,
+        source_note=source_note,
+    )
+    if not text:
+        return chunk_document_source(source, [])
+    return chunk_document_source(
+        source,
+        [
+            DocumentTextBlock(
+                text=text,
+                paragraph_index=1,
+            )
+        ],
+        max_chars=CHUNK_SIZE,
+        overlap_chars=CHUNK_OVERLAP,
+    )
 
 
 def extract_document_text(path: Path, file_type: str) -> str:

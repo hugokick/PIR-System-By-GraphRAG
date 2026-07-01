@@ -102,9 +102,9 @@ result = query_subgraph_by_exhibit_id(
 
 ## 文档切片边界
 
-当前主线已在 `DocumentAsset` 内接入轻量 `chunks` 字段。上传 `txt`、`md`、`csv`、`tsv`、`json`、`log` 等文本类资料以及可抽取文本的 `pdf` 文件时，后端会抽取文本、归一化并生成 chunk；KG evidence 和 GraphRAG 检索会使用这些 chunk，citation 仍指回原始 `document.id`。
+当前主线已在 `DocumentAsset` 内接入轻量 `chunks` 字段。上传 `txt`、`md`、`csv`、`tsv`、`json`、`log` 等文本类资料，以及可抽取文本的 `pdf` / `docx` / `xlsx` / `pptx` 文件时，后端会抽取文本、归一化并生成 chunk；KG evidence 和 GraphRAG 检索会使用这些 chunk，citation 仍指回原始 `document.id`。
 
-本阶段仍不引入独立 `document_chunks` 表或模块，也不做 Word / CAD 的深度解析。PDF 仅支持基础文本抽取，不处理扫描件 OCR、版面复原或表格结构。后续当文档解析、对象存储、引用定位和 embedding 生命周期稳定后，再把 chunk 从 `DocumentAsset` 内嵌字段升级为独立持久化资源。
+本阶段仍不引入独立 `document_chunks` 表，也不做 CAD 深度解析、扫描件 OCR、版面复原或表格结构识别。`backend/app/graphrag/document_chunks.py` 已作为服务层契约接入上传解析链路，用于保留文件名、来源定位和 citation 元数据；对外 API 仍保持 `DocumentAsset.chunks` 的轻量 `id/text/sequence` 字段。后续当文档解析、对象存储、引用定位和 embedding 生命周期稳定后，再把 chunk 从 `DocumentAsset` 内嵌字段升级为独立持久化资源。
 
 ## 验收标准
 

@@ -498,7 +498,16 @@ def upload_exhibit_asset(
             file_type=extension,
             url=url,
             source_note=note,
-            chunks=extract_document_chunks(document_id, path, extension) if path else [],
+            chunks=extract_document_chunks(
+                document_id,
+                path,
+                extension,
+                exhibit_id=exhibit_id,
+                file_name=filename,
+                source_note=note,
+            )
+            if path
+            else [],
         )
         updated = exhibit.model_copy(update={"documents": [*exhibit.documents, document]})
         audit_action = "upload_document"

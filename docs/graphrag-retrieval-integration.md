@@ -48,6 +48,13 @@
 - Both paths deduplicate relationship triples by `source|type|target`.
 - API request and response schemas remain unchanged.
 
+## 2026-07-01 Document Chunk Upload Follow-up
+
+- `backend/app/services/documents.py` now uses the `document_chunks.py` contract when extracting uploaded document chunks.
+- The upload path passes exhibit id, document id, file name, file type, and source note into the chunk contract.
+- Existing `DocumentAsset.chunks` API output remains the lightweight `id/text/sequence` shape.
+- No independent `document_chunks` table has been introduced.
+
 尤其保留了主线已有的：
 
 - `venue_type` / `status` / `review_status` 过滤
@@ -60,5 +67,5 @@
 下一步如继续整合 GraphRAG 检索增强，建议仍按最小变更进行：
 
 1. 为 `search.py` 的排序子项增加更细粒度评测用例。
-2. 将 `document_chunks.py` 契约逐步接入上传解析链路，但不要替换现有 `DocumentAsset.chunks` API 字段。
+2. 如需继续增强文档引用，优先补充 locator / citation 的内部评测用例；不要替换现有 `DocumentAsset.chunks` API 字段。
 3. 如需增强召回排序，优先在 `search_graph_rag` 内部增加可测的分数子项，而不是改变 `/api/graphrag/*` 响应结构。
