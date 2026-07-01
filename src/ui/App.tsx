@@ -15,7 +15,8 @@ import {
   Search,
   Sparkles,
   Trash2,
-  Upload
+  Upload,
+  X
 } from 'lucide-react';
 import { buildGraph, graphStats } from '../lib/graph';
 import {
@@ -312,6 +313,7 @@ export function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null);
+  const [previewAsset, setPreviewAsset] = useState<MediaAsset | null>(null);
   const [isReviewing, setIsReviewing] = useState(false);
   const [isUpdatingRelations, setIsUpdatingRelations] = useState(false);
   const [selectedRelatedId, setSelectedRelatedId] = useState('');
@@ -1527,12 +1529,22 @@ export function App() {
                     {selected.media.map((asset) => (
                       <article key={asset.id} className={canPreviewMedia(asset) ? 'media-card previewable' : 'media-card'}>
                         {asset.type === 'image' && (
-                          <a className="media-thumbnail" href={asset.url} target="_blank" rel="noreferrer">
+                          <button
+                            type="button"
+                            className="media-thumbnail"
+                            onClick={() => setPreviewAsset(asset)}
+                            aria-label={`预览媒体 ${asset.name}`}
+                          >
                             <img src={asset.url} alt={asset.name} onError={imageFallback} />
-                          </a>
+                          </button>
                         )}
                         {asset.type === 'video' && (
-                          <a className="media-thumbnail" href={asset.url} target="_blank" rel="noreferrer">
+                          <button
+                            type="button"
+                            className="media-thumbnail"
+                            onClick={() => setPreviewAsset(asset)}
+                            aria-label={`预览媒体 ${asset.name}`}
+                          >
                             <video
                               src={asset.url}
                               muted
@@ -1540,7 +1552,7 @@ export function App() {
                               preload="metadata"
                               aria-label={`${asset.name} 视频预览`}
                             />
-                          </a>
+                          </button>
                         )}
                         {!canPreviewMedia(asset) && (
                           <a className="media-file-link" href={downloadUrl(asset.url)} download={asset.name}>
@@ -1549,7 +1561,13 @@ export function App() {
                           </a>
                         )}
                         <div>
-                          <strong>{asset.name}</strong>
+                          {canPreviewMedia(asset) ? (
+                            <a className="media-title-link" href={asset.url} target="_blank" rel="noreferrer">
+                              {asset.name}
+                            </a>
+                          ) : (
+                            <strong>{asset.name}</strong>
+                          )}
                           <span>{asset.type}</span>
                           {asset.note && <small>{asset.note}</small>}
                           {canDelete && (
@@ -1569,6 +1587,38 @@ export function App() {
                     ))}
                   </div>
                 </section>
+              )}
+
+              {previewAsset && (
+                <div className="media-preview-backdrop" onClick={() => setPreviewAsset(null)}>
+                  <section
+                    className="media-preview-dialog"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={previewAsset.name}
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <header>
+                      <strong>{previewAsset.name}</strong>
+                      <button type="button" onClick={() => setPreviewAsset(null)} aria-label="关闭媒体预览">
+                        <X size={18} />
+                      </button>
+                    </header>
+                    <div className="media-preview-body">
+                      {previewAsset.type === 'image' ? (
+                        <img src={previewAsset.url} alt={previewAsset.name} onError={imageFallback} />
+                      ) : (
+                        <video
+                          src={previewAsset.url}
+                          controls
+                          playsInline
+                          aria-label={`${previewAsset.name} 播放器`}
+                        />
+                      )}
+                    </div>
+                    {previewAsset.note && <p>{previewAsset.note}</p>}
+                  </section>
+                </div>
               )}
 
               {selected.documents.length > 0 && (

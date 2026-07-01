@@ -1070,6 +1070,15 @@ textarea:focus {
   display: block;
   overflow: hidden;
   text-decoration: none;
+  cursor: zoom-in;
+  padding: 0;
+}
+
+.media-thumbnail:hover,
+.media-thumbnail:focus-visible {
+  border-color: #3b7c72;
+  box-shadow: 0 0 0 3px rgba(59, 124, 114, 0.16);
+  outline: none;
 }
 
 .media-card img,
@@ -1115,6 +1124,78 @@ textarea:focus {
 .media-card small {
   color: #60766f;
   font-size: 0.86rem;
+}
+
+.media-preview-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 29, 32, 0.72);
+}
+
+.media-preview-dialog {
+  width: min(1040px, 100%);
+  max-height: min(86vh, 820px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(12, 24, 28, 0.32);
+}
+
+.media-preview-dialog header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #e0e8e4;
+}
+
+.media-preview-dialog header strong {
+  min-width: 0;
+  flex: 1;
+  color: #162f2d;
+  overflow-wrap: anywhere;
+}
+
+.media-preview-dialog header button {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #cfd8e3;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  background: #f7fafc;
+  color: #26384f;
+  cursor: pointer;
+}
+
+.media-preview-body {
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  background: #0f1d20;
+}
+
+.media-preview-body img,
+.media-preview-body video {
+  display: block;
+  max-width: 100%;
+  max-height: 68vh;
+  border-radius: 6px;
+  object-fit: contain;
+}
+
+.media-preview-dialog p {
+  margin: 0;
+  padding: 10px 14px 12px;
+  color: #60766f;
+  font-size: 0.9rem;
 }
 
 .document-list {

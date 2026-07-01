@@ -1306,6 +1306,44 @@ describe('App exhibit management', () => {
     expect(screen.getByText('现场演示')).toBeTruthy();
   });
 
+  it('opens image and video media assets in an in-page preview dialog', async () => {
+    const withMedia = apiExhibit({
+      ...frontendExhibit,
+      media: [
+        {
+          id: 'preview-image',
+          type: 'image',
+          name: 'preview-image.png',
+          url: 'http://assets.test/preview.png',
+          note: 'render'
+        },
+        {
+          id: 'preview-video',
+          type: 'video',
+          name: 'preview-video.mp4',
+          url: 'http://assets.test/preview.mp4',
+          note: 'walkthrough'
+        }
+      ]
+    });
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [withMedia] }));
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole('button', { name: '预览媒体 preview-image.png' }));
+    const imageDialog = screen.getByRole('dialog', { name: 'preview-image.png' });
+    expect(within(imageDialog).getByAltText('preview-image.png')).toBeTruthy();
+
+    fireEvent.click(within(imageDialog).getByRole('button', { name: '关闭媒体预览' }));
+    expect(screen.queryByRole('dialog', { name: 'preview-image.png' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: '预览媒体 preview-video.mp4' }));
+    const videoDialog = screen.getByRole('dialog', { name: 'preview-video.mp4' });
+    const video = within(videoDialog).getByLabelText('preview-video.mp4 播放器') as HTMLVideoElement;
+    expect(video.tagName).toBe('VIDEO');
+    expect(video.controls).toBe(true);
+  });
+
   it('uploads PDF files as document assets and renders the returned document link', async () => {
     const updated = {
       ...apiExhibit(),
