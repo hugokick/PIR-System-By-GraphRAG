@@ -1,3 +1,11 @@
+from .document_extraction import (
+    DocumentExtractionInput,
+    DocumentExtractionProvider,
+    DocumentExtractionResult,
+    DocumentTextInput,
+    SuggestedFieldSource,
+    extract_document_suggestions,
+)
 from .query_understanding import (
     AUDIENCE_FAMILY,
     AUDIENCE_LOW_AGE_CHILDREN,
@@ -13,6 +21,12 @@ from .query_understanding import (
 )
 
 __all__ = [
+    "DocumentExtractionInput",
+    "DocumentExtractionProvider",
+    "DocumentExtractionResult",
+    "DocumentTextInput",
+    "SuggestedFieldSource",
+    "extract_document_suggestions",
     "AUDIENCE_FAMILY",
     "AUDIENCE_LOW_AGE_CHILDREN",
     "AUDIENCE_PRIMARY_SCHOOL",
