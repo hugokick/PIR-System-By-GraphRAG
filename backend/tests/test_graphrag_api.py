@@ -533,6 +533,63 @@ def test_graphrag_answer_uses_rag_answerer_for_grounded_composition(monkeypatch)
     assert seen["inputs"].citations[0].source_id == cited_exhibit.id
 
 
+def test_graphrag_answer_returns_only_citations_used_by_answerer(monkeypatch):
+    from app.ai.rag_answerer import RagAnswerResult
+    from app.schemas import GraphResponse, GraphRagCitation, GraphRagSearchHit, GraphRagSearchResponse
+    from app.services import graphrag as graphrag_service
+
+    cited_exhibit = seed_exhibits[0]
+    used_citation = GraphRagCitation(
+        source_id="used-doc",
+        source_type="document",
+        title="采用的资料",
+        snippet="答案正文实际引用的资料片段",
+    )
+    unused_citation = GraphRagCitation(
+        source_id="unused-doc",
+        source_type="document",
+        title="未采用的资料",
+        snippet="检索命中但没有进入答案正文的资料片段",
+    )
+
+    def search_with_extra_citations(query, exhibits, top_k=3, filters=None, semantic_scores=None, snapshot=None):
+        return GraphRagSearchResponse(
+            query=query,
+            total=1,
+            items=[
+                GraphRagSearchHit(
+                    exhibit=cited_exhibit,
+                    score=2,
+                    reasons=["资料命中"],
+                    citations=[used_citation, unused_citation],
+                    graph=GraphResponse(nodes=[], edges=[]),
+                )
+            ],
+        )
+
+    def answer_using_one_citation(inputs):
+        return RagAnswerResult(
+            answer="只采用一个来源 [1]",
+            used_citation_keys=[("document", "used-doc")],
+            refusal_reason=None,
+            confidence=0.8,
+            warnings=[],
+        )
+
+    monkeypatch.setattr(graphrag_service, "search_graphrag_context", search_with_extra_citations)
+    monkeypatch.setattr(graphrag_service, "answer_rag", answer_using_one_citation)
+
+    result = graphrag_service.answer_from_graphrag_context(
+        "引用收窄",
+        seed_exhibits,
+        top_k=1,
+    )
+
+    assert result.answer == "只采用一个来源 [1]"
+    assert result.citations == [used_citation]
+    assert result.items[0].citations == [used_citation, unused_citation]
+
+
 def test_graphrag_answer_reports_when_no_evidence_is_found():
     response = client.post(
         "/api/graphrag/answer",

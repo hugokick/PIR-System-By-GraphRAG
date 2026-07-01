@@ -89,11 +89,12 @@ def answer_from_graphrag_context(
         )
 
     grounded_items = [item for item in search_response.items if item.citations]
-    answer = answer_rag(_to_rag_answer_inputs(query, grounded_items, citations)).answer
+    answer_result = answer_rag(_to_rag_answer_inputs(query, grounded_items, citations))
+    response_citations = _filter_used_citations(citations, answer_result.used_citation_keys)
     return GraphRagAnswerResponse(
         query=query,
-        answer=answer,
-        citations=citations,
+        answer=answer_result.answer,
+        citations=response_citations,
         items=search_response.items,
     )
 
@@ -177,6 +178,23 @@ def _deduplicate_citations(citations) -> list[GraphRagCitation]:
         seen.add(key)
         unique.append(citation)
     return unique
+
+
+def _filter_used_citations(
+    citations: list[GraphRagCitation],
+    used_citation_keys: list[tuple[str, str]],
+) -> list[GraphRagCitation]:
+    if not used_citation_keys:
+        return citations
+    citations_by_key = {
+        (citation.source_type, citation.source_id): citation
+        for citation in citations
+    }
+    return [
+        citations_by_key[key]
+        for key in used_citation_keys
+        if key in citations_by_key
+    ]
 
 
 def _to_rag_answer_inputs(
