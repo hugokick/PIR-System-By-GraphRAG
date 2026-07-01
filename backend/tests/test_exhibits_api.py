@@ -416,6 +416,15 @@ def test_editor_update_approved_exhibit_moves_back_to_pending_review():
         assert response.status_code == 200
         assert response.json()["name"] == "编辑员修改后的待审稿"
         assert response.json()["review_status"] == "待审核"
+
+        audit_response = client.get("/api/admin/audit-logs", headers=ADMIN_HEADERS)
+        entries = audit_response.json()["items"]
+        assert any(
+            entry["action"] == "update_exhibit"
+            and entry["resource_id"] == "editor-approved-review-reset-demo"
+            and "待审核" in entry["summary"]
+            for entry in entries
+        )
     finally:
         cleanup_payload = client.get("/api/exhibits/editor-approved-review-reset-demo").json()
         cleanup_payload["review_status"] = "待审核"

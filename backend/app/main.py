@@ -489,7 +489,12 @@ def update_exhibit(
     )
     if updated is None:
         raise not_found(exhibit_id)
-    write_audit(role, "update_exhibit", exhibit_id, f"Updated exhibit {exhibit_id}")
+    review_reset_note = (
+        " and moved review status back to 待审核"
+        if role != "admin" and existing.review_status in {"已审核", "已退回"}
+        else ""
+    )
+    write_audit(role, "update_exhibit", exhibit_id, f"Updated exhibit {exhibit_id}{review_reset_note}")
     return updated
 
 
