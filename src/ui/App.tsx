@@ -310,7 +310,8 @@ export function App() {
   } | null>(null);
   const [graphMode, setGraphMode] = useState<'current' | 'demo'>('current');
   const [graphError, setGraphError] = useState<string | null>(null);
-  const [selectedGraphNodeId, setSelectedGraphNodeId] = useState<string | null>(null);
+  const [selectedGraphNodeIds, setSelectedGraphNodeIds] = useState<string[]>([]);
+  const [graphHighlightDepth, setGraphHighlightDepth] = useState<1 | 2>(1);
   const [graphLayoutVersion, setGraphLayoutVersion] = useState(0);
 
   useEffect(() => {
@@ -388,7 +389,9 @@ export function App() {
         ? remoteGraph
         : fallbackGraph;
   const graphSourceLabel = graphMode === 'demo' || isRemoteGraph ? 'Neo4j 图数据库' : '本地轻量图谱';
-  const selectedGraphNode = graph.nodes.find((node) => node.id === selectedGraphNodeId) ?? graph.nodes[0] ?? null;
+  const graphNodeKey = graph.nodes.map((node) => node.id).join('\u0000');
+  const selectedGraphNode =
+    graph.nodes.find((node) => node.id === selectedGraphNodeIds[selectedGraphNodeIds.length - 1]) ?? null;
   const localStats = useMemo(() => graphStats(items), [items]);
   const stats = dashboardSummary ?? localStats;
   const canWrite = role !== 'viewer';
@@ -553,13 +556,19 @@ export function App() {
 
   useEffect(() => {
     if (graph.nodes.length === 0) {
-      setSelectedGraphNodeId(null);
+      setSelectedGraphNodeIds([]);
       return;
     }
-    if (!selectedGraphNodeId || !graph.nodes.some((node) => node.id === selectedGraphNodeId)) {
-      setSelectedGraphNodeId(graph.nodes[0].id);
-    }
-  }, [graph.nodes, selectedGraphNodeId]);
+    setSelectedGraphNodeIds((current) => {
+      const availableIds = new Set(graph.nodes.map((node) => node.id));
+      const next = current.filter((id) => availableIds.has(id));
+      const normalized = next.length > 0 ? next : [graph.nodes[0].id];
+      if (normalized.length === current.length && normalized.every((id, index) => id === current[index])) {
+        return current;
+      }
+      return normalized;
+    });
+  }, [graphNodeKey]);
 
   useEffect(() => {
     setSelectedRelatedId('');
@@ -900,7 +909,7 @@ export function App() {
         setItems(updated);
         setSelectedId(result.items[0].id);
         setGraphMode('current');
-        setSelectedGraphNodeId(null);
+        setSelectedGraphNodeIds([]);
         setGraphLayoutVersion((value) => value + 1);
       }
       setImportPreview(null);
@@ -917,6 +926,16 @@ export function App() {
 
   const relayoutGraph = () => {
     setGraphLayoutVersion((value) => value + 1);
+  };
+
+  const toggleGraphNodeSelection = (nodeId: string | null) => {
+    if (!nodeId) {
+      setSelectedGraphNodeIds([]);
+      return;
+    }
+    setSelectedGraphNodeIds((current) =>
+      current.includes(nodeId) ? current.filter((id) => id !== nodeId) : [...current, nodeId]
+    );
   };
 
   return (
@@ -1557,6 +1576,23 @@ export function App() {
                   <span>数据源：{graphSourceLabel}</span>
                   <span>节点 {graph.nodes.length}</span>
                   <span>关系 {graph.edges.length}</span>
+                  <div className="graph-highlight-depth" aria-label="graph highlight depth">
+                    <span>高亮范围</span>
+                    <button
+                      type="button"
+                      className={graphHighlightDepth === 1 ? 'active' : ''}
+                      onClick={() => setGraphHighlightDepth(1)}
+                    >
+                      1跳
+                    </button>
+                    <button
+                      type="button"
+                      className={graphHighlightDepth === 2 ? 'active' : ''}
+                      onClick={() => setGraphHighlightDepth(2)}
+                    >
+                      2跳
+                    </button>
+                  </div>
                   <button type="button" className="graph-layout-button" onClick={relayoutGraph}>
                     重新布局
                   </button>
@@ -1567,10 +1603,11 @@ export function App() {
                     <Suspense fallback={<div className="nvl-test-fallback">加载 Neo4j 图谱...</div>}>
                       <LazyNvlGraphView
                         graph={graph}
-                        selectedNodeId={selectedGraphNodeId}
+                        selectedNodeIds={selectedGraphNodeIds}
+                        highlightDepth={graphHighlightDepth}
                         layoutVersion={graphLayoutVersion}
                         nodeColors={graphNodeColors}
-                        onNodeSelect={setSelectedGraphNodeId}
+                        onNodeToggle={toggleGraphNodeSelection}
                       />
                     </Suspense>
                   </div>
@@ -1607,8 +1644,8 @@ export function App() {
                         <button
                           type="button"
                           key={node.id}
-                          className={node.id === selectedGraphNode?.id ? 'active' : ''}
-                          onClick={() => setSelectedGraphNodeId(node.id)}
+                          className={selectedGraphNodeIds.includes(node.id) ? 'active' : ''}
+                          onClick={() => toggleGraphNodeSelection(node.id)}
                         >
                           <span>{node.label}</span>
                           <small>{node.kind}</small>

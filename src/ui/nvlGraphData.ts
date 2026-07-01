@@ -10,8 +10,8 @@ export const nvlGraphStyling = {
   selectedBorderColor: '#f79767',
   selectedInnerBorderColor: '#ffffff',
   dropShadowColor: '#68bdf6',
-  disabledItemColor: '#2b3442',
-  disabledItemFontColor: '#778395',
+  disabledItemColor: '#536274',
+  disabledItemFontColor: '#c4ccd7',
   minimapViewportBoxColor: '#68bdf6'
 };
 
@@ -55,6 +55,12 @@ function buildSvgIcon(path: string) {
   )}`;
 }
 
+type HighlightDepth = 1 | 2;
+
+type BuildNvlGraphDataOptions = {
+  includeInitialPositions?: boolean;
+};
+
 function graphNodeSize(kind: string, selected: boolean) {
   const baseSize = nodeBaseSizes[kind] ?? 24;
   return selected ? baseSize + 8 : baseSize;
@@ -75,39 +81,73 @@ function initialNodePosition(index: number, total: number) {
   };
 }
 
-export function collectGraphNeighborIds(graph: { nodes: GraphNode[]; edges: GraphEdge[] }, selectedNodeId: string | null) {
+function normalizeSelectedNodeIds(selectedNodeIds: string[] | string | null) {
+  if (!selectedNodeIds) return [];
+  return Array.isArray(selectedNodeIds) ? selectedNodeIds : [selectedNodeIds];
+}
+
+export function collectGraphNeighborIds(
+  graph: { nodes: GraphNode[]; edges: GraphEdge[] },
+  selectedNodeIds: string[] | string | null,
+  depth: HighlightDepth = 1
+) {
   const ids = new Set<string>();
-  if (!selectedNodeId) return ids;
-  ids.add(selectedNodeId);
+  const seeds = normalizeSelectedNodeIds(selectedNodeIds);
+  if (seeds.length === 0) return ids;
+
+  const adjacency = new Map<string, Set<string>>();
+  const connect = (source: string, target: string) => {
+    if (!adjacency.has(source)) adjacency.set(source, new Set());
+    adjacency.get(source)?.add(target);
+  };
   graph.edges.forEach((edge) => {
-    if (edge.source === selectedNodeId) ids.add(edge.target);
-    if (edge.target === selectedNodeId) ids.add(edge.source);
+    connect(edge.source, edge.target);
+    connect(edge.target, edge.source);
   });
+
+  let frontier = new Set(seeds);
+  seeds.forEach((id) => ids.add(id));
+  for (let distance = 0; distance < depth; distance += 1) {
+    const next = new Set<string>();
+    frontier.forEach((id) => {
+      adjacency.get(id)?.forEach((neighborId) => {
+        if (!ids.has(neighborId)) next.add(neighborId);
+        ids.add(neighborId);
+      });
+    });
+    frontier = next;
+  }
+
   return ids;
 }
 
 export function buildNvlGraphData(
   graph: { nodes: GraphNode[]; edges: GraphEdge[] },
-  selectedNodeId: string | null,
-  nodeColors: Record<string, string>
+  selectedNodeIds: string[] | string | null,
+  highlightDepth: HighlightDepth,
+  nodeColors: Record<string, string>,
+  options: BuildNvlGraphDataOptions = {}
 ) {
-  const neighborIds = collectGraphNeighborIds(graph, selectedNodeId);
+  const selectedIds = new Set(normalizeSelectedNodeIds(selectedNodeIds));
+  const neighborIds = collectGraphNeighborIds(graph, [...selectedIds], highlightDepth);
+  const hasSelection = selectedIds.size > 0;
   const nodes: NvlNode[] = graph.nodes.map((node, index) => {
     const position = initialNodePosition(index, graph.nodes.length);
+    const selected = selectedIds.has(node.id);
+    const disabled = hasSelection && !neighborIds.has(node.id);
 
     return {
       id: node.id,
       caption: node.label,
       color: nodeColors[node.kind] ?? defaultNodeColor,
-      size: graphNodeSize(node.kind, node.id === selectedNodeId),
+      size: graphNodeSize(node.kind, selected),
       pinned: true,
-      selected: node.id === selectedNodeId,
-      activated: node.id === selectedNodeId,
-      disabled: Boolean(selectedNodeId) && !neighborIds.has(node.id),
-      captionSize: node.id === selectedNodeId ? 11 : 10,
+      selected,
+      activated: selected,
+      disabled,
+      captionSize: selected ? 11 : 10,
       captionAlign: 'bottom',
-      x: position.x,
-      y: position.y,
+      ...(options.includeInitialPositions === false ? {} : { x: position.x, y: position.y }),
       icon: nodeIconPaths[node.kind] ? buildSvgIcon(nodeIconPaths[node.kind]) : undefined,
       captions: [
         {
@@ -121,8 +161,8 @@ export function buildNvlGraphData(
     };
   });
   const rels: NvlRelationship[] = graph.edges.map((edge, index) => {
-    const highlighted = Boolean(selectedNodeId) && (edge.source === selectedNodeId || edge.target === selectedNodeId);
-    const disabled = Boolean(selectedNodeId) && edge.source !== selectedNodeId && edge.target !== selectedNodeId;
+    const highlighted = hasSelection && neighborIds.has(edge.source) && neighborIds.has(edge.target);
+    const disabled = hasSelection && !highlighted;
     const relationshipType = edge.type ?? edge.label;
     const readableCaption = relationshipCaption(relationshipType);
 
@@ -134,8 +174,8 @@ export function buildNvlGraphData(
       caption: readableCaption,
       captionSize: highlighted ? 9 : 8,
       captionAlign: 'center',
-      color: highlighted ? '#f79767' : disabled ? '#6f7d8f' : '#8f9bad',
-      width: highlighted ? 3.4 : disabled ? 1 : 2,
+      color: highlighted ? '#f79767' : disabled ? '#7d8798' : '#8f9bad',
+      width: highlighted ? 3.4 : disabled ? 1.4 : 2,
       disabled
     };
   });

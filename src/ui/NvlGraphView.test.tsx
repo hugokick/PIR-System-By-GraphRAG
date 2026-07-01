@@ -11,6 +11,11 @@ let lastNvlProps: {
   layoutOptions?: Record<string, unknown>;
   nvlOptions?: Record<string, unknown>;
   positions?: { id: string; x?: number; y?: number }[];
+  mouseEventCallbacks?: {
+    onNodeClick?: (node: { id: string }) => void;
+    onNodeDoubleClick?: (node: { id: string }) => void;
+    onCanvasClick?: () => void;
+  };
 } | null = null;
 let lastNvlApi = createMockNvlApi();
 
@@ -36,6 +41,11 @@ vi.mock('@neo4j-nvl/react', () => ({
         layoutOptions?: Record<string, unknown>;
         nvlOptions?: Record<string, unknown>;
         positions?: { id: string; x?: number; y?: number }[];
+        mouseEventCallbacks?: {
+          onNodeClick?: (node: { id: string }) => void;
+          onNodeDoubleClick?: (node: { id: string }) => void;
+          onCanvasClick?: () => void;
+        };
       },
       ref
     ) => {
@@ -100,7 +110,7 @@ const nodeColors: Record<string, string> = {
 
 describe('NvlGraphView graph mapping', () => {
   it('passes Neo4j-style node emphasis and relationship captions to NVL', () => {
-    const { nodes, rels } = buildNvlGraphData(graph, 'exhibit:magnet-maze', nodeColors);
+    const { nodes, rels } = buildNvlGraphData(graph, ['exhibit:magnet-maze'], 1, nodeColors);
 
     expect(nodes.find((node) => node.id === 'exhibit:magnet-maze')).toMatchObject({
       caption: 'Magnet Maze',
@@ -140,14 +150,14 @@ describe('NvlGraphView graph mapping', () => {
     expect(rels.find((rel) => rel.type === 'SUPPORTS_THEME')).toMatchObject({
       caption: '支持主题',
       disabled: true,
-      color: '#6f7d8f',
-      width: 1,
+      color: '#7d8798',
+      width: 1.4,
       captionSize: 8
     });
   });
 
   it('uses readable Chinese relationship captions for Neo4j relationship types', () => {
-    const { rels } = buildNvlGraphData(lowercaseRelationGraph, 'exhibit:water-cycle', nodeColors);
+    const { rels } = buildNvlGraphData(lowercaseRelationGraph, ['exhibit:water-cycle'], 1, nodeColors);
 
     expect(rels.map((rel) => rel.caption)).toEqual(['交互方式', '使用材料']);
   });
@@ -159,7 +169,8 @@ describe('NvlGraphView graph mapping', () => {
       selectedBorderColor: '#f79767',
       selectedInnerBorderColor: '#ffffff',
       dropShadowColor: '#68bdf6',
-      disabledItemColor: '#2b3442'
+      disabledItemColor: '#536274',
+      disabledItemFontColor: '#c4ccd7'
     });
   });
 
@@ -170,10 +181,11 @@ describe('NvlGraphView graph mapping', () => {
     render(
       <NvlGraphView
         graph={graph}
-        selectedNodeId="exhibit:magnet-maze"
+        selectedNodeIds={['exhibit:magnet-maze']}
+        highlightDepth={1}
         layoutVersion={0}
         nodeColors={nodeColors}
-        onNodeSelect={() => undefined}
+        onNodeToggle={() => undefined}
       />
     );
 
@@ -195,10 +207,11 @@ describe('NvlGraphView graph mapping', () => {
     const { rerender } = render(
       <NvlGraphView
         graph={graph}
-        selectedNodeId="exhibit:magnet-maze"
+        selectedNodeIds={['exhibit:magnet-maze']}
+        highlightDepth={1}
         layoutVersion={0}
         nodeColors={nodeColors}
-        onNodeSelect={() => undefined}
+        onNodeToggle={() => undefined}
       />
     );
     await new Promise((resolve) => window.setTimeout(resolve, 160));
@@ -208,10 +221,11 @@ describe('NvlGraphView graph mapping', () => {
     rerender(
       <NvlGraphView
         graph={graph}
-        selectedNodeId="material:acrylic"
+        selectedNodeIds={['material:acrylic']}
+        highlightDepth={1}
         layoutVersion={0}
         nodeColors={nodeColors}
-        onNodeSelect={() => undefined}
+        onNodeToggle={() => undefined}
       />
     );
     await new Promise((resolve) => window.setTimeout(resolve, 160));
@@ -230,7 +244,7 @@ describe('NvlGraphView graph mapping', () => {
       edges: []
     };
 
-    const { nodes } = buildNvlGraphData(denseGraph, 'node:0', nodeColors);
+    const { nodes } = buildNvlGraphData(denseGraph, ['node:0'], 1, nodeColors);
     const radii = nodes.map((node) => Math.hypot(node.x ?? 0, node.y ?? 0));
 
     expect(Math.min(...radii)).toBeGreaterThanOrEqual(400);
@@ -244,10 +258,11 @@ describe('NvlGraphView graph mapping', () => {
     const { container } = render(
       <NvlGraphView
         graph={graph}
-        selectedNodeId="exhibit:magnet-maze"
+        selectedNodeIds={['exhibit:magnet-maze']}
+        highlightDepth={1}
         layoutVersion={0}
         nodeColors={nodeColors}
-        onNodeSelect={() => undefined}
+        onNodeToggle={() => undefined}
       />
     );
 
@@ -281,10 +296,11 @@ describe('NvlGraphView graph mapping', () => {
     const { container } = render(
       <NvlGraphView
         graph={denseGraph}
-        selectedNodeId="exhibit:center"
+        selectedNodeIds={['exhibit:center']}
+        highlightDepth={1}
         layoutVersion={0}
         nodeColors={nodeColors}
-        onNodeSelect={() => undefined}
+        onNodeToggle={() => undefined}
       />
     );
 
@@ -292,9 +308,97 @@ describe('NvlGraphView graph mapping', () => {
     const visibleEdgeLabels = [...container.querySelectorAll('.nvl-edge-caption')].map((node) => node.textContent);
     expect(visibleEdgeLabels.length).toBeGreaterThan(0);
     expect(visibleEdgeLabels).not.toContain('unrelated');
-    expect(buildNvlGraphData(denseGraph, 'exhibit:center', nodeColors).rels.find((rel) => rel.type === 'UNRELATED_EDGE')).toMatchObject({
+    expect(buildNvlGraphData(denseGraph, ['exhibit:center'], 1, nodeColors).rels.find((rel) => rel.type === 'UNRELATED_EDGE')).toMatchObject({
       disabled: true
     });
+  });
+
+  it('supports accumulated selected nodes without making unrelated graph objects too faint', () => {
+    const { nodes, rels } = buildNvlGraphData(graph, ['exhibit:magnet-maze', 'supplier:qisi'], 1, nodeColors);
+
+    expect(nodes.find((node) => node.id === 'exhibit:magnet-maze')).toMatchObject({
+      selected: true,
+      disabled: false
+    });
+    expect(nodes.find((node) => node.id === 'supplier:qisi')).toMatchObject({
+      selected: true,
+      disabled: false
+    });
+    expect(nodes.find((node) => node.id === 'material:acrylic')).toMatchObject({
+      disabled: false
+    });
+    expect(nodes.find((node) => node.id === 'theme:optics')).toMatchObject({
+      disabled: false
+    });
+    expect(rels.find((rel) => rel.type === 'USES_MATERIAL')).toMatchObject({
+      disabled: false,
+      width: 3.4
+    });
+    expect(rels.find((rel) => rel.type === 'SUPPORTS_THEME')).toMatchObject({
+      disabled: false,
+      width: 3.4
+    });
+  });
+
+  it('can expand highlighted nodes and relationships to two hops', () => {
+    const chainGraph = {
+      nodes: [
+        { id: 'a', label: 'A', kind: 'exhibit' },
+        { id: 'b', label: 'B', kind: 'material' },
+        { id: 'c', label: 'C', kind: 'supplier' }
+      ],
+      edges: [
+        { source: 'a', target: 'b', label: 'a-b', type: 'FIRST_HOP' },
+        { source: 'b', target: 'c', label: 'b-c', type: 'SECOND_HOP' }
+      ]
+    };
+
+    expect(buildNvlGraphData(chainGraph, ['a'], 1, nodeColors).nodes.find((node) => node.id === 'c')).toMatchObject({
+      disabled: true
+    });
+    expect(buildNvlGraphData(chainGraph, ['a'], 1, nodeColors).rels.find((rel) => rel.type === 'SECOND_HOP')).toMatchObject({
+      disabled: true
+    });
+
+    const twoHop = buildNvlGraphData(chainGraph, ['a'], 2, nodeColors);
+    expect(twoHop.nodes.find((node) => node.id === 'c')).toMatchObject({
+      disabled: false
+    });
+    expect(twoHop.rels.find((rel) => rel.type === 'SECOND_HOP')).toMatchObject({
+      disabled: false,
+      width: 3.4
+    });
+  });
+
+  it('only reports selection changes on graph clicks and does not reset the layout', async () => {
+    vi.stubGlobal('navigator', { userAgent: 'Chrome' });
+    lastNvlApi = createMockNvlApi();
+    const onNodeToggle = vi.fn();
+    const { NvlGraphView } = await import('./NvlGraphView');
+
+    render(
+      <NvlGraphView
+        graph={graph}
+        selectedNodeIds={['exhibit:magnet-maze']}
+        highlightDepth={1}
+        layoutVersion={0}
+        nodeColors={nodeColors}
+        onNodeToggle={onNodeToggle}
+      />
+    );
+    await new Promise((resolve) => window.setTimeout(resolve, 160));
+    lastNvlApi.restart.mockClear();
+    lastNvlApi.fit.mockClear();
+
+    lastNvlProps?.mouseEventCallbacks?.onNodeClick?.({ id: 'material:acrylic' });
+    lastNvlProps?.mouseEventCallbacks?.onNodeDoubleClick?.({ id: 'supplier:qisi' });
+    lastNvlProps?.mouseEventCallbacks?.onCanvasClick?.();
+
+    expect(onNodeToggle).toHaveBeenCalledWith('material:acrylic');
+    expect(onNodeToggle).toHaveBeenCalledWith('supplier:qisi');
+    expect(onNodeToggle).toHaveBeenCalledWith(null);
+    expect(lastNvlApi.restart).not.toHaveBeenCalled();
+    expect(lastNvlApi.fit).not.toHaveBeenCalled();
   });
 
   it('expands the graph viewport enough to read labels in the canvas', () => {

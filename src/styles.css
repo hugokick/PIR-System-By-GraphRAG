@@ -1219,7 +1219,8 @@ textarea:focus {
 }
 
 .graph-mode-switch,
-.graph-meta {
+.graph-meta,
+.graph-highlight-depth {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1235,6 +1236,7 @@ textarea:focus {
 }
 
 .graph-mode-switch button,
+.graph-highlight-depth button,
 .graph-meta span,
 .graph-layout-button {
   border: 1px solid #cfd8e3;
@@ -1250,7 +1252,17 @@ textarea:focus {
   cursor: pointer;
 }
 
-.graph-mode-switch button.active {
+.graph-highlight-depth span {
+  background: #eef6f4;
+  color: #23443e;
+}
+
+.graph-highlight-depth button {
+  cursor: pointer;
+}
+
+.graph-mode-switch button.active,
+.graph-highlight-depth button.active {
   background: #123f63;
   border-color: #123f63;
   color: #fff;

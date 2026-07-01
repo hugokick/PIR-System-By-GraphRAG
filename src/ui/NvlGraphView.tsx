@@ -9,10 +9,11 @@ type NvlGraphViewProps = {
     nodes: GraphNode[];
     edges: GraphEdge[];
   };
-  selectedNodeId: string | null;
+  selectedNodeIds: string[];
+  highlightDepth: 1 | 2;
   layoutVersion: number;
   nodeColors: Record<string, string>;
-  onNodeSelect: (nodeId: string | null) => void;
+  onNodeToggle: (nodeId: string | null) => void;
 };
 
 const nvlForceDirectedLayout = 'd3Force' as Layout;
@@ -46,8 +47,17 @@ function nvlCanUseDomRenderer() {
   return true;
 }
 
-function normalizeNodePositions(value: unknown, fallbackNodes: NvlNode[]) {
-  const fallback = new Map(fallbackNodes.map((node) => [node.id, { x: node.x ?? 0, y: node.y ?? 0 }]));
+function normalizeNodePositions(
+  value: unknown,
+  fallbackNodes: NvlNode[],
+  fallbackPositions: { id: string; x?: number; y?: number }[] = []
+) {
+  const fallback = new Map(
+    (fallbackPositions.length > 0 ? fallbackPositions : fallbackNodes).map((node) => [
+      node.id,
+      { x: node.x ?? 0, y: node.y ?? 0 }
+    ])
+  );
   if (Array.isArray(value)) {
     value.forEach((node) => {
       if (node && typeof node.id === 'string') {
@@ -96,9 +106,14 @@ function isPointInViewport(point: { x: number; y: number }, viewport: ReturnType
   );
 }
 
-function buildOverlayFrame(nodes: NvlNode[], rels: NvlRelationship[], instance: any): OverlayFrame {
+function buildOverlayFrame(
+  nodes: NvlNode[],
+  rels: NvlRelationship[],
+  instance: any,
+  fallbackPositions: { id: string; x?: number; y?: number }[] = []
+): OverlayFrame {
   const viewport = readNvlViewport(instance);
-  const positions = normalizeNodePositions(instance?.getNodePositions?.(), nodes);
+  const positions = normalizeNodePositions(instance?.getNodePositions?.(), nodes, fallbackPositions);
   const nodeLabels = nodes
     .map((node) => {
       const screenPosition = worldToScreen(positions.get(node.id) ?? { x: 0, y: 0 }, viewport);
@@ -143,7 +158,14 @@ function buildOverlayFrame(nodes: NvlNode[], rels: NvlRelationship[], instance: 
   };
 }
 
-export function NvlGraphView({ graph, selectedNodeId, layoutVersion, nodeColors, onNodeSelect }: NvlGraphViewProps) {
+export function NvlGraphView({
+  graph,
+  selectedNodeIds,
+  highlightDepth,
+  layoutVersion,
+  nodeColors,
+  onNodeToggle
+}: NvlGraphViewProps) {
   const graphRef = useRef<any>(null);
   const overlayFrameRef = useRef<number | null>(null);
   const overlayTrackingRef = useRef<number | null>(null);
@@ -151,8 +173,6 @@ export function NvlGraphView({ graph, selectedNodeId, layoutVersion, nodeColors,
   const handleMinimapRef = useCallback((node: HTMLDivElement | null) => {
     setMinimapContainer(node);
   }, []);
-  const graphData = useMemo(() => buildNvlGraphData(graph, selectedNodeId, nodeColors), [graph, nodeColors, selectedNodeId]);
-  const graphDataRef = useRef(graphData);
   const graphTopologyKey = useMemo(
     () =>
       JSON.stringify({
@@ -162,12 +182,30 @@ export function NvlGraphView({ graph, selectedNodeId, layoutVersion, nodeColors,
     [graph.nodes, graph.edges]
   );
   const graphNodeIds = useMemo(() => graph.nodes.map((node) => node.id), [graphTopologyKey]);
+  const selectionKey = selectedNodeIds.join('\u0000');
+  const graphData = useMemo(
+    () => buildNvlGraphData(graph, selectedNodeIds, highlightDepth, nodeColors, { includeInitialPositions: false }),
+    [graph, nodeColors, selectionKey, highlightDepth]
+  );
+  const initialPositions = useMemo(
+    () =>
+      buildNvlGraphData(graph, [], 1, nodeColors).nodes.map((node) => ({
+        id: node.id,
+        x: node.x,
+        y: node.y
+      })),
+    [graphTopologyKey, nodeColors]
+  );
+  const graphDataRef = useRef(graphData);
+  const initialPositionsRef = useRef(initialPositions);
   const [overlayFrame, setOverlayFrame] = useState<OverlayFrame>(() =>
-    buildOverlayFrame(graphData.nodes, graphData.rels, null)
+    buildOverlayFrame(graphData.nodes, graphData.rels, null, initialPositions)
   );
   const syncOverlayFrame = useCallback(() => {
     const latestGraphData = graphDataRef.current;
-    setOverlayFrame(buildOverlayFrame(latestGraphData.nodes, latestGraphData.rels, graphRef.current));
+    setOverlayFrame(
+      buildOverlayFrame(latestGraphData.nodes, latestGraphData.rels, graphRef.current, initialPositionsRef.current)
+    );
   }, []);
   const scheduleOverlaySync = useCallback(() => {
     if (typeof window === 'undefined') {
@@ -208,8 +246,9 @@ export function NvlGraphView({ graph, selectedNodeId, layoutVersion, nodeColors,
 
   useEffect(() => {
     graphDataRef.current = graphData;
+    initialPositionsRef.current = initialPositions;
     syncOverlayFrame();
-  }, [graphData, syncOverlayFrame]);
+  }, [graphData, initialPositions, syncOverlayFrame]);
 
   useEffect(() => {
     if (!nvlCanUseDomRenderer()) return;
@@ -253,11 +292,11 @@ export function NvlGraphView({ graph, selectedNodeId, layoutVersion, nodeColors,
   return (
     <div className="nvl-stage">
       <InteractiveNvlWrapper
-        key={`nvl-${layoutVersion}`}
+        key={`nvl-${layoutVersion}-${graphTopologyKey}`}
         ref={graphRef}
         nodes={graphData.nodes}
         rels={graphData.rels}
-        positions={graphData.nodes}
+        positions={initialPositions}
         layout={nvlForceDirectedLayout}
         nvlOptions={{
           disableTelemetry: true,
@@ -271,15 +310,13 @@ export function NvlGraphView({ graph, selectedNodeId, layoutVersion, nodeColors,
           styling: nvlGraphStyling
         }}
         mouseEventCallbacks={{
-          onNodeClick: (node) => onNodeSelect(node.id),
+          onNodeClick: (node) => onNodeToggle(node.id),
           onNodeDoubleClick: (node) => {
-            onNodeSelect(node.id);
-            graphRef.current?.fit?.([node.id], { outOnly: false });
+            onNodeToggle(node.id);
             scheduleOverlaySync();
           },
           onCanvasClick: () => {
-            onNodeSelect(null);
-            graphRef.current?.fit?.(graphNodeIds, { outOnly: true });
+            onNodeToggle(null);
             scheduleOverlaySync();
           },
           onDrag: () => trackOverlayDuringLayout(8),
