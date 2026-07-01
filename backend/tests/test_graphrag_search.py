@@ -49,3 +49,27 @@ def test_search_graph_rag_returns_empty_response_when_no_evidence():
 
     assert response.total == 0
     assert response.items == []
+
+
+def test_search_graph_rag_merges_semantic_and_rule_recall():
+    response = search_graph_rag(
+        query="液体城市系统",
+        exhibits=seed_exhibits,
+        semantic_scores={"water-cycle": 0.91},
+        top_k=1,
+    )
+
+    assert response.items[0].exhibit.id == "water-cycle"
+    assert any("向量召回" in reason for reason in response.items[0].reasons)
+
+
+def test_search_graph_rag_prefers_document_evidence_when_query_hits_document_text():
+    response = search_graph_rag(
+        query="样例文档 来源链路",
+        exhibits=seed_exhibits,
+        filters=GraphRAGFilters(theme="力学"),
+        top_k=1,
+    )
+
+    assert response.items[0].exhibit.id == "lever-play"
+    assert response.items[0].citations
