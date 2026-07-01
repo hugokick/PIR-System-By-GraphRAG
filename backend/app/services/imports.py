@@ -185,6 +185,9 @@ def build_import_items(
     parsed_items: list[tuple[int, ExhibitResponse]] = []
     errors: list[ExhibitImportError] = []
 
+    if not rows:
+        return [], [ExhibitImportError(row=1, field="file", message="No import rows found")]
+
     for index, raw_row in enumerate(rows, start=2):
         row = normalize_row(raw_row)
         row_errors = validate_row(row, index)

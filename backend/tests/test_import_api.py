@@ -191,6 +191,35 @@ def test_import_preview_validates_rows_without_persisting():
     assert client.get("/api/exhibits/preview-import-demo").status_code == 404
 
 
+def test_import_preview_reports_empty_files_as_structured_error():
+    response = client.post(
+        "/api/exhibits/import",
+        data={"commit": "false"},
+        files={
+            "file": (
+                "empty-import.csv",
+                csv_bytes([]),
+                "text/csv",
+            )
+        },
+        headers=EDITOR_HEADERS,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total_rows"] == 0
+    assert payload["valid_rows"] == 0
+    assert payload["imported_count"] == 0
+    assert payload["items"] == []
+    assert payload["errors"] == [
+        {
+            "row": 1,
+            "field": "file",
+            "message": "No import rows found",
+        }
+    ]
+
+
 def test_import_commit_upserts_valid_rows_and_graph_relationships():
     response = client.post(
         "/api/exhibits/import",
