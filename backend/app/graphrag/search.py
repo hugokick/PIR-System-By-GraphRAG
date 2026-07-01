@@ -30,6 +30,8 @@ def search_graph_rag(
     for exhibit in filtered:
         if _is_excluded_by_query_understanding(understanding, exhibit):
             continue
+        if _is_outside_query_budget_range(understanding, exhibit):
+            continue
         hit = _score_exhibit(
             query,
             exhibit,
@@ -232,6 +234,9 @@ def _query_understanding_score(
     elif understanding.budget_intent == BUDGET_LOWER_THAN_REFERENCE and exhibit.budget_max <= 300000:
         score += 1.5
         reasons.append("查询理解：预算倾向 lower_than_reference")
+    if _should_score_budget_range(understanding, exhibit):
+        score += 2.0
+        reasons.append(f"查询理解：预算区间 {_format_query_budget_range(understanding)}")
     matched_tags = [tag for tag in exhibit.tags if tag in understanding.tags]
     if matched_tags:
         score += len(matched_tags)
@@ -247,6 +252,13 @@ def _is_excluded_by_query_understanding(
         understanding.exclusions
         and _exhibit_matches_exclusions(exhibit, understanding.exclusions)
     )
+
+
+def _is_outside_query_budget_range(
+    understanding: QueryUnderstandingResult,
+    exhibit: ExhibitResponse,
+) -> bool:
+    return _has_budget_range(understanding) and not _exhibit_matches_budget_range(exhibit, understanding)
 
 
 def _document_match_score(tokens: list[str], exhibit: ExhibitResponse) -> tuple[float, list[str]]:
@@ -279,6 +291,78 @@ def _exhibit_has_low_age_signal(exhibit: ExhibitResponse) -> bool:
     return any(signal in joined for signal in ("低龄儿童", "低龄", "儿童", "亲子"))
 
 
+def _has_budget_range(understanding: QueryUnderstandingResult) -> bool:
+    return understanding.budget_min is not None or understanding.budget_max is not None
+
+
+def _exhibit_matches_budget_range(
+    exhibit: ExhibitResponse,
+    understanding: QueryUnderstandingResult,
+) -> bool:
+    if understanding.budget_min is not None and exhibit.budget_max < understanding.budget_min:
+        return False
+    if understanding.budget_max is not None and exhibit.budget_min > understanding.budget_max:
+        return False
+    return True
+
+
+def _format_query_budget_range(understanding: QueryUnderstandingResult) -> str:
+    if understanding.budget_min is not None and understanding.budget_max is not None:
+        return f"{_format_budget(understanding.budget_min)}-{_format_budget(understanding.budget_max)}"
+    if understanding.budget_max is not None:
+        return f"{_format_budget(understanding.budget_max)}以内"
+    if understanding.budget_min is not None:
+        return f"{_format_budget(understanding.budget_min)}以上"
+    return "未指定"
+
+
+def _should_score_budget_range(
+    understanding: QueryUnderstandingResult,
+    exhibit: ExhibitResponse,
+) -> bool:
+    return (
+        _has_budget_range(understanding)
+        and _exhibit_matches_budget_range(exhibit, understanding)
+        and (
+            not _has_non_budget_understanding(understanding)
+            or _exhibit_matches_non_budget_understanding(exhibit, understanding)
+        )
+    )
+
+
+def _has_non_budget_understanding(understanding: QueryUnderstandingResult) -> bool:
+    return bool(
+        understanding.themes
+        or understanding.venue_types
+        or understanding.audience
+        or understanding.materials
+        or understanding.interactions
+        or understanding.tags
+    )
+
+
+def _exhibit_matches_non_budget_understanding(
+    exhibit: ExhibitResponse,
+    understanding: QueryUnderstandingResult,
+) -> bool:
+    return any(
+        [
+            bool(understanding.themes and exhibit.theme.name in understanding.themes),
+            bool(understanding.venue_types and exhibit.venue_type in understanding.venue_types),
+            bool(
+                understanding.materials
+                and any(material.name in understanding.materials for material in exhibit.materials)
+            ),
+            bool(
+                understanding.interactions
+                and any(interaction.name in understanding.interactions for interaction in exhibit.interactions)
+            ),
+            bool(AUDIENCE_LOW_AGE_CHILDREN in understanding.audience and _exhibit_has_low_age_signal(exhibit)),
+            bool(understanding.tags and any(tag in understanding.tags for tag in exhibit.tags)),
+        ]
+    )
+
+
 def _exhibit_matches_exclusions(exhibit: ExhibitResponse, exclusions: list[str]) -> bool:
     joined = " ".join(
         [
@@ -295,6 +379,12 @@ def _exhibit_matches_exclusions(exhibit: ExhibitResponse, exclusions: list[str])
         ]
     )
     return any(exclusion in joined for exclusion in exclusions)
+
+
+def _format_budget(value: int) -> str:
+    if value % 10000 == 0:
+        return f"{value // 10000} 万"
+    return f"{value / 10000:.1f} 万"
 
 
 def _dedupe_citations(evidences: list[KGEvidence]) -> list[KGEvidence]:

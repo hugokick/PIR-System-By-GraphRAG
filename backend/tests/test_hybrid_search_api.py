@@ -72,6 +72,22 @@ def test_hybrid_search_explains_low_budget_intent_without_structured_filter():
     assert "匹配预算：低预算 15 万-28 万" in payload["items"][0]["reasons"]
 
 
+def test_hybrid_search_applies_query_understanding_budget_range():
+    response = client.post(
+        "/api/search/hybrid",
+        json={
+            "query": "找预算 30-50 万的力学展项",
+            "limit": 5,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["exhibit"]["id"] == "lever-play"
+    assert "查询理解：预算区间 30 万-50 万" in payload["items"][0]["reasons"]
+
+
 def test_hybrid_search_uses_query_understanding_for_chinese_business_intent():
     response = client.post(
         "/api/search/hybrid",

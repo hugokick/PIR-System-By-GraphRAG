@@ -89,6 +89,22 @@ def test_graphrag_search_applies_tag_filter():
     assert payload["items"][0]["exhibit"]["id"] == "pulley-wall"
 
 
+def test_graphrag_search_applies_query_understanding_budget_range():
+    response = client.post(
+        "/api/graphrag/search",
+        json={
+            "query": "找预算 30-50 万的力学展项",
+            "top_k": 5,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["exhibit"]["id"] == "lever-play"
+    assert "查询理解：预算区间 30 万-50 万" in payload["items"][0]["reasons"]
+
+
 def test_graphrag_search_applies_owner_and_supplier_filters():
     owner_response = client.post(
         "/api/graphrag/search",

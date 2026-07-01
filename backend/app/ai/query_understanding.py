@@ -79,9 +79,10 @@ def _rule_based_understand(query: str) -> QueryUnderstandingResult:
         reasoning.append("识别到人群：family")
 
     budget_intent = BUDGET_UNKNOWN
-    budget_min = None
-    budget_max = None
-    if "预算更低" in normalized_query or ("更低" in normalized_query and "类似" in normalized_query):
+    budget_min, budget_max = _extract_budget_bounds(normalized_query, reasoning)
+    if budget_min is not None or budget_max is not None:
+        budget_intent = BUDGET_MEDIUM
+    elif "预算更低" in normalized_query or ("更低" in normalized_query and "类似" in normalized_query):
         budget_intent = BUDGET_LOWER_THAN_REFERENCE
         reasoning.append("识别到预算倾向：lower_than_reference")
     elif any(signal in normalized_query for signal in ("预算不高", "预算有限", "低预算", "预算低")):
@@ -105,6 +106,8 @@ def _rule_based_understand(query: str) -> QueryUnderstandingResult:
         venue_types=venue_types,
         audience=audience,
         budget_intent=budget_intent,
+        budget_min=budget_min,
+        budget_max=budget_max,
         materials=materials,
         interactions=interactions,
         tags=tags,
@@ -163,12 +166,52 @@ def _extract_exclusions(query: str, reasoning: list[str]) -> list[str]:
     return exclusions
 
 
+def _extract_budget_bounds(query: str, reasoning: list[str]) -> tuple[int | None, int | None]:
+    range_match = re.search(
+        r"(?:预算|造价)?(?:约|大约)?(\d+(?:\.\d+)?)(?:万)?(?:-|到|至|~|～)(\d+(?:\.\d+)?)万",
+        query,
+    )
+    if range_match:
+        lower = _budget_wan_to_yuan(range_match.group(1))
+        upper = _budget_wan_to_yuan(range_match.group(2))
+        budget_min, budget_max = sorted((lower, upper))
+        reasoning.append(f"识别到预算区间：{_format_budget_wan(budget_min)}-{_format_budget_wan(budget_max)}")
+        return budget_min, budget_max
+
+    max_match = re.search(r"(?:预算|造价)?(?:约|大约)?(\d+(?:\.\d+)?)万(?:以内|以下|内)", query)
+    if max_match:
+        budget_max = _budget_wan_to_yuan(max_match.group(1))
+        reasoning.append(f"识别到预算上限：{_format_budget_wan(budget_max)}")
+        return None, budget_max
+
+    min_match = re.search(r"(?:预算|造价)?(?:约|大约)?(\d+(?:\.\d+)?)万(?:以上|起)", query)
+    if min_match:
+        budget_min = _budget_wan_to_yuan(min_match.group(1))
+        reasoning.append(f"识别到预算下限：{_format_budget_wan(budget_min)}")
+        return budget_min, None
+
+    return None, None
+
+
+def _budget_wan_to_yuan(value: str) -> int:
+    return int(float(value) * 10000)
+
+
+def _format_budget_wan(value: int) -> str:
+    amount = value / 10000
+    if amount.is_integer():
+        return f"{int(amount)} 万"
+    return f"{amount:.1f} 万"
+
+
 def _confidence(
     *,
     themes: list[str],
     venue_types: list[str],
     audience: list[str],
     budget_intent: str,
+    budget_min: int | None,
+    budget_max: int | None,
     materials: list[str],
     interactions: list[str],
     tags: list[str],
@@ -177,13 +220,15 @@ def _confidence(
     normalized_query: str,
 ) -> float:
     score = 0.0
+    if budget_min is not None or budget_max is not None:
+        score += 0.2
     if themes:
         score += 0.2
     if venue_types:
         score += 0.15
     if audience:
         score += 0.15
-    if budget_intent != BUDGET_UNKNOWN:
+    if budget_intent not in (BUDGET_UNKNOWN, BUDGET_MEDIUM):
         score += 0.15
     if materials:
         score += 0.1
