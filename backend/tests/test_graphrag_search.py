@@ -2,6 +2,7 @@ from app.graphrag.models import GraphRAGFilters
 from app.graphrag.search import search_graph_rag
 from app.kg.models import KGEdge, KGNode, KGSnapshot
 from app.repository import seed_exhibits
+from app.schemas import DocumentAsset, DocumentChunk
 
 
 def test_graph_rag_search_applies_budget_filters():
@@ -60,3 +61,45 @@ def test_graph_rag_search_includes_deduped_incoming_neighbor_edges():
         (edge.source, edge.type, edge.target)
         for edge in response.items[0].neighborhood.edges
     ] == [(related_id, "similar_to", center_id)]
+
+
+def test_graph_rag_search_cites_only_matched_documents_when_chunk_matches():
+    first_document = DocumentAsset(
+        id="first-doc",
+        name="first-guide.txt",
+        file_type="txt",
+        url="/api/files/first-doc",
+        source_note="unmatched source",
+        chunks=[
+            DocumentChunk(
+                id="first-doc:chunk-1",
+                text="first-only-token should not be cited for this query",
+                sequence=1,
+            )
+        ],
+    )
+    second_document = DocumentAsset(
+        id="second-doc",
+        name="second-guide.txt",
+        file_type="txt",
+        url="/api/files/second-doc",
+        source_note="matched source",
+        chunks=[
+            DocumentChunk(
+                id="second-doc:chunk-1",
+                text="second-only-token is the precise supporting evidence",
+                sequence=1,
+            )
+        ],
+    )
+    target = seed_exhibits[0].model_copy(
+        update={
+            "documents": [first_document, second_document],
+        }
+    )
+
+    response = search_graph_rag("second-only-token", [target], top_k=1)
+
+    citation_ids = {citation.source_id for citation in response.items[0].citations}
+    assert "second-doc" in citation_ids
+    assert "first-doc" not in citation_ids

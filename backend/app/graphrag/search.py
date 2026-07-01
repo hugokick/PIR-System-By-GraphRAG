@@ -122,7 +122,7 @@ def _score_exhibit(
             score += len(set(matched)) * weights[label]
             reasons.append(f"matched {label}")
 
-    document_score, document_reasons = _document_match_score(tokens, exhibit)
+    document_score, document_reasons, matched_document_ids = _document_match_score(tokens, exhibit)
     if document_score:
         score += document_score
         reasons.extend(document_reasons)
@@ -146,11 +146,7 @@ def _score_exhibit(
     exhibit_node_id = f"exhibit:{exhibit.id}"
     neighborhood = _one_hop_neighborhood(snapshot, exhibit_node_id)
     citations = _dedupe_citations(
-        [
-            evidence
-            for evidence in snapshot.evidences
-            if exhibit_node_id in evidence.linked_node_ids
-        ]
+        _evidences_for_hit(snapshot, exhibit_node_id, matched_document_ids)
     )
     return GraphRAGHit(
         exhibit=exhibit,
@@ -289,9 +285,10 @@ def _is_outside_reference_budget(
     )
 
 
-def _document_match_score(tokens: list[str], exhibit: ExhibitResponse) -> tuple[float, list[str]]:
+def _document_match_score(tokens: list[str], exhibit: ExhibitResponse) -> tuple[float, list[str], set[str]]:
     score = 0.0
     reasons: list[str] = []
+    matched_document_ids: set[str] = set()
     for document in exhibit.documents:
         values = [
             document.name,
@@ -303,8 +300,9 @@ def _document_match_score(tokens: list[str], exhibit: ExhibitResponse) -> tuple[
         if not matched:
             continue
         score += len(matched) * 2.0
+        matched_document_ids.add(document.id)
         reasons.append(f"匹配资料：{document.name}")
-    return score, reasons
+    return score, reasons, matched_document_ids
 
 
 def _exhibit_has_low_age_signal(exhibit: ExhibitResponse) -> bool:
@@ -462,6 +460,25 @@ def _dedupe_citations(evidences: list[KGEvidence]) -> list[KGEvidence]:
         seen.add(key)
         unique.append(evidence)
     return unique
+
+
+def _evidences_for_hit(
+    snapshot: KGSnapshot,
+    exhibit_node_id: str,
+    matched_document_ids: set[str],
+) -> list[KGEvidence]:
+    linked = [
+        evidence
+        for evidence in snapshot.evidences
+        if exhibit_node_id in evidence.linked_node_ids
+    ]
+    if not matched_document_ids:
+        return linked
+    return [
+        evidence
+        for evidence in linked
+        if evidence.source_type != "document" or evidence.source_id in matched_document_ids
+    ]
 
 
 def _dedupe_edges(edges):
