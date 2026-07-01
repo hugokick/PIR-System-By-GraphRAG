@@ -580,6 +580,35 @@ describe('askGraphRag', () => {
     expect(result.items[0].exhibit.id).toBe('lever-play');
     expect(result.citations[0].sourceId).toBe('lever-play');
   });
+
+  it('sends structured filters with GraphRAG answer requests', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        query: '力学',
+        answer: 'Filtered answer.',
+        citations: [],
+        items: []
+      })
+    } as Response);
+
+    await askGraphRag('力学', 2, {
+      theme: '力学',
+      reviewStatus: '待审核',
+      budgetRange: [100000, 400000]
+    });
+
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
+      query: '力学',
+      top_k: 2,
+      filters: {
+        theme: '力学',
+        review_status: '待审核',
+        budget_min: 100000,
+        budget_max: 400000
+      }
+    });
+  });
 });
 
 describe('hybridSearchExhibits', () => {

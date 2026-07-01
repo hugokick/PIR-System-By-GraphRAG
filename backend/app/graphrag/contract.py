@@ -17,6 +17,7 @@ class GraphRAGContractFilters(BaseModel):
     interaction: str | None = None
     venue_type: str | None = None
     status: str | None = None
+    review_status: str | None = None
     budget_min: int | None = None
     budget_max: int | None = None
 
@@ -175,7 +176,7 @@ def _apply_contract_filters(
             material=filters.material,
             interaction=filters.interaction,
             status=filters.status,
-            review_status=None,
+            review_status=filters.review_status,
             budget_min=filters.budget_min,
             budget_max=filters.budget_max,
         )
@@ -191,6 +192,7 @@ def _search_filters(filters: GraphRAGContractFilters | None) -> GraphRAGFilters 
         interaction=filters.interaction,
         venue_type=filters.venue_type,
         status=filters.status,
+        review_status=filters.review_status,
     )
 
 

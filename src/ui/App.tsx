@@ -685,7 +685,7 @@ export function App() {
     setIsAskingGraphRag(true);
     setGraphRagError(null);
     try {
-      const answer = await askGraphRag(query, 3);
+      const answer = await askGraphRag(query, 3, filters);
       setGraphRagAnswer(answer);
       if (answer.items[0]) {
         setSelectedId(answer.items[0].exhibit.id);

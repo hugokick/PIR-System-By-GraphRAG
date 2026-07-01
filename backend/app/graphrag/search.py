@@ -57,7 +57,7 @@ def _apply_filters(
             material=filters.material,
             interaction=filters.interaction,
             status=filters.status,
-            review_status=None,
+            review_status=filters.review_status,
             budget_min=None,
             budget_max=None,
         )

@@ -646,7 +646,13 @@ describe('App exhibit management', () => {
       const url = String(input);
       if (url.endsWith('/api/graphrag/answer')) {
         expect(init?.method).toBe('POST');
-        expect(init?.body).toBe(JSON.stringify({ query: 'lever-play', top_k: 3 }));
+        expect(JSON.parse(String(init?.body))).toEqual({
+          query: 'lever-play',
+          top_k: 3,
+          filters: {
+            review_status: '待审核'
+          }
+        });
         return okJson({
           query: 'lever-play',
           answer: 'Based on exhibit records and graph context.',
@@ -678,6 +684,7 @@ describe('App exhibit management', () => {
     render(<App />);
 
     await screen.findByRole('heading', { name: '磁力迷宫' });
+    fireEvent.change(screen.getByLabelText('审核状态'), { target: { value: '待审核' } });
     fireEvent.change(screen.getByLabelText(/GraphRAG/), { target: { value: 'lever-play' } });
     fireEvent.click(screen.getByRole('button', { name: '生成答案' }));
 

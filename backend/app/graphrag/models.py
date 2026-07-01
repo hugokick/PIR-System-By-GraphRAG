@@ -10,6 +10,7 @@ class GraphRAGFilters(BaseModel):
     interaction: str | None = None
     venue_type: str | None = None
     status: str | None = None
+    review_status: str | None = None
 
 
 class GraphRAGHit(BaseModel):

@@ -153,6 +153,7 @@ class GraphRagRequestFilters(BaseModel):
     interaction: str | None = None
     venue_type: str | None = None
     status: str | None = None
+    review_status: str | None = None
     budget_min: int | None = Field(default=None, ge=0)
     budget_max: int | None = Field(default=None, ge=0)
 

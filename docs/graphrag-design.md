@@ -18,7 +18,11 @@ POST /api/graphrag/answer
 ```json
 {
   "query": "lever-play",
-  "top_k": 5
+  "top_k": 5,
+  "filters": {
+    "theme": "力学",
+    "review_status": "待审核"
+  }
 }
 ```
 
@@ -37,7 +41,10 @@ POST /api/graphrag/answer
 ```json
 {
   "query": "lever-play",
-  "top_k": 3
+  "top_k": 3,
+  "filters": {
+    "review_status": "已通过"
+  }
 }
 ```
 

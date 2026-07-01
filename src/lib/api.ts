@@ -602,10 +602,15 @@ export async function fetchDemoGraph() {
   return mapApiGraph(payload);
 }
 
-export async function askGraphRag(query: string, topK = 3): Promise<GraphRagAnswer> {
+export async function askGraphRag(query: string, topK = 3, filters: ExhibitFilters = {}): Promise<GraphRagAnswer> {
+  const graphRagFilters = mapGraphRagFilters(filters);
+  const requestBody: Record<string, unknown> = { query, top_k: topK };
+  if (Object.keys(graphRagFilters).length > 0) {
+    requestBody.filters = graphRagFilters;
+  }
   const payload = await sendJson<ApiGraphRagAnswerResponse>('/api/graphrag/answer', {
     method: 'POST',
-    body: JSON.stringify({ query, top_k: topK })
+    body: JSON.stringify(requestBody)
   });
   return mapApiGraphRagAnswer(payload);
 }
@@ -640,6 +645,21 @@ function mapHybridSearchFilters(filters: ExhibitFilters) {
   if (filters.interaction) payload.interaction = filters.interaction;
   if (filters.venueType) payload.venue_type = filters.venueType;
   if (filters.status) payload.status = filters.status;
+  if (filters.budgetRange) {
+    payload.budget_min = filters.budgetRange[0];
+    payload.budget_max = filters.budgetRange[1];
+  }
+  return payload;
+}
+
+function mapGraphRagFilters(filters: ExhibitFilters) {
+  const payload: Record<string, string | number> = {};
+  if (filters.theme) payload.theme = filters.theme;
+  if (filters.material) payload.material = filters.material;
+  if (filters.interaction) payload.interaction = filters.interaction;
+  if (filters.venueType) payload.venue_type = filters.venueType;
+  if (filters.status) payload.status = filters.status;
+  if (filters.reviewStatus) payload.review_status = filters.reviewStatus;
   if (filters.budgetRange) {
     payload.budget_min = filters.budgetRange[0];
     payload.budget_max = filters.budgetRange[1];

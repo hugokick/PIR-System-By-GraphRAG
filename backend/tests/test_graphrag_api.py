@@ -51,6 +51,26 @@ def test_graphrag_search_applies_structured_filters():
     assert payload["items"][0]["exhibit"]["id"] == "lever-play"
 
 
+def test_graphrag_search_applies_review_status_filter():
+    response = client.post(
+        "/api/graphrag/search",
+        json={
+            "query": "力学",
+            "top_k": 5,
+            "filters": {
+                "theme": "力学",
+                "review_status": "待审核",
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["exhibit"]["id"] == "pulley-wall"
+    assert payload["items"][0]["exhibit"]["review_status"] == "待审核"
+
+
 def test_graphrag_search_keeps_document_citations_with_their_exhibit():
     response = client.post(
         "/api/graphrag/search",
