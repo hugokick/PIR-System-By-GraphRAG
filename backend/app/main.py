@@ -404,7 +404,17 @@ def import_exhibits(
             else:
                 exhibit = normalize_write_review_status(item, role, existing)
                 imported.append(repository.update_exhibit(item.id, exhibit) or exhibit)
-                write_audit(role, "import_update_exhibit", item.id, f"Updated exhibit {item.id} from import")
+                review_reset_note = (
+                    " and moved review status back to 待审核"
+                    if role != "admin" and existing.review_status in {"已审核", "已退回"}
+                    else ""
+                )
+                write_audit(
+                    role,
+                    "import_update_exhibit",
+                    item.id,
+                    f"Updated exhibit {item.id} from import{review_reset_note}",
+                )
         filename = file.filename or "uploaded-file"
         write_audit(
             role,

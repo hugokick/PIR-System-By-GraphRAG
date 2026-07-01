@@ -221,38 +221,41 @@ def test_import_preview_reports_empty_files_as_structured_error():
 
 
 def test_import_commit_upserts_valid_rows_and_graph_relationships():
-    response = client.post(
-        "/api/exhibits/import",
-        data={"commit": "true"},
-        files={
-            "file": (
-                "exhibits.csv",
-                csv_bytes([valid_import_row("committed-import-demo")]),
-                "text/csv",
-            )
-        },
-        headers=EDITOR_HEADERS,
-    )
+    try:
+        response = client.post(
+            "/api/exhibits/import",
+            data={"commit": "true"},
+            files={
+                "file": (
+                    "exhibits.csv",
+                    csv_bytes([valid_import_row("committed-import-demo")]),
+                    "text/csv",
+                )
+            },
+            headers=EDITOR_HEADERS,
+        )
 
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["total_rows"] == 1
-    assert payload["valid_rows"] == 1
-    assert payload["imported_count"] == 1
-    assert payload["items"][0]["id"] == "committed-import-demo"
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["total_rows"] == 1
+        assert payload["valid_rows"] == 1
+        assert payload["imported_count"] == 1
+        assert payload["items"][0]["id"] == "committed-import-demo"
 
-    detail_response = client.get("/api/exhibits/committed-import-demo")
-    assert detail_response.status_code == 200
-    detail = detail_response.json()
-    assert detail["materials"] == [
-        {"id": "metal", "name": "Metal"},
-        {"id": "acrylic", "name": "Acrylic"},
-    ]
+        detail_response = client.get("/api/exhibits/committed-import-demo")
+        assert detail_response.status_code == 200
+        detail = detail_response.json()
+        assert detail["materials"] == [
+            {"id": "metal", "name": "Metal"},
+            {"id": "acrylic", "name": "Acrylic"},
+        ]
 
-    graph_response = client.get("/api/exhibits/committed-import-demo/graph")
-    edge_types = {edge["type"] for edge in graph_response.json()["edges"]}
-    assert "uses_material" in edge_types
-    assert "similar_to" in edge_types
+        graph_response = client.get("/api/exhibits/committed-import-demo/graph")
+        edge_types = {edge["type"] for edge in graph_response.json()["edges"]}
+        assert "uses_material" in edge_types
+        assert "similar_to" in edge_types
+    finally:
+        client.delete("/api/exhibits/committed-import-demo", headers=ADMIN_HEADERS)
 
 
 def test_import_update_moves_approved_exhibit_back_to_pending_for_editors():
@@ -282,6 +285,15 @@ def test_import_update_moves_approved_exhibit_back_to_pending_for_editors():
         detail_response = client.get("/api/exhibits/lever-play")
         assert detail_response.status_code == 200
         assert detail_response.json()["review_status"] == "待审核"
+
+        audit_response = client.get("/api/admin/audit-logs", headers=ADMIN_HEADERS)
+        entries = audit_response.json()["items"]
+        assert any(
+            entry["action"] == "import_update_exhibit"
+            and entry["resource_id"] == "lever-play"
+            and "待审核" in entry["summary"]
+            for entry in entries
+        )
     finally:
         client.put("/api/exhibits/lever-play", json=original, headers=ADMIN_HEADERS)
 
@@ -360,29 +372,33 @@ def test_import_allows_related_exhibit_ids_from_same_batch():
     second = valid_import_row("batch-relation-b")
     second[-1] = "batch-relation-a"
 
-    response = client.post(
-        "/api/exhibits/import",
-        data={"commit": "true"},
-        files={
-            "file": (
-                "batch-relations.csv",
-                csv_bytes([first, second]),
-                "text/csv",
-            )
-        },
-        headers=EDITOR_HEADERS,
-    )
+    try:
+        response = client.post(
+            "/api/exhibits/import",
+            data={"commit": "true"},
+            files={
+                "file": (
+                    "batch-relations.csv",
+                    csv_bytes([first, second]),
+                    "text/csv",
+                )
+            },
+            headers=EDITOR_HEADERS,
+        )
 
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["valid_rows"] == 2
-    assert payload["imported_count"] == 2
-    assert payload["errors"] == []
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["valid_rows"] == 2
+        assert payload["imported_count"] == 2
+        assert payload["errors"] == []
 
-    graph_response = client.get("/api/exhibits/batch-relation-a/graph")
-    assert graph_response.status_code == 200
-    edge_types = {edge["type"] for edge in graph_response.json()["edges"]}
-    assert "similar_to" in edge_types
+        graph_response = client.get("/api/exhibits/batch-relation-a/graph")
+        assert graph_response.status_code == 200
+        edge_types = {edge["type"] for edge in graph_response.json()["edges"]}
+        assert "similar_to" in edge_types
+    finally:
+        client.delete("/api/exhibits/batch-relation-a", headers=ADMIN_HEADERS)
+        client.delete("/api/exhibits/batch-relation-b", headers=ADMIN_HEADERS)
 
 
 def test_import_commit_records_batch_audit_summary():
@@ -391,33 +407,37 @@ def test_import_commit_records_batch_audit_summary():
     second = valid_import_row("audit-batch-import-b")
     second[-1] = "audit-batch-import-a"
 
-    response = client.post(
-        "/api/exhibits/import",
-        data={"commit": "true"},
-        files={
-            "file": (
-                "audit-batch.csv",
-                csv_bytes([first, second]),
-                "text/csv",
-            )
-        },
-        headers=EDITOR_HEADERS,
-    )
+    try:
+        response = client.post(
+            "/api/exhibits/import",
+            data={"commit": "true"},
+            files={
+                "file": (
+                    "audit-batch.csv",
+                    csv_bytes([first, second]),
+                    "text/csv",
+                )
+            },
+            headers=EDITOR_HEADERS,
+        )
 
-    assert response.status_code == 200
-    assert response.json()["imported_count"] == 2
+        assert response.status_code == 200
+        assert response.json()["imported_count"] == 2
 
-    audit_response = client.get("/api/admin/audit-logs", headers=ADMIN_HEADERS)
-    assert audit_response.status_code == 200
-    entries = audit_response.json()["items"]
-    assert any(
-        entry["actor_role"] == "editor"
-        and entry["action"] == "import_batch"
-        and entry["resource_id"] == "audit-batch.csv"
-        and "total_rows=2" in entry["summary"]
-        and "imported=2" in entry["summary"]
-        for entry in entries
-    )
+        audit_response = client.get("/api/admin/audit-logs", headers=ADMIN_HEADERS)
+        assert audit_response.status_code == 200
+        entries = audit_response.json()["items"]
+        assert any(
+            entry["actor_role"] == "editor"
+            and entry["action"] == "import_batch"
+            and entry["resource_id"] == "audit-batch.csv"
+            and "total_rows=2" in entry["summary"]
+            and "imported=2" in entry["summary"]
+            for entry in entries
+        )
+    finally:
+        client.delete("/api/exhibits/audit-batch-import-a", headers=ADMIN_HEADERS)
+        client.delete("/api/exhibits/audit-batch-import-b", headers=ADMIN_HEADERS)
 
 
 def test_import_accepts_basic_xlsx_files():
