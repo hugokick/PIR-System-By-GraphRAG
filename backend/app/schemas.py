@@ -98,6 +98,23 @@ class ExhibitListResponse(BaseModel):
     items: list[ExhibitResponse]
 
 
+class DashboardMetric(BaseModel):
+    label: str
+    count: int
+
+
+class DashboardSummaryResponse(BaseModel):
+    total: int
+    landed: int
+    avg_budget: int
+    pending_review: int
+    rejected_review: int
+    categories: list[DashboardMetric]
+    budget_bands: list[DashboardMetric]
+    themes: list[DashboardMetric]
+    review_statuses: list[DashboardMetric]
+
+
 class ExhibitImportError(BaseModel):
     row: int
     field: str

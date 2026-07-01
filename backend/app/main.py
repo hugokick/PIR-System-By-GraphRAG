@@ -12,6 +12,7 @@ from .schemas import (
     AuthLoginRequest,
     AuthLoginResponse,
     AuthUser,
+    DashboardSummaryResponse,
     DocumentAsset,
     ExhibitImportResponse,
     ExhibitListResponse,
@@ -30,6 +31,7 @@ from .schemas import (
 )
 from .services.assets import file_extension, file_path, media_type_from_upload, save_upload_file
 from .services.auth import authenticate_demo_user, issue_access_token, verify_access_token
+from .services.dashboard import summarize_dashboard
 from .services.documents import extract_document_chunks
 from .services.graphrag import answer_from_graphrag_context, search_graphrag_context
 from .services.hybrid_search import search_hybrid_exhibits
@@ -241,6 +243,36 @@ def list_exhibits(
         budget_max=budget_max,
     )
     return ExhibitListResponse(total=len(items), items=items)
+
+
+@app.get("/api/dashboard/summary", response_model=DashboardSummaryResponse)
+def dashboard_summary(
+    keyword: str | None = None,
+    venue_type: str | None = None,
+    category: str | None = None,
+    theme: str | None = None,
+    project_id: str | None = None,
+    material: str | None = None,
+    interaction: str | None = None,
+    status: str | None = None,
+    review_status: str | None = None,
+    budget_min: int | None = Query(default=None, ge=0),
+    budget_max: int | None = Query(default=None, ge=0),
+) -> DashboardSummaryResponse:
+    items = repository.list_exhibits(
+        keyword=keyword,
+        venue_type=venue_type,
+        category=category,
+        theme=theme,
+        project_id=project_id,
+        material=material,
+        interaction=interaction,
+        status=status,
+        review_status=review_status,
+        budget_min=budget_min,
+        budget_max=budget_max,
+    )
+    return summarize_dashboard(items)
 
 
 @app.post("/api/exhibits/import", response_model=ExhibitImportResponse)

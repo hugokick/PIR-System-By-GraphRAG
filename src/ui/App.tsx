@@ -23,6 +23,7 @@ import {
   createExhibit,
   deleteExhibit,
   fetchAuditLogs,
+  fetchDashboardSummary,
   fetchDemoGraph,
   fetchExhibitGraph,
   fetchExhibits,
@@ -43,6 +44,7 @@ import { filterExhibits, formatBudget, semanticSearch } from '../lib/search';
 import { loadExhibits, resetExhibits, saveExhibits } from '../lib/storage';
 import type {
   AuditLogEntry,
+  DashboardStats,
   DocumentAsset,
   Exhibit,
   ExhibitFilters,
@@ -214,6 +216,7 @@ export function App() {
   const [importPreview, setImportPreview] = useState<{ file: File; result: ExhibitImportResult } | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [auditError, setAuditError] = useState<string | null>(null);
+  const [dashboardSummary, setDashboardSummary] = useState<DashboardStats | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [remoteGraph, setRemoteGraph] = useState<{
     exhibitId: string;
@@ -232,6 +235,7 @@ export function App() {
   useEffect(() => {
     let cancelled = false;
     setDataSource('loading');
+    setDashboardSummary(null);
 
     fetchExhibits(filters)
       .then((nextItems) => {
@@ -252,6 +256,16 @@ export function App() {
         }
         setDataSource('local');
         setLoadError('后端未连接，已使用本地数据');
+      });
+
+    fetchDashboardSummary(filters)
+      .then((summary) => {
+        if (cancelled) return;
+        setDashboardSummary(summary);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setDashboardSummary(null);
       });
 
     return () => {
@@ -286,7 +300,8 @@ export function App() {
         : fallbackGraph;
   const graphSourceLabel = graphMode === 'demo' || isRemoteGraph ? 'Neo4j 图数据库' : '本地轻量图谱';
   const selectedGraphNode = graph.nodes.find((node) => node.id === selectedGraphNodeId) ?? graph.nodes[0] ?? null;
-  const stats = useMemo(() => graphStats(items), [items]);
+  const localStats = useMemo(() => graphStats(items), [items]);
+  const stats = dashboardSummary ?? localStats;
   const canWrite = role !== 'viewer';
   const canDelete = role === 'admin';
   const canReview = role === 'admin';

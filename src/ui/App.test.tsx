@@ -503,6 +503,36 @@ describe('App exhibit management', () => {
     expect(screen.getByText('天文 1')).toBeTruthy();
   });
 
+  it('uses backend dashboard summary metrics when the API is available', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/api/dashboard/summary')) {
+        return okJson({
+          total: 9,
+          landed: 4,
+          avg_budget: 38,
+          pending_review: 2,
+          rejected_review: 1,
+          categories: [{ label: '后端类别', count: 7 }],
+          budget_bands: [{ label: '后端预算', count: 6 }],
+          themes: [{ label: '后端主题', count: 5 }],
+          review_statuses: [{ label: '后端审核', count: 2 }]
+        });
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText('后端类别 7')).toBeTruthy();
+    expect(screen.getByText('后端预算 6')).toBeTruthy();
+    expect(screen.getByText('后端主题 5')).toBeTruthy();
+    expect(screen.getByText('待审 2')).toBeTruthy();
+    expect(screen.getByText('退回 1')).toBeTruthy();
+    expect(screen.getByText('38万')).toBeTruthy();
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/api/dashboard/summary'))).toBe(true);
+  });
+
   it('disables write controls after switching to viewer role', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [apiExhibit()] }));
 

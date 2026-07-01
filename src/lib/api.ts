@@ -1,5 +1,6 @@
 import type {
   AuditLogEntry,
+  DashboardStats,
   Exhibit,
   ExhibitFilters,
   GraphEdge,
@@ -174,6 +175,23 @@ type ApiAuthLoginResponse = {
     role: UserRole;
     display_name: string;
   };
+};
+
+type ApiDashboardMetric = {
+  label: string;
+  count: number;
+};
+
+type ApiDashboardSummaryResponse = {
+  total: number;
+  landed: number;
+  avg_budget: number;
+  pending_review: number;
+  rejected_review: number;
+  categories: ApiDashboardMetric[];
+  budget_bands: ApiDashboardMetric[];
+  themes: ApiDashboardMetric[];
+  review_statuses: ApiDashboardMetric[];
 };
 
 export type ExhibitImportResult = {
@@ -393,6 +411,24 @@ function mapApiAuthSession(payload: ApiAuthLoginResponse): UserSession {
   };
 }
 
+function mapApiDashboardMetric(metric: ApiDashboardMetric): [string, number] {
+  return [metric.label, metric.count];
+}
+
+function mapApiDashboardSummary(payload: ApiDashboardSummaryResponse): DashboardStats {
+  return {
+    total: payload.total,
+    landed: payload.landed,
+    avgBudget: payload.avg_budget,
+    pendingReview: payload.pending_review,
+    rejectedReview: payload.rejected_review,
+    categories: payload.categories.map(mapApiDashboardMetric),
+    budgetBands: payload.budget_bands.map(mapApiDashboardMetric),
+    themes: payload.themes.map(mapApiDashboardMetric),
+    reviewStatuses: payload.review_statuses.map(mapApiDashboardMetric)
+  };
+}
+
 function authHeaders(): Record<string, string> {
   if (activeSession) {
     return {
@@ -448,6 +484,13 @@ export async function fetchExhibits(filters: ExhibitFilters = {}): Promise<Exhib
   const suffix = query.size > 0 ? `?${query.toString()}` : '';
   const payload = await requestJson<ApiExhibitListResponse>(`/api/exhibits${suffix}`);
   return payload.items.map(mapApiExhibit);
+}
+
+export async function fetchDashboardSummary(filters: ExhibitFilters = {}): Promise<DashboardStats> {
+  const query = buildExhibitQuery(filters);
+  const suffix = query.size > 0 ? `?${query.toString()}` : '';
+  const payload = await requestJson<ApiDashboardSummaryResponse>(`/api/dashboard/summary${suffix}`);
+  return mapApiDashboardSummary(payload);
 }
 
 export async function createExhibit(item: Exhibit): Promise<Exhibit> {

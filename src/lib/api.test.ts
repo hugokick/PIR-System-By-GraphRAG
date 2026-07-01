@@ -5,6 +5,7 @@ import {
   createExhibit,
   deleteExhibit,
   fetchAuditLogs,
+  fetchDashboardSummary,
   fetchDemoGraph,
   hybridSearchExhibits,
   importExhibits,
@@ -262,6 +263,45 @@ describe('fetchDemoGraph', () => {
     expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8000/api/neo4j-demo/graph');
     expect(result.nodes.map((node) => node.id)).toEqual(['exhibit:lever-play', 'exhibit:space-dome']);
     expect(result.edges[0].type).toBe('similar_to');
+  });
+});
+
+describe('fetchDashboardSummary', () => {
+  it('loads filtered dashboard metrics from the backend summary endpoint', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        total: 9,
+        landed: 4,
+        avg_budget: 38,
+        pending_review: 2,
+        rejected_review: 1,
+        categories: [{ label: '基础科学', count: 5 }],
+        budget_bands: [{ label: '20-50万', count: 6 }],
+        themes: [{ label: '力学', count: 4 }],
+        review_statuses: [{ label: '待审核', count: 2 }]
+      })
+    } as Response);
+
+    const result = await fetchDashboardSummary({
+      projectId: 'qinghe-2024',
+      reviewStatus: frontendExhibit.reviewStatus
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/dashboard/summary?project_id=qinghe-2024&review_status=%E5%BE%85%E5%AE%A1%E6%A0%B8'
+    );
+    expect(result).toEqual({
+      total: 9,
+      landed: 4,
+      avgBudget: 38,
+      pendingReview: 2,
+      rejectedReview: 1,
+      categories: [['基础科学', 5]],
+      budgetBands: [['20-50万', 6]],
+      themes: [['力学', 4]],
+      reviewStatuses: [['待审核', 2]]
+    });
   });
 });
 

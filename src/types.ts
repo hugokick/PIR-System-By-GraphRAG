@@ -59,6 +59,18 @@ export type ExhibitFilters = {
   reviewStatus?: ReviewStatus | '';
 };
 
+export type DashboardStats = {
+  total: number;
+  landed: number;
+  pendingReview: number;
+  rejectedReview: number;
+  avgBudget: number;
+  categories: Array<[string, number]>;
+  budgetBands: Array<[string, number]>;
+  themes: Array<[string, number]>;
+  reviewStatuses: Array<[string, number]>;
+};
+
 export type SearchResult = {
   item: Exhibit;
   score: number;

@@ -1,4 +1,4 @@
-import type { Exhibit, GraphEdge, GraphNode } from '../types';
+import type { DashboardStats, Exhibit, GraphEdge, GraphNode } from '../types';
 
 export function buildGraph(exhibit: Exhibit, allExhibits: Exhibit[]) {
   const nodes = new Map<string, GraphNode>();
@@ -39,7 +39,7 @@ export function buildGraph(exhibit: Exhibit, allExhibits: Exhibit[]) {
   return { nodes: [...nodes.values()], edges };
 }
 
-export function graphStats(items: Exhibit[]) {
+export function graphStats(items: Exhibit[]): DashboardStats {
   const categories = new Map<string, number>();
   const themes = new Map<string, number>();
   const reviewStatuses = new Map<string, number>();
