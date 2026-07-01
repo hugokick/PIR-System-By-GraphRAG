@@ -516,6 +516,14 @@ textarea:focus {
   font-size: 13px;
 }
 
+.semantic-summary {
+  display: block;
+  margin-top: 8px;
+  color: #607d75;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .semantic-results {
   display: flex;
   gap: 10px;

@@ -56,7 +56,7 @@ import type {
   GraphRagAnswer,
   MediaAsset,
   ReviewStatus,
-  SearchResult,
+  SearchResults,
   UserSession
 } from '../types';
 
@@ -273,7 +273,7 @@ export function App() {
   const [budgetMinInput, setBudgetMinInput] = useState('');
   const [budgetMaxInput, setBudgetMaxInput] = useState('');
   const [semanticQuery, setSemanticQuery] = useState('找几个适合低龄儿童、预算不高、互动性强的力学展项');
-  const [remoteSemanticResults, setRemoteSemanticResults] = useState<SearchResult[] | null>(null);
+  const [remoteSemanticResults, setRemoteSemanticResults] = useState<SearchResults | null>(null);
   const [isSemanticSearching, setIsSemanticSearching] = useState(false);
   const [semanticError, setSemanticError] = useState<string | null>(null);
   const [graphRagQuery, setGraphRagQuery] = useState('pulley-wall');
@@ -366,8 +366,16 @@ export function App() {
   );
 
   const filteredItems = useMemo(() => filterExhibits(items, filters), [items, filters]);
-  const localSemanticResults = useMemo(() => semanticSearch(items, semanticQuery).slice(0, 4), [items, semanticQuery]);
-  const semanticResults = remoteSemanticResults ?? localSemanticResults;
+  const localSemanticMatches = useMemo(() => semanticSearch(items, semanticQuery), [items, semanticQuery]);
+  const localSemanticResults = useMemo<SearchResults>(
+    () => ({
+      total: localSemanticMatches.length,
+      items: localSemanticMatches.slice(0, 4)
+    }),
+    [localSemanticMatches]
+  );
+  const semanticSearchResponse = remoteSemanticResults ?? localSemanticResults;
+  const semanticResults = semanticSearchResponse.items;
   const selected = items.find((item) => item.id === selectedId) ?? filteredItems[0] ?? items[0];
   const editingItem = editingId ? items.find((item) => item.id === editingId) : undefined;
   const fallbackGraph = useMemo(() => (selected ? buildGraph(selected, items) : { nodes: [], edges: [] }), [selected, items]);
@@ -467,7 +475,7 @@ export function App() {
   useEffect(() => {
     const query = semanticQuery.trim();
     if (!query) {
-      setRemoteSemanticResults([]);
+      setRemoteSemanticResults({ total: 0, items: [] });
       setSemanticError(null);
       setIsSemanticSearching(false);
       return;
@@ -1181,6 +1189,9 @@ export function App() {
             {isSemanticSearching && <small>检索中</small>}
           </div>
           {semanticError && <p className="semantic-error">{semanticError}</p>}
+          <small className="semantic-summary">
+            共 {semanticSearchResponse.total} 条，显示 {semanticResults.length} 条
+          </small>
           <div className="semantic-results">
             {semanticResults.map((result) => (
               <button type="button" key={result.item.id} onClick={() => setSelectedId(result.item.id)}>

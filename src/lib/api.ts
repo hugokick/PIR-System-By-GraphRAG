@@ -8,7 +8,7 @@ import type {
   GraphRagAnswer,
   MediaAsset,
   ReviewStatus,
-  SearchResult,
+  SearchResults,
   UserSession
 } from '../types';
 
@@ -657,7 +657,7 @@ export async function hybridSearchExhibits(
   query: string,
   filters: ExhibitFilters = {},
   limit = 4
-): Promise<SearchResult[]> {
+): Promise<SearchResults> {
   const payload = await sendJson<ApiHybridSearchResponse>('/api/search/hybrid', {
     method: 'POST',
     body: JSON.stringify({
@@ -666,11 +666,14 @@ export async function hybridSearchExhibits(
       filters: mapHybridSearchFilters(filters)
     })
   });
-  return payload.items.map((item) => ({
-    item: mapApiExhibit(item.exhibit),
-    score: item.score,
-    matchedSignals: item.reasons
-  }));
+  return {
+    total: payload.total,
+    items: payload.items.map((item) => ({
+      item: mapApiExhibit(item.exhibit),
+      score: item.score,
+      matchedSignals: item.reasons
+    }))
+  };
 }
 
 function mapHybridSearchFilters(filters: ExhibitFilters) {

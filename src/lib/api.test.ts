@@ -661,7 +661,7 @@ describe('hybridSearchExhibits', () => {
       ok: true,
       json: async () => ({
         query: '低龄儿童 力学 互动',
-        total: 1,
+        total: 3,
         items: [
           {
             exhibit: apiExhibit,
@@ -701,8 +701,9 @@ describe('hybridSearchExhibits', () => {
         budget_max: 350000
       }
     });
-    expect(result[0].item.id).toBe('lever-play');
-    expect(result[0].matchedSignals).toEqual(['匹配人群：低龄儿童', '筛选互动：机械互动']);
+    expect(result.total).toBe(3);
+    expect(result.items[0].item.id).toBe('lever-play');
+    expect(result.items[0].matchedSignals).toEqual(['匹配人群：低龄儿童', '筛选互动：机械互动']);
   });
 });
 

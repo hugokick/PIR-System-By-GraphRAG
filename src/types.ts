@@ -77,6 +77,11 @@ export type SearchResult = {
   matchedSignals: string[];
 };
 
+export type SearchResults = {
+  total: number;
+  items: SearchResult[];
+};
+
 export type GraphNode = {
   id: string;
   label: string;

@@ -865,7 +865,7 @@ describe('App exhibit management', () => {
         expect(JSON.parse(String(init?.body)).query).toContain('低龄儿童');
         return okJson({
           query: '找几个适合低龄儿童、预算不高、互动性强的力学展项',
-          total: 1,
+          total: 3,
           items: [
             {
               exhibit: apiExhibit(),
@@ -881,6 +881,7 @@ describe('App exhibit management', () => {
     render(<App />);
 
     expect(await screen.findByText(/筛选互动：机械互动/)).toBeTruthy();
+    expect(await screen.findByText('共 3 条，显示 1 条')).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledWith(
       'http://127.0.0.1:8000/api/search/hybrid',
       expect.objectContaining({ method: 'POST' })
