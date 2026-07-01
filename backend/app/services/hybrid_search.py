@@ -118,6 +118,12 @@ def _score_exhibit(
         interaction_names = "、".join(interaction.name for interaction in exhibit.interactions[:3])
         reasons.append(f"匹配互动形式：{interaction_names}")
 
+    if _mentions_low_budget(compact_query) and _exhibit_has_low_budget(exhibit):
+        score += 3.0
+        reasons.append(
+            f"匹配预算：低预算 {_format_budget(exhibit.budget_min)}-{_format_budget(exhibit.budget_max)}"
+        )
+
     description_hits = _description_hits(compact_query, exhibit.description)
     if description_hits:
         score += len(description_hits)
@@ -201,6 +207,14 @@ def _exhibit_has_child_signal(exhibit: ExhibitResponse) -> bool:
         )
     )
     return any(signal in text for signal in ("低龄儿童", "低龄", "儿童", "亲子"))
+
+
+def _mentions_low_budget(compact_query: str) -> bool:
+    return any(signal in compact_query for signal in ("预算不高", "低预算", "预算低", "预算有限"))
+
+
+def _exhibit_has_low_budget(exhibit: ExhibitResponse) -> bool:
+    return exhibit.budget_max <= 300000
 
 
 def _format_budget(value: int) -> str:

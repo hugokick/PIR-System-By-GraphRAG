@@ -56,6 +56,22 @@ def test_hybrid_search_respects_budget_filters():
     assert payload["items"] == []
 
 
+def test_hybrid_search_explains_low_budget_intent_without_structured_filter():
+    response = client.post(
+        "/api/search/hybrid",
+        json={
+            "query": "预算不高 力学",
+            "limit": 5,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] >= 2
+    assert payload["items"][0]["exhibit"]["id"] == "pulley-wall"
+    assert "匹配预算：低预算 15 万-28 万" in payload["items"][0]["reasons"]
+
+
 def test_hybrid_search_total_counts_all_matches_before_limit():
     response = client.post(
         "/api/search/hybrid",
