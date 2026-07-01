@@ -58,8 +58,8 @@ def _apply_filters(
             interaction=filters.interaction,
             status=filters.status,
             review_status=filters.review_status,
-            budget_min=None,
-            budget_max=None,
+            budget_min=filters.budget_min,
+            budget_max=filters.budget_max,
         )
     ]
 

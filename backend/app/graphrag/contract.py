@@ -193,6 +193,8 @@ def _search_filters(filters: GraphRAGContractFilters | None) -> GraphRAGFilters 
         venue_type=filters.venue_type,
         status=filters.status,
         review_status=filters.review_status,
+        budget_min=filters.budget_min,
+        budget_max=filters.budget_max,
     )
 
 

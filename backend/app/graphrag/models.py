@@ -11,6 +11,8 @@ class GraphRAGFilters(BaseModel):
     venue_type: str | None = None
     status: str | None = None
     review_status: str | None = None
+    budget_min: int | None = None
+    budget_max: int | None = None
 
 
 class GraphRAGHit(BaseModel):
