@@ -1072,6 +1072,181 @@ class PostgresExhibitRepository:
         return scores
 
     def get_exhibit_graph(self, exhibit_id: str) -> GraphResponse:
+        graph = self._get_exhibit_graph_from_domain_tables(exhibit_id)
+        if graph.nodes:
+            return graph
+        return self._get_exhibit_graph_from_kg_projection(exhibit_id)
+
+    def _get_exhibit_graph_from_domain_tables(self, exhibit_id: str) -> GraphResponse:
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT
+                      e.id,
+                      e.name,
+                      e.theme_id,
+                      t.name AS theme_name,
+                      e.project_id,
+                      p.name AS project_name,
+                      o.id AS owner_id,
+                      o.name AS owner_name,
+                      e.supplier_id,
+                      s.name AS supplier_name
+                    FROM exhibits e
+                    JOIN themes t ON t.id = e.theme_id
+                    JOIN projects p ON p.id = e.project_id
+                    JOIN owners o ON o.id = p.owner_id
+                    JOIN suppliers s ON s.id = e.supplier_id
+                    WHERE e.id = %s AND e.deleted_at IS NULL
+                    """,
+                    (exhibit_id,),
+                )
+                if not hasattr(cursor, "fetchone"):
+                    return GraphResponse(nodes=[], edges=[])
+                center = cursor.fetchone()
+                if not center:
+                    return GraphResponse(nodes=[], edges=[])
+
+                cursor.execute(
+                    """
+                    SELECT m.id, m.name
+                    FROM exhibit_materials em
+                    JOIN materials m ON m.id = em.material_id
+                    WHERE em.exhibit_id = %s
+                    ORDER BY m.name ASC
+                    """,
+                    (exhibit_id,),
+                )
+                material_rows = cursor.fetchall()
+
+                cursor.execute(
+                    """
+                    SELECT i.id, i.name
+                    FROM exhibit_interactions ei
+                    JOIN interactions i ON i.id = ei.interaction_id
+                    WHERE ei.exhibit_id = %s
+                    ORDER BY i.name ASC
+                    """,
+                    (exhibit_id,),
+                )
+                interaction_rows = cursor.fetchall()
+
+                cursor.execute(
+                    """
+                    SELECT d.id, d.name
+                    FROM exhibit_documents ed
+                    JOIN documents d ON d.id = ed.document_id
+                    WHERE ed.exhibit_id = %s
+                    ORDER BY d.name ASC
+                    """,
+                    (exhibit_id,),
+                )
+                document_rows = cursor.fetchall()
+
+                cursor.execute(
+                    """
+                    SELECT target.id, target.name
+                    FROM exhibit_relations r
+                    JOIN exhibits target ON target.id = r.target_exhibit_id
+                    WHERE r.source_exhibit_id = %s
+                      AND r.relation_type = 'similar_to'
+                      AND target.deleted_at IS NULL
+                    ORDER BY target.name ASC
+                    """,
+                    (exhibit_id,),
+                )
+                outgoing_relation_rows = cursor.fetchall()
+
+                cursor.execute(
+                    """
+                    SELECT source.id, source.name
+                    FROM exhibit_relations r
+                    JOIN exhibits source ON source.id = r.source_exhibit_id
+                    WHERE r.target_exhibit_id = %s
+                      AND r.relation_type = 'similar_to'
+                      AND source.deleted_at IS NULL
+                    ORDER BY source.name ASC
+                    """,
+                    (exhibit_id,),
+                )
+                incoming_relation_rows = cursor.fetchall()
+
+        nodes: dict[str, GraphNode] = {}
+        edges: list[GraphEdge] = []
+
+        def add_node(node_id: str, label: str, node_type: str) -> None:
+            if node_id not in nodes:
+                nodes[node_id] = GraphNode(id=node_id, label=label, type=node_type)
+
+        def add_edge(source: str, target: str, edge_type: str, label: str) -> None:
+            edges.append(GraphEdge(source=source, target=target, type=edge_type, label=label))
+
+        center_id = f"exhibit:{self._row_value(center, 'id', 0)}"
+        add_node(center_id, self._row_value(center, "name", 1), "exhibit")
+
+        single_relations = [
+            (
+                f"project:{self._row_value(center, 'project_id', 4)}",
+                self._row_value(center, "project_name", 5),
+                "project",
+                "belongs_to_project",
+                "所属项目",
+            ),
+            (
+                f"owner:{self._row_value(center, 'owner_id', 6)}",
+                self._row_value(center, "owner_name", 7),
+                "owner",
+                "owned_by",
+                "业主",
+            ),
+            (
+                f"supplier:{self._row_value(center, 'supplier_id', 8)}",
+                self._row_value(center, "supplier_name", 9),
+                "supplier",
+                "supplied_by",
+                "供应商",
+            ),
+            (
+                f"theme:{self._row_value(center, 'theme_id', 2)}",
+                self._row_value(center, "theme_name", 3),
+                "theme",
+                "has_theme",
+                "主题",
+            ),
+        ]
+        for target_id, label, node_type, edge_type, edge_label in single_relations:
+            add_node(target_id, label, node_type)
+            add_edge(center_id, target_id, edge_type, edge_label)
+
+        for row in material_rows:
+            target_id = f"material:{self._row_value(row, 'id', 0)}"
+            add_node(target_id, self._row_value(row, "name", 1), "material")
+            add_edge(center_id, target_id, "uses_material", "使用材料")
+
+        for row in interaction_rows:
+            target_id = f"interaction:{self._row_value(row, 'id', 0)}"
+            add_node(target_id, self._row_value(row, "name", 1), "interaction")
+            add_edge(center_id, target_id, "has_interaction", "交互方式")
+
+        for row in document_rows:
+            target_id = f"document:{self._row_value(row, 'id', 0)}"
+            add_node(target_id, self._row_value(row, "name", 1), "document")
+            add_edge(center_id, target_id, "has_document", "文档资料")
+
+        for row in outgoing_relation_rows:
+            target_id = f"exhibit:{self._row_value(row, 'id', 0)}"
+            add_node(target_id, self._row_value(row, "name", 1), "exhibit")
+            add_edge(center_id, target_id, "similar_to", "相似展项")
+
+        for row in incoming_relation_rows:
+            source_id = f"exhibit:{self._row_value(row, 'id', 0)}"
+            add_node(source_id, self._row_value(row, "name", 1), "exhibit")
+            add_edge(source_id, center_id, "similar_to", "相似展项")
+
+        return GraphResponse(nodes=list(nodes.values()), edges=edges)
+
+    def _get_exhibit_graph_from_kg_projection(self, exhibit_id: str) -> GraphResponse:
         center_id = f"exhibit:{exhibit_id}"
         with self._connect() as connection:
             with connection.cursor() as cursor:

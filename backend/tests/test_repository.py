@@ -226,6 +226,111 @@ def test_postgres_repository_upsert_refreshes_domain_entity_projection_tables():
     assert any(params[1:] == ("lever-play", "pulley-wall", "similar_to") for _, params in relation_inserts)
 
 
+def test_postgres_repository_reads_exhibit_graph_from_domain_relation_tables_first():
+    from app.repository import PostgresExhibitRepository
+
+    class RecordingCursor:
+        def __init__(self):
+            self.calls = []
+            self.rows = []
+            self.row = None
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def execute(self, query, params=None):
+            normalized = " ".join(query.split())
+            self.calls.append((normalized, params))
+            self.row = None
+            self.rows = []
+            if "FROM exhibits e" in normalized and "JOIN themes t" in normalized:
+                self.row = {
+                    "id": "lever-play",
+                    "name": "杠杆乐园",
+                    "theme_id": "mechanics",
+                    "theme_name": "力学",
+                    "project_id": "qinghe-2024",
+                    "project_name": "青禾儿童科技馆更新项目",
+                    "owner_id": "qinghe-owner",
+                    "owner_name": "青禾儿童科技馆",
+                    "supplier_id": "qisi",
+                    "supplier_name": "启思互动工坊",
+                }
+            elif "FROM exhibit_materials" in normalized:
+                self.rows = [{"id": "metal", "name": "金属"}]
+            elif "FROM exhibit_interactions" in normalized:
+                self.rows = [{"id": "mechanical", "name": "机械互动"}]
+            elif "FROM exhibit_documents" in normalized:
+                self.rows = [{"id": "lever-brief", "name": "杠杆乐园展项说明"}]
+            elif "FROM exhibit_relations r" in normalized and "JOIN exhibits target" in normalized:
+                self.rows = [{"id": "pulley-wall", "name": "滑轮挑战墙"}]
+            elif "FROM exhibit_relations r" in normalized and "JOIN exhibits source" in normalized:
+                self.rows = [{"id": "balance-lab", "name": "平衡实验台"}]
+
+        def fetchone(self):
+            return self.row
+
+        def fetchall(self):
+            return self.rows
+
+    class RecordingConnection:
+        def __init__(self, cursor):
+            self.cursor_instance = cursor
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def cursor(self):
+            return self.cursor_instance
+
+    class RecordingPostgresRepository(PostgresExhibitRepository):
+        def __init__(self):
+            super().__init__("postgresql://example", initialize=False)
+            self.cursor = RecordingCursor()
+
+        def _connect(self):
+            return RecordingConnection(self.cursor)
+
+    repository = RecordingPostgresRepository()
+
+    graph = repository.get_exhibit_graph("lever-play")
+
+    assert [node.id for node in graph.nodes] == [
+        "exhibit:lever-play",
+        "project:qinghe-2024",
+        "owner:qinghe-owner",
+        "supplier:qisi",
+        "theme:mechanics",
+        "material:metal",
+        "interaction:mechanical",
+        "document:lever-brief",
+        "exhibit:pulley-wall",
+        "exhibit:balance-lab",
+    ]
+    assert [
+        (edge.source, edge.type, edge.target)
+        for edge in graph.edges
+    ] == [
+        ("exhibit:lever-play", "belongs_to_project", "project:qinghe-2024"),
+        ("exhibit:lever-play", "owned_by", "owner:qinghe-owner"),
+        ("exhibit:lever-play", "supplied_by", "supplier:qisi"),
+        ("exhibit:lever-play", "has_theme", "theme:mechanics"),
+        ("exhibit:lever-play", "uses_material", "material:metal"),
+        ("exhibit:lever-play", "has_interaction", "interaction:mechanical"),
+        ("exhibit:lever-play", "has_document", "document:lever-brief"),
+        ("exhibit:lever-play", "similar_to", "exhibit:pulley-wall"),
+        ("exhibit:balance-lab", "similar_to", "exhibit:lever-play"),
+    ]
+    assert any("FROM exhibits e" in query for query, _ in repository.cursor.calls)
+    assert not any("FROM kg_edges" in query for query, _ in repository.cursor.calls)
+
+
 def test_postgres_repository_reads_exhibit_graph_from_kg_projection_tables():
     from app.repository import PostgresExhibitRepository
 
