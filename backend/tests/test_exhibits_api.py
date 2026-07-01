@@ -339,15 +339,25 @@ def test_create_exhibit_rejects_unknown_related_exhibit_ids():
 
 
 def test_update_exhibit_replaces_existing_record():
-    payload = client.get("/api/exhibits/lever-play").json()
-    payload["name"] = "杠杆乐园 Pro"
-    payload["materials"] = [{"id": "steel", "name": "钢结构"}]
+    payload = client.get("/api/exhibits/pulley-wall").json()
+    payload["id"] = "update-replace-demo"
+    payload["name"] = "更新替换示例"
+    payload["related_exhibit_ids"] = []
+    create_response = client.post("/api/exhibits", json=payload, headers=EDITOR_HEADERS)
+    assert create_response.status_code == 201
 
-    response = client.put("/api/exhibits/lever-play", json=payload, headers=EDITOR_HEADERS)
+    try:
+        update_payload = create_response.json()
+        update_payload["name"] = "更新替换示例 Pro"
+        update_payload["materials"] = [{"id": "steel", "name": "钢结构"}]
 
-    assert response.status_code == 200
-    assert response.json()["name"] == "杠杆乐园 Pro"
-    assert response.json()["materials"] == [{"id": "steel", "name": "钢结构"}]
+        response = client.put("/api/exhibits/update-replace-demo", json=update_payload, headers=EDITOR_HEADERS)
+
+        assert response.status_code == 200
+        assert response.json()["name"] == "更新替换示例 Pro"
+        assert response.json()["materials"] == [{"id": "steel", "name": "钢结构"}]
+    finally:
+        client.delete("/api/exhibits/update-replace-demo", headers=ADMIN_HEADERS)
 
 
 def test_editor_create_exhibit_cannot_self_approve_review_status():
@@ -377,6 +387,47 @@ def test_editor_update_exhibit_cannot_change_review_status():
     assert response.json()["review_status"] == "待审核"
 
 
+def test_editor_update_approved_exhibit_moves_back_to_pending_review():
+    payload = client.get("/api/exhibits/pulley-wall").json()
+    payload["id"] = "editor-approved-review-reset-demo"
+    payload["name"] = "已审核编辑回审示例"
+    payload["review_status"] = "已审核"
+    payload["related_exhibit_ids"] = []
+
+    create_response = client.post(
+        "/api/exhibits",
+        json=payload,
+        headers=ADMIN_HEADERS,
+    )
+    assert create_response.status_code == 201
+    assert create_response.json()["review_status"] == "已审核"
+
+    try:
+        update_payload = create_response.json()
+        update_payload["name"] = "编辑员修改后的待审稿"
+        update_payload["review_status"] = "已审核"
+
+        response = client.put(
+            "/api/exhibits/editor-approved-review-reset-demo",
+            json=update_payload,
+            headers=EDITOR_HEADERS,
+        )
+
+        assert response.status_code == 200
+        assert response.json()["name"] == "编辑员修改后的待审稿"
+        assert response.json()["review_status"] == "待审核"
+    finally:
+        cleanup_payload = client.get("/api/exhibits/editor-approved-review-reset-demo").json()
+        cleanup_payload["review_status"] = "待审核"
+        cleanup_payload["status"] = "制作中"
+        client.put(
+            "/api/exhibits/editor-approved-review-reset-demo",
+            json=cleanup_payload,
+            headers=ADMIN_HEADERS,
+        )
+        client.delete("/api/exhibits/editor-approved-review-reset-demo", headers=ADMIN_HEADERS)
+
+
 def test_update_exhibit_rejects_self_and_unknown_related_exhibit_ids():
     payload = client.get("/api/exhibits/pulley-wall").json()
     payload["related_exhibit_ids"] = ["pulley-wall", "missing-related-exhibit"]
@@ -394,27 +445,36 @@ def test_update_exhibit_rejects_self_and_unknown_related_exhibit_ids():
 
 
 def test_update_exhibit_relationships_refreshes_graph_edges():
-    payload = client.get("/api/exhibits/lever-play").json()
-    payload["related_exhibit_ids"] = ["water-cycle"]
+    payload = client.get("/api/exhibits/pulley-wall").json()
+    payload["id"] = "relation-put-demo"
+    payload["related_exhibit_ids"] = []
+    create_response = client.post("/api/exhibits", json=payload, headers=EDITOR_HEADERS)
+    assert create_response.status_code == 201
 
-    response = client.put("/api/exhibits/lever-play", json=payload, headers=EDITOR_HEADERS)
-    assert response.status_code == 200
+    try:
+        update_payload = create_response.json()
+        update_payload["related_exhibit_ids"] = ["water-cycle"]
 
-    graph_response = client.get("/api/exhibits/lever-play/graph")
-    outgoing_similar_edges = [
-        edge
-        for edge in graph_response.json()["edges"]
-        if edge["type"] == "similar_to" and edge["source"] == "exhibit:lever-play"
-    ]
+        response = client.put("/api/exhibits/relation-put-demo", json=update_payload, headers=EDITOR_HEADERS)
+        assert response.status_code == 200
 
-    assert outgoing_similar_edges == [
-        {
-            "source": "exhibit:lever-play",
-            "target": "exhibit:water-cycle",
-            "label": "相似展项",
-            "type": "similar_to",
-        }
-    ]
+        graph_response = client.get("/api/exhibits/relation-put-demo/graph")
+        outgoing_similar_edges = [
+            edge
+            for edge in graph_response.json()["edges"]
+            if edge["type"] == "similar_to" and edge["source"] == "exhibit:relation-put-demo"
+        ]
+
+        assert outgoing_similar_edges == [
+            {
+                "source": "exhibit:relation-put-demo",
+                "target": "exhibit:water-cycle",
+                "label": "相似展项",
+                "type": "similar_to",
+            }
+        ]
+    finally:
+        client.delete("/api/exhibits/relation-put-demo", headers=ADMIN_HEADERS)
 
 
 def test_patch_related_exhibits_updates_curated_similarity_graph_edges():

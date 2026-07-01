@@ -223,7 +223,10 @@ def normalize_write_review_status(
 ) -> ExhibitResponse:
     if role == "admin":
         return exhibit
-    review_status = existing.review_status if existing else "待审核"
+    if existing is None or existing.review_status in {"已审核", "已退回"}:
+        review_status = "待审核"
+    else:
+        review_status = existing.review_status
     return exhibit.model_copy(update={"review_status": review_status})
 
 
@@ -399,7 +402,7 @@ def import_exhibits(
                 imported.append(repository.create_exhibit(exhibit))
                 write_audit(role, "import_create_exhibit", exhibit.id, f"Imported exhibit {exhibit.id}")
             else:
-                exhibit = item.model_copy(update={"review_status": existing.review_status})
+                exhibit = normalize_write_review_status(item, role, existing)
                 imported.append(repository.update_exhibit(item.id, exhibit) or exhibit)
                 write_audit(role, "import_update_exhibit", item.id, f"Updated exhibit {item.id} from import")
         filename = file.filename or "uploaded-file"

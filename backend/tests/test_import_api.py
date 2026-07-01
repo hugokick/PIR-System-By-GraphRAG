@@ -255,7 +255,7 @@ def test_import_commit_upserts_valid_rows_and_graph_relationships():
     assert "similar_to" in edge_types
 
 
-def test_import_update_preserves_existing_review_status_for_editors():
+def test_import_update_moves_approved_exhibit_back_to_pending_for_editors():
     original = client.get("/api/exhibits/lever-play").json()
     row = valid_import_row("lever-play")
     row[-1] = "pulley-wall"
@@ -277,11 +277,11 @@ def test_import_update_preserves_existing_review_status_for_editors():
         assert response.status_code == 200
         payload = response.json()
         assert payload["imported_count"] == 1
-        assert payload["items"][0]["review_status"] == original["review_status"]
+        assert payload["items"][0]["review_status"] == "待审核"
 
         detail_response = client.get("/api/exhibits/lever-play")
         assert detail_response.status_code == 200
-        assert detail_response.json()["review_status"] == original["review_status"]
+        assert detail_response.json()["review_status"] == "待审核"
     finally:
         client.put("/api/exhibits/lever-play", json=original, headers=ADMIN_HEADERS)
 
