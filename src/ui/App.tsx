@@ -321,6 +321,8 @@ export function App() {
   const [auditError, setAuditError] = useState<string | null>(null);
   const [isAuditLoading, setIsAuditLoading] = useState(false);
   const [dashboardSummary, setDashboardSummary] = useState<DashboardStats | null>(null);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
+  const [isDashboardLoading, setIsDashboardLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [remoteGraph, setRemoteGraph] = useState<{
     exhibitId: string;
@@ -341,6 +343,8 @@ export function App() {
     let cancelled = false;
     setDataSource('loading');
     setDashboardSummary(null);
+    setDashboardError(null);
+    setIsDashboardLoading(true);
 
     fetchExhibits(filters)
       .then((nextItems) => {
@@ -367,10 +371,16 @@ export function App() {
       .then((summary) => {
         if (cancelled) return;
         setDashboardSummary(summary);
+        setDashboardError(null);
       })
       .catch(() => {
         if (cancelled) return;
         setDashboardSummary(null);
+        setDashboardError('数据看板暂不可用，已使用本地统计');
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setIsDashboardLoading(false);
       });
 
     return () => {
@@ -500,6 +510,22 @@ export function App() {
       })
       .finally(() => {
         setIsAuditLoading(false);
+      });
+  };
+
+  const refreshDashboardSummary = async () => {
+    setIsDashboardLoading(true);
+    await fetchDashboardSummary(filters)
+      .then((summary) => {
+        setDashboardSummary(summary);
+        setDashboardError(null);
+      })
+      .catch(() => {
+        setDashboardSummary(null);
+        setDashboardError('数据看板暂不可用，已使用本地统计');
+      })
+      .finally(() => {
+        setIsDashboardLoading(false);
       });
   };
 
@@ -1032,7 +1058,18 @@ export function App() {
           <div className="panel-title">
             <BarChart3 size={18} />
             <span>数据看板</span>
+            <button
+              type="button"
+              className="panel-refresh-action"
+              onClick={() => void refreshDashboardSummary()}
+              disabled={isDashboardLoading}
+              aria-label="刷新数据看板"
+            >
+              <RotateCcw size={13} />
+              {isDashboardLoading ? '刷新中' : '刷新'}
+            </button>
           </div>
+          {dashboardError && <p className="audit-error">{dashboardError}</p>}
           <div className="stat-grid">
             <Metric label="展项" value={stats.total} />
             <Metric label="已落地" value={stats.landed} />

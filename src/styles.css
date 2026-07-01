@@ -358,7 +358,8 @@ textarea:focus {
   gap: 9px;
 }
 
-.audit-refresh-action {
+.audit-refresh-action,
+.panel-refresh-action {
   margin-left: auto;
   border: 1px solid #cfd8e3;
   border-radius: 999px;
@@ -373,7 +374,8 @@ textarea:focus {
   padding: 4px 8px;
 }
 
-.audit-refresh-action:disabled {
+.audit-refresh-action:disabled,
+.panel-refresh-action:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }

@@ -571,6 +571,38 @@ describe('App exhibit management', () => {
     expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/api/dashboard/summary'))).toBe(true);
   });
 
+  it('lets users manually refresh backend dashboard summary metrics', async () => {
+    let dashboardCalls = 0;
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/api/dashboard/summary')) {
+        dashboardCalls += 1;
+        return okJson({
+          total: dashboardCalls > 1 ? 12 : 9,
+          landed: dashboardCalls > 1 ? 6 : 4,
+          avg_budget: dashboardCalls > 1 ? 52 : 38,
+          pending_review: 2,
+          rejected_review: 1,
+          categories: [{ label: dashboardCalls > 1 ? 'Dashboard Fresh' : 'Dashboard Initial', count: dashboardCalls > 1 ? 8 : 7 }],
+          budget_bands: [{ label: 'Budget Fresh', count: dashboardCalls > 1 ? 9 : 6 }],
+          themes: [{ label: 'Theme Fresh', count: dashboardCalls > 1 ? 4 : 3 }],
+          review_statuses: [{ label: 'Review Fresh', count: 2 }]
+        });
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    const dashboardPanel = (await screen.findByText('数据看板')).closest('section') as HTMLElement;
+    expect(await within(dashboardPanel).findByText('Dashboard Initial 7')).toBeTruthy();
+    fireEvent.click(within(dashboardPanel).getByRole('button', { name: '刷新数据看板' }));
+
+    expect(await within(dashboardPanel).findByText('Dashboard Fresh 8')).toBeTruthy();
+    expect(within(dashboardPanel).getByText('52万')).toBeTruthy();
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('/api/dashboard/summary'))).toHaveLength(2);
+  });
+
   it('disables write controls after switching to viewer role', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [apiExhibit()] }));
 
