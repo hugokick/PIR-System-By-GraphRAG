@@ -157,6 +157,10 @@ function importErrorFieldLabel(field: string) {
   return importErrorFieldLabels[field] ?? field;
 }
 
+function importErrorRowLabel(row: number, field: string) {
+  return field === 'file' ? '文件' : `第 ${row} 行`;
+}
+
 function importErrorMessage(message: string) {
   if (message === 'Required') return '必填字段不能为空';
   if (message === 'Must be an integer') return '必须填写整数';
@@ -1289,7 +1293,7 @@ export function App() {
               <div className="import-preview-errors">
                 {importPreview.result.errors.map((error) => (
                   <div key={`${error.row}-${error.field}-${error.message}`}>
-                    <span>第 {error.row} 行</span>
+                    <span>{importErrorRowLabel(error.row, error.field)}</span>
                     <strong>{importErrorFieldLabel(error.field)}</strong>
                     <em>{importErrorMessage(error.message)}</em>
                   </div>

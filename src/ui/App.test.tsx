@@ -1796,8 +1796,11 @@ describe('App exhibit management', () => {
     fireEvent.change(input, { target: { files: [file] } });
 
     expect(await screen.findByText('导入校验发现 1 个问题，未写入数据')).toBeTruthy();
-    expect(screen.getByText('文件内容')).toBeTruthy();
-    expect(screen.getByText('没有找到可导入的数据行')).toBeTruthy();
+    const errorPanel = document.querySelector('.import-preview-errors') as HTMLElement;
+    expect(within(errorPanel).getByText('文件')).toBeTruthy();
+    expect(within(errorPanel).getByText('文件内容')).toBeTruthy();
+    expect(within(errorPanel).getByText('没有找到可导入的数据行')).toBeTruthy();
+    expect(within(errorPanel).queryByText('第 1 行')).toBeNull();
     expect(screen.queryByText('No import rows found')).toBeNull();
   });
 });
