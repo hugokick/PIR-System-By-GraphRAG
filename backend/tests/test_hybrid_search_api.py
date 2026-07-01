@@ -150,3 +150,31 @@ def test_hybrid_search_ignores_low_confidence_vector_noise(monkeypatch):
 
     assert response.status_code == 200
     assert response.json()["items"] == []
+
+
+def test_hybrid_search_matches_uploaded_document_chunks():
+    upload_response = client.post(
+        "/api/exhibits/lever-play/assets",
+        data={"asset_kind": "document", "note": "hybrid search smoke"},
+        files={
+            "file": (
+                "hybrid-search-note.txt",
+                b"kinetic prism torque memo for imported exhibit archives",
+                "text/plain",
+            )
+        },
+        headers={"X-User-Role": "editor"},
+    )
+    assert upload_response.status_code == 201
+
+    response = client.post(
+        "/api/search/hybrid",
+        json={"query": "kinetic prism torque memo", "limit": 3},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] >= 1
+    first = payload["items"][0]
+    assert first["exhibit"]["id"] == "lever-play"
+    assert "hybrid-search-note.txt" in " ".join(first["reasons"])

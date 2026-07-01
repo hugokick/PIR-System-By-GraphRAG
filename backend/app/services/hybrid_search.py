@@ -122,6 +122,11 @@ def _score_exhibit(
         score += len(description_hits)
         reasons.append(f"匹配说明：{'、'.join(description_hits)}")
 
+    document_hits = _document_hits(compact_query, exhibit)
+    if document_hits:
+        score += len(document_hits) * 2.5
+        reasons.extend(document_hits)
+
     reasons.extend(_filter_reasons(exhibit, filters))
     return score, reasons
 
@@ -163,6 +168,19 @@ def _description_hits(compact_query: str, description: str) -> list[str]:
     for signal in ("推拉", "配重", "跷跷板", "滑轮", "沙盘", "水循环", "投影"):
         if signal in compact_query and signal in compact_description:
             hits.append(signal)
+    return hits
+
+
+def _document_hits(compact_query: str, exhibit: ExhibitResponse) -> list[str]:
+    if not compact_query:
+        return []
+
+    hits: list[str] = []
+    for document in exhibit.documents:
+        for chunk in document.chunks:
+            if compact_query in _compact(chunk.text):
+                hits.append(f"匹配资料：{document.name} #{chunk.sequence}")
+                break
     return hits
 
 
