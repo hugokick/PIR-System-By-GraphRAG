@@ -837,4 +837,29 @@ describe('importExhibits', () => {
     expect(result.importedCount).toBe(1);
     expect(result.items[0].id).toBe('magnet-maze');
   });
+
+  it('throws a readable message for malformed import files', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 400,
+      statusText: 'Bad Request',
+      json: async () => ({
+        detail: {
+          error: 'InvalidImportFile',
+          message: 'Import file could not be parsed',
+          details: {
+            filename: 'broken.xlsx',
+            supported_formats: ['csv', 'xlsx']
+          }
+        }
+      })
+    } as Response);
+    const file = new File(['broken'], 'broken.xlsx', {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
+
+    await expect(importExhibits(file, false)).rejects.toThrow(
+      '导入文件 broken.xlsx 无法解析，请上传 csv / xlsx 格式文件'
+    );
+  });
 });

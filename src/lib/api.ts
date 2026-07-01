@@ -204,6 +204,17 @@ export type ExhibitImportResult = {
   items: Exhibit[];
 };
 
+type ApiErrorPayload = {
+  detail?: {
+    error?: string;
+    message?: string;
+    details?: {
+      filename?: string;
+      supported_formats?: string[];
+    };
+  };
+};
+
 const slugMap: Record<string, string> = {
   电磁学: 'dianci-xue',
   亚克力: 'yake-li',
@@ -236,6 +247,20 @@ function resolveBackendFileUrl(url: string) {
     return url;
   }
   return `${apiBaseUrl.replace(/\/$/, '')}${url}`;
+}
+
+async function importErrorMessage(response: Response): Promise<string> {
+  try {
+    const payload = (await response.json()) as ApiErrorPayload;
+    if (payload.detail?.error === 'InvalidImportFile') {
+      const filename = payload.detail.details?.filename ?? '上传文件';
+      const formats = payload.detail.details?.supported_formats?.join(' / ') ?? 'csv / xlsx';
+      return `导入文件 ${filename} 无法解析，请上传 ${formats} 格式文件`;
+    }
+  } catch {
+    // Fall through to the generic HTTP error below.
+  }
+  return `API request failed: ${response.status} ${response.statusText}`;
 }
 
 export function mapApiExhibit(item: ApiExhibit): Exhibit {
@@ -607,7 +632,7 @@ export async function importExhibits(file: File, commit = true): Promise<Exhibit
     body: form
   });
   if (!response.ok) {
-    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+    throw new Error(await importErrorMessage(response));
   }
   const payload = (await response.json()) as ApiExhibitImportResponse;
   return {

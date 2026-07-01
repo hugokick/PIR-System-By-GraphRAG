@@ -942,9 +942,9 @@ export function App() {
       }
       setDataSource('api');
       setLoadError(`导入预览完成：确认后写入 ${result.validRows} 条展项`);
-    } catch {
+    } catch (error) {
       setDataSource('local');
-      setLoadError('表格导入失败，请检查字段模板和网络连接');
+      setLoadError(error instanceof Error ? error.message : '表格导入失败，请检查字段模板和网络连接');
     } finally {
       setIsImporting(false);
       input.value = '';
@@ -974,9 +974,9 @@ export function App() {
       setDataSource('api');
       setLoadError('导入完成：已选中新展项，可在当前展项图谱核验关系');
       void refreshAuditLogs();
-    } catch {
+    } catch (error) {
       setDataSource('local');
-      setLoadError('表格导入失败，请检查字段模板和网络连接');
+      setLoadError(error instanceof Error ? error.message : '表格导入失败，请检查字段模板和网络连接');
     } finally {
       setIsImporting(false);
     }

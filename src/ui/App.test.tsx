@@ -1580,6 +1580,41 @@ describe('App exhibit management', () => {
     expect((committedImportCalls[1][1]?.body as FormData).get('commit')).toBe('true');
   });
 
+  it('shows backend import parse errors with filename guidance', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.endsWith('/api/exhibits/import')) {
+        return {
+          ok: false,
+          status: 400,
+          statusText: 'Bad Request',
+          json: async () => ({
+            detail: {
+              error: 'InvalidImportFile',
+              message: 'Import file could not be parsed',
+              details: {
+                filename: 'broken.xlsx',
+                supported_formats: ['csv', 'xlsx']
+              }
+            }
+          })
+        } as Response;
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: '磁力迷宫' });
+    const input = document.querySelector('.import-upload input') as HTMLInputElement;
+    const file = new File(['broken'], 'broken.xlsx', {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    expect(await screen.findByText('导入文件 broken.xlsx 无法解析，请上传 csv / xlsx 格式文件')).toBeTruthy();
+  });
+
   it('switches back to the current exhibit graph after committing an import', async () => {
     const importedExhibit = {
       ...frontendExhibit,
