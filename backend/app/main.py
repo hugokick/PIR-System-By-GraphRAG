@@ -369,10 +369,12 @@ def import_exhibits(
         for item in items:
             existing = repository.get_exhibit(item.id)
             if existing is None:
-                imported.append(repository.create_exhibit(item))
-                write_audit(role, "import_create_exhibit", item.id, f"Imported exhibit {item.id}")
+                exhibit = normalize_write_review_status(item, role)
+                imported.append(repository.create_exhibit(exhibit))
+                write_audit(role, "import_create_exhibit", exhibit.id, f"Imported exhibit {exhibit.id}")
             else:
-                imported.append(repository.update_exhibit(item.id, item) or item)
+                exhibit = item.model_copy(update={"review_status": existing.review_status})
+                imported.append(repository.update_exhibit(item.id, exhibit) or exhibit)
                 write_audit(role, "import_update_exhibit", item.id, f"Updated exhibit {item.id} from import")
         filename = file.filename or "uploaded-file"
         write_audit(
