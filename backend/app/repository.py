@@ -484,17 +484,20 @@ class PostgresExhibitRepository:
         if self.get_exhibit(exhibit_id) is None:
             return None
         updated = exhibit.model_copy(update={"id": exhibit_id})
+        exhibit_embedding = vector_literal(stable_embedding(embedding_text_for_exhibit(updated)))
         with self._connect() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
                     UPDATE exhibit_records
                     SET payload = %s::jsonb,
+                        embedding = %s::vector,
                         updated_at = now()
                     WHERE id = %s AND deleted_at IS NULL
                     """,
-                    (updated.model_dump_json(), exhibit_id),
+                    (updated.model_dump_json(), exhibit_embedding, exhibit_id),
                 )
+                self._sync_search_embeddings(cursor, updated, exhibit_embedding)
         return updated
 
     def delete_exhibit(self, exhibit_id: str) -> bool:

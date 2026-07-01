@@ -122,3 +122,66 @@ def test_postgres_repository_backfills_search_embeddings_for_existing_records():
 
     assert any("SELECT payload FROM exhibit_records" in query for query, _ in cursor.calls)
     assert any("INSERT INTO search_embeddings" in query for query, _ in cursor.calls)
+
+
+def test_postgres_repository_update_refreshes_record_and_search_embeddings():
+    from app.repository import PostgresExhibitRepository
+
+    class RecordingCursor:
+        def __init__(self):
+            self.calls = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def execute(self, query, params=None):
+            self.calls.append((" ".join(query.split()), params))
+
+    class RecordingConnection:
+        def __init__(self, cursor):
+            self.cursor_instance = cursor
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def cursor(self):
+            return self.cursor_instance
+
+    class RecordingPostgresRepository(PostgresExhibitRepository):
+        def __init__(self):
+            super().__init__("postgresql://example", initialize=False)
+            self.cursor = RecordingCursor()
+
+        def get_exhibit(self, exhibit_id: str):
+            return seed_exhibits[0] if exhibit_id == "lever-play" else None
+
+        def _connect(self):
+            return RecordingConnection(self.cursor)
+
+    updated = seed_exhibits[0].model_copy(
+        update={
+            "description": "更新后的低龄儿童力学展项资料，用于刷新语义检索和 GraphRAG 引用。",
+            "tags": ["更新后标签", "语义检索"],
+        }
+    )
+    repository = RecordingPostgresRepository()
+
+    result = repository.update_exhibit("lever-play", updated)
+
+    assert result == updated
+    update_calls = [call for call in repository.cursor.calls if "UPDATE exhibit_records" in call[0]]
+    delete_calls = [call for call in repository.cursor.calls if "DELETE FROM search_embeddings" in call[0]]
+    insert_calls = [call for call in repository.cursor.calls if "INSERT INTO search_embeddings" in call[0]]
+
+    assert update_calls
+    assert "embedding = %s::vector" in update_calls[0][0]
+    assert delete_calls
+    assert delete_calls[0][1] == ("exhibit", "lever-play")
+    assert insert_calls
+    assert insert_calls[0][1][0] == "exhibit:lever-play"
