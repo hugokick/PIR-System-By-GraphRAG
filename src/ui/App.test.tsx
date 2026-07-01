@@ -127,7 +127,7 @@ describe('App exhibit management', () => {
     expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8000/api/exhibits/magnet-maze/graph');
   });
 
-  it('renders Neo4j graph metadata, relationship types, and selected node details', async () => {
+  it('renders Neo4j graph metadata and selected node details without a duplicated relationship list', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
       const url = String(input);
       if (url.endsWith('/api/exhibits/magnet-maze/graph')) {
@@ -162,8 +162,9 @@ describe('App exhibit management', () => {
     expect(await screen.findByText('数据源：Neo4j 图数据库')).toBeTruthy();
     expect(await screen.findByText('节点 3')).toBeTruthy();
     expect(await screen.findByText('关系 2')).toBeTruthy();
-    expect(screen.getByText('USES_MATERIAL')).toBeTruthy();
-    expect(screen.getByText('SUPPLIED_BY')).toBeTruthy();
+    expect(screen.queryByText('USES_MATERIAL')).toBeNull();
+    expect(screen.queryByText('SUPPLIED_BY')).toBeNull();
+    expect(document.body.querySelector('.edge-list')).toBeNull();
     expect(screen.getByRole('button', { name: '重新布局' })).toBeTruthy();
 
     fireEvent.click(await screen.findByRole('button', { name: /Backend Material/ }));

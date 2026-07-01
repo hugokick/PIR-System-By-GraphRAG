@@ -16,14 +16,14 @@ export const nvlGraphStyling = {
 };
 
 const nodeBaseSizes: Record<string, number> = {
-  exhibit: 32,
-  project: 26,
-  owner: 26,
-  material: 24,
-  supplier: 24,
-  theme: 24,
-  interaction: 24,
-  document: 22
+  exhibit: 22,
+  project: 18,
+  owner: 18,
+  material: 18,
+  supplier: 18,
+  theme: 18,
+  interaction: 18,
+  document: 16
 };
 
 const nodeIconPaths: Record<string, string> = {
@@ -37,6 +37,18 @@ const nodeIconPaths: Record<string, string> = {
   document: '<path d="M7 3h7l5 5v13H7zM14 3v6h5M10 14h6M10 18h4" stroke="black" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
 };
 
+const relationshipCaptions: Record<string, string> = {
+  belongs_to_project: '所属项目',
+  has_document: '资料文档',
+  has_interaction: '交互方式',
+  has_theme: '主题',
+  owned_by: '业主',
+  similar_to: '相似展项',
+  supplied_by: '供应商',
+  supports_theme: '支持主题',
+  uses_material: '使用材料'
+};
+
 function buildSvgIcon(path: string) {
   return `data:image/svg+xml;utf8,${encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">${path}</svg>`
@@ -48,9 +60,14 @@ function graphNodeSize(kind: string, selected: boolean) {
   return selected ? baseSize + 8 : baseSize;
 }
 
+function relationshipCaption(value: string) {
+  const key = value.trim().toLowerCase();
+  return relationshipCaptions[key] ?? value;
+}
+
 function initialNodePosition(index: number, total: number) {
   if (total <= 1) return { x: 0, y: 0 };
-  const radius = Math.min(280, 110 + total * 10);
+  const radius = Math.min(520, 180 + total * 7);
   const angle = -Math.PI / 2 + (2 * Math.PI * index) / total;
   return {
     x: Math.round(Math.cos(angle) * radius),
@@ -87,7 +104,7 @@ export function buildNvlGraphData(
       selected: node.id === selectedNodeId,
       activated: node.id === selectedNodeId,
       disabled: Boolean(selectedNodeId) && !neighborIds.has(node.id),
-      captionSize: node.id === selectedNodeId ? 13 : 12,
+      captionSize: node.id === selectedNodeId ? 11 : 10,
       captionAlign: 'bottom',
       x: position.x,
       y: position.y,
@@ -107,14 +124,15 @@ export function buildNvlGraphData(
     const highlighted = Boolean(selectedNodeId) && (edge.source === selectedNodeId || edge.target === selectedNodeId);
     const disabled = Boolean(selectedNodeId) && edge.source !== selectedNodeId && edge.target !== selectedNodeId;
     const relationshipType = edge.type ?? edge.label;
+    const readableCaption = relationshipCaption(relationshipType);
 
     return {
       id: `${edge.source}->${edge.target}:${relationshipType}:${index}`,
       from: edge.source,
       to: edge.target,
       type: relationshipType,
-      caption: relationshipType,
-      captionSize: highlighted ? 8.5 : 7,
+      caption: readableCaption,
+      captionSize: highlighted ? 9 : 8,
       captionAlign: 'center',
       color: highlighted ? '#f79767' : disabled ? '#6f7d8f' : '#8f9bad',
       width: highlighted ? 3.4 : disabled ? 1 : 2,

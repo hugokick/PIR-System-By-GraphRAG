@@ -1563,14 +1563,6 @@ export function App() {
                         </button>
                       ))}
                     </div>
-                    <div className="edge-list">
-                      {graph.edges.map((edge) => (
-                        <span key={`${edge.source}-${edge.target}-${edge.label}`}>
-                          <strong>{edge.type ?? edge.label}</strong>
-                          {' ->'} {graph.nodes.find((node) => node.id === edge.target)?.label}
-                        </span>
-                      ))}
-                    </div>
                   </aside>
                 </div>
               </section>

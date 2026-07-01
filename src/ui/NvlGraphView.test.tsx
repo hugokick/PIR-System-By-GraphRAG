@@ -53,6 +53,28 @@ const graph: { nodes: GraphNode[]; edges: GraphEdge[] } = {
   ]
 };
 
+const lowercaseRelationGraph: { nodes: GraphNode[]; edges: GraphEdge[] } = {
+  nodes: [
+    { id: 'exhibit:water-cycle', label: '城市水循环沙盘', kind: 'exhibit' },
+    { id: 'interaction:model-demo', label: '模型演示', kind: 'interaction' },
+    { id: 'material:led', label: 'LED', kind: 'material' }
+  ],
+  edges: [
+    {
+      source: 'exhibit:water-cycle',
+      target: 'interaction:model-demo',
+      label: 'has_interaction',
+      type: 'has_interaction'
+    },
+    {
+      source: 'exhibit:water-cycle',
+      target: 'material:led',
+      label: 'uses_material',
+      type: 'uses_material'
+    }
+  ]
+};
+
 const nodeColors: Record<string, string> = {
   exhibit: '#68bdf6',
   material: '#ffd86e',
@@ -67,18 +89,18 @@ describe('NvlGraphView graph mapping', () => {
     expect(nodes.find((node) => node.id === 'exhibit:magnet-maze')).toMatchObject({
       caption: 'Magnet Maze',
       color: '#68bdf6',
-      size: 40,
+      size: 30,
       selected: true,
       activated: true,
       pinned: true,
-      captionSize: 13,
+      captionSize: 11,
       captionAlign: 'bottom',
       disabled: false
     });
     expect(nodes.find((node) => node.id === 'material:acrylic')).toMatchObject({
       disabled: false,
-      size: 24,
-      captionSize: 12
+      size: 18,
+      captionSize: 10
     });
     expect(nodes.find((node) => node.id === 'material:acrylic')?.captions?.map((caption) => caption.value)).toEqual([
       'Acrylic',
@@ -87,24 +109,31 @@ describe('NvlGraphView graph mapping', () => {
     expect(nodes.find((node) => node.id === 'supplier:qisi')).toMatchObject({
       disabled: true
     });
-    expect(Math.max(...nodes.map((node) => Math.hypot(node.x ?? 0, node.y ?? 0)))).toBeGreaterThanOrEqual(150);
+    expect(Math.max(...nodes.map((node) => Math.hypot(node.x ?? 0, node.y ?? 0)))).toBeGreaterThanOrEqual(190);
     expect(new Set(nodes.map((node) => `${Math.round(node.x ?? 0)},${Math.round(node.y ?? 0)}`)).size).toBe(nodes.length);
 
     const selectedRelationship = rels.find((rel) => rel.type === 'USES_MATERIAL');
     expect(selectedRelationship).toMatchObject({
-      caption: 'USES_MATERIAL',
+      caption: '使用材料',
       color: '#f79767',
       width: 3.4,
-      captionSize: 8.5,
+      captionSize: 9,
       captionAlign: 'center',
       disabled: false
     });
     expect(rels.find((rel) => rel.type === 'SUPPORTS_THEME')).toMatchObject({
+      caption: '支持主题',
       disabled: true,
       color: '#6f7d8f',
       width: 1,
-      captionSize: 7
+      captionSize: 8
     });
+  });
+
+  it('uses readable Chinese relationship captions for Neo4j relationship types', () => {
+    const { rels } = buildNvlGraphData(lowercaseRelationGraph, 'exhibit:water-cycle', nodeColors);
+
+    expect(rels.map((rel) => rel.caption)).toEqual(['交互方式', '使用材料']);
   });
 
   it('uses stable Neo4j canvas styling options', () => {
@@ -142,6 +171,23 @@ describe('NvlGraphView graph mapping', () => {
     expect(new Set(lastNvlProps?.positions?.map((node) => `${node.x},${node.y}`)).size).toBe(graph.nodes.length);
   });
 
+  it('spreads the full demo graph far enough for readable relationship lengths', () => {
+    const denseGraph = {
+      nodes: Array.from({ length: 42 }, (_, index) => ({
+        id: `node:${index}`,
+        label: `Node ${index}`,
+        kind: index === 0 ? 'exhibit' : 'material'
+      })),
+      edges: []
+    };
+
+    const { nodes } = buildNvlGraphData(denseGraph, 'node:0', nodeColors);
+    const radii = nodes.map((node) => Math.hypot(node.x ?? 0, node.y ?? 0));
+
+    expect(Math.min(...radii)).toBeGreaterThanOrEqual(400);
+    expect(Math.max(...nodes.map((node) => node.size ?? 0))).toBeLessThanOrEqual(30);
+  });
+
   it('renders readable node and relationship labels above the canvas', async () => {
     vi.stubGlobal('navigator', { userAgent: 'Chrome' });
     const { NvlGraphView } = await import('./NvlGraphView');
@@ -156,9 +202,10 @@ describe('NvlGraphView graph mapping', () => {
       />
     );
 
-    expect([...container.querySelectorAll('.nvl-node-caption')].map((node) => node.textContent)).toContain('Magnet Maze');
-    expect([...container.querySelectorAll('.nvl-node-caption')].map((node) => node.textContent)).toContain('Acrylic');
-    expect([...container.querySelectorAll('.nvl-edge-caption')].map((edge) => edge.textContent)).toContain('USES_MATERIAL');
+    expect(lastNvlProps?.positions).toHaveLength(graph.nodes.length);
+    expect(container.querySelector('.nvl-readable-overlay')).toBeNull();
+    expect(container.querySelector('.nvl-node-caption')).toBeNull();
+    expect(container.querySelector('.nvl-edge-caption')).toBeNull();
   });
 
   it('hides unrelated relationship labels when the graph is dense', async () => {
@@ -191,16 +238,19 @@ describe('NvlGraphView graph mapping', () => {
       />
     );
 
-    const edgeLabels = [...container.querySelectorAll('.nvl-edge-caption')].map((edge) => edge.textContent);
-    expect(edgeLabels).toContain('SELECTED_EDGE_0');
-    expect(edgeLabels).not.toContain('UNRELATED_EDGE');
+    expect(container.querySelector('.nvl-readable-overlay')).toBeNull();
+    expect(buildNvlGraphData(denseGraph, 'exhibit:center', nodeColors).rels.find((rel) => rel.type === 'UNRELATED_EDGE')).toMatchObject({
+      disabled: true
+    });
   });
 
   it('keeps the graph viewport compact instead of reserving a tall empty area', () => {
     const styles = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf8');
 
-    expect(styles).toContain('--graph-viewport-height: clamp(320px, 42vh, 420px);');
+    expect(styles).toContain('--graph-viewport-height: clamp(260px, 34vh, 360px);');
     expect(styles).toContain('height: var(--graph-viewport-height);');
+    expect(styles).toContain('max-height: var(--graph-viewport-height);');
+    expect(styles).toContain('overflow: auto;');
     expect(styles).not.toContain('min-height: 480px;');
   });
 });

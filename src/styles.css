@@ -1140,7 +1140,7 @@ textarea:focus {
   border-top: 1px solid #e0e7e3;
   padding-top: 14px;
   container-type: inline-size;
-  --graph-viewport-height: clamp(320px, 42vh, 420px);
+  --graph-viewport-height: clamp(260px, 34vh, 360px);
 }
 
 .graph-mode-switch,
@@ -1229,54 +1229,6 @@ textarea:focus {
   height: var(--graph-viewport-height);
 }
 
-.nvl-readable-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-}
-
-.nvl-node-caption,
-.nvl-edge-caption {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  max-width: 132px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  border-radius: 999px;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 8px 20px rgba(3, 7, 18, 0.2);
-}
-
-.nvl-node-caption {
-  margin-top: 33px;
-  border: 1px solid rgba(104, 189, 246, 0.35);
-  background: rgba(15, 23, 42, 0.82);
-  color: #e8f4ff;
-  font-size: 11px;
-  font-weight: 800;
-  padding: 3px 7px;
-}
-
-.nvl-node-caption.selected {
-  border-color: rgba(247, 151, 103, 0.75);
-  color: #ffffff;
-}
-
-.nvl-edge-caption {
-  border: 1px solid rgba(247, 151, 103, 0.45);
-  background: rgba(255, 244, 236, 0.9);
-  color: #8b3c19;
-  font-size: 10px;
-  font-weight: 900;
-  padding: 2px 6px;
-}
-
-.nvl-edge-caption.disabled {
-  opacity: 0.42;
-}
-
 .nvl-minimap {
   position: absolute;
   right: 12px;
@@ -1302,7 +1254,10 @@ textarea:focus {
   display: grid;
   align-content: start;
   gap: 10px;
+  max-height: var(--graph-viewport-height);
   min-width: 0;
+  overflow: auto;
+  padding-right: 2px;
 }
 
 .graph-node-detail {
@@ -1399,21 +1354,6 @@ textarea:focus {
   font-size: 11px;
 }
 
-.edge-list {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 10px;
-}
-
-.edge-list span {
-  font-size: 12px;
-  color: #52645f;
-  background: #f4f7f5;
-  border-radius: 999px;
-  padding: 6px 9px;
-}
-
 @container (max-width: 780px) {
   .graph-enhanced {
     grid-template-columns: 1fr;
@@ -1468,7 +1408,7 @@ textarea:focus {
   }
 
   .graph {
-    --graph-viewport-height: 320px;
+    --graph-viewport-height: 300px;
   }
 
   .nvl-minimap {
@@ -1479,6 +1419,10 @@ textarea:focus {
   }
 
   .graph-node-list {
+    max-height: none;
+  }
+
+  .graph-inspector {
     max-height: none;
   }
 }
