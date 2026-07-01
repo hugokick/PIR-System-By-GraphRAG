@@ -108,6 +108,7 @@ const uploadAcceptTypes = [
   '.log'
 ].join(',');
 const userRoles: UserRole[] = ['admin', 'editor', 'viewer'];
+const sessionStorageKey = 'pir-system-session';
 
 function readInitialRole(): UserRole {
   let stored: string | null = null;
@@ -122,6 +123,42 @@ function readInitialRole(): UserRole {
 function storeRole(role: UserRole) {
   try {
     globalThis.localStorage?.setItem('pir-system-role', role);
+  } catch {
+    // Storage can be unavailable in restricted test/browser contexts.
+  }
+}
+
+function readStoredSession(): UserSession | null {
+  try {
+    const raw = globalThis.localStorage?.getItem(sessionStorageKey);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as UserSession;
+    if (
+      parsed?.tokenType === 'bearer' &&
+      typeof parsed.accessToken === 'string' &&
+      parsed.accessToken &&
+      parsed.user &&
+      userRoles.includes(parsed.user.role)
+    ) {
+      return parsed;
+    }
+  } catch {
+    // Ignore stale or unavailable storage and continue in demo role mode.
+  }
+  return null;
+}
+
+function storeSession(session: UserSession) {
+  try {
+    globalThis.localStorage?.setItem(sessionStorageKey, JSON.stringify(session));
+  } catch {
+    // Storage can be unavailable in restricted test/browser contexts.
+  }
+}
+
+function clearStoredSession() {
+  try {
+    globalThis.localStorage?.removeItem(sessionStorageKey);
   } catch {
     // Storage can be unavailable in restricted test/browser contexts.
   }
@@ -218,7 +255,15 @@ function makeExhibitFromForm(form: HTMLFormElement, existingItem?: Exhibit): Exh
 
 export function App() {
   const [items, setItems] = useState<Exhibit[]>(() => loadExhibits());
+  const [session, setSession] = useState<UserSession | null>(() => {
+    const initialSession = readStoredSession();
+    if (initialSession) {
+      setApiSession(initialSession);
+    }
+    return initialSession;
+  });
   const [role, setRole] = useState<UserRole>(() => {
+    if (session) return session.user.role;
     const initialRole = readInitialRole();
     setApiRole(initialRole);
     return initialRole;
@@ -234,7 +279,6 @@ export function App() {
   const [graphRagAnswer, setGraphRagAnswer] = useState<GraphRagAnswer | null>(null);
   const [graphRagError, setGraphRagError] = useState<string | null>(null);
   const [isAskingGraphRag, setIsAskingGraphRag] = useState(false);
-  const [session, setSession] = useState<UserSession | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [selectedId, setSelectedId] = useState(items[0]?.id ?? '');
@@ -362,9 +406,11 @@ export function App() {
   useEffect(() => {
     if (session) {
       setApiSession(session);
+      storeSession(session);
     } else {
       setApiSession(null);
       setApiRole(role);
+      clearStoredSession();
     }
     storeRole(role);
   }, [role, session]);

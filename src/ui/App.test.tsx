@@ -58,8 +58,27 @@ function okJson(payload: unknown): Response {
   } as Response;
 }
 
+function installMemoryStorage() {
+  const entries = new Map<string, string>();
+  const storage = {
+    getItem: vi.fn((key: string) => entries.get(key) ?? null),
+    setItem: vi.fn((key: string, value: string) => {
+      entries.set(key, value);
+    }),
+    removeItem: vi.fn((key: string) => {
+      entries.delete(key);
+    }),
+    clear: vi.fn(() => {
+      entries.clear();
+    })
+  };
+  vi.stubGlobal('localStorage', storage);
+  return storage;
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe('App exhibit management', () => {
@@ -590,6 +609,72 @@ describe('App exhibit management', () => {
         })
       );
     });
+  });
+
+  it('restores a saved login session and uses its bearer token after reload', async () => {
+    const storage = installMemoryStorage();
+    storage.setItem(
+      'pir-system-session',
+      JSON.stringify({
+        accessToken: 'persisted-token',
+        tokenType: 'bearer',
+        user: {
+          username: 'admin',
+          role: 'admin',
+          displayName: '管理员'
+        }
+      })
+    );
+
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      if (init && init.method === 'PUT') {
+        return okJson(JSON.parse(String(init.body)));
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText(/管理员/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /编辑档案/ }));
+    fireEvent.click(screen.getByRole('button', { name: '保存修改' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://127.0.0.1:8000/api/exhibits/magnet-maze',
+        expect.objectContaining({
+          method: 'PUT',
+          headers: expect.objectContaining({ Authorization: 'Bearer persisted-token' })
+        })
+      );
+    });
+  });
+
+  it('clears the saved login session when logging out', async () => {
+    const storage = installMemoryStorage();
+    storage.setItem(
+      'pir-system-session',
+      JSON.stringify({
+        accessToken: 'persisted-token',
+        tokenType: 'bearer',
+        user: {
+          username: 'admin',
+          role: 'admin',
+          displayName: '管理员'
+        }
+      })
+    );
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [apiExhibit()] }));
+
+    render(<App />);
+
+    expect(await screen.findByText(/管理员/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '退出' }));
+
+    await waitFor(() => {
+      expect(storage.removeItem).toHaveBeenCalledWith('pir-system-session');
+    });
+    expect(screen.getByRole('button', { name: '登录' })).toBeTruthy();
   });
 
   it('shows audit log entries to admins', async () => {
