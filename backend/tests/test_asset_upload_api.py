@@ -480,7 +480,7 @@ def test_only_admin_can_delete_uploaded_document_and_audit_it(monkeypatch, tmp_p
     monkeypatch.setenv("FILE_STORAGE_ROOT", str(tmp_path))
 
     upload_response = client.post(
-        "/api/exhibits/lever-play/assets",
+        "/api/exhibits/pulley-wall/assets",
         data={"asset_kind": "document", "note": "误传资料"},
         files={"file": ("delete-me.txt", b"temporary document", "text/plain")},
         headers=EDITOR_HEADERS,
@@ -489,13 +489,13 @@ def test_only_admin_can_delete_uploaded_document_and_audit_it(monkeypatch, tmp_p
     document = upload_response.json()["documents"][-1]
 
     editor_response = client.delete(
-        f"/api/exhibits/lever-play/assets/{document['id']}",
+        f"/api/exhibits/pulley-wall/assets/{document['id']}",
         headers=EDITOR_HEADERS,
     )
     assert editor_response.status_code == 403
 
     admin_response = client.delete(
-        f"/api/exhibits/lever-play/assets/{document['id']}",
+        f"/api/exhibits/pulley-wall/assets/{document['id']}",
         headers=ADMIN_HEADERS,
     )
     assert admin_response.status_code == 200
@@ -507,7 +507,7 @@ def test_only_admin_can_delete_uploaded_document_and_audit_it(monkeypatch, tmp_p
     assert any(
         entry["actor_role"] == "admin"
         and entry["action"] == "delete_document"
-        and entry["resource_id"] == "lever-play"
+        and entry["resource_id"] == "pulley-wall"
         and document["id"] in entry["summary"]
         for entry in audit_response.json()["items"]
     )
@@ -543,3 +543,27 @@ def test_admin_can_delete_uploaded_media_asset(monkeypatch, tmp_path):
         and media["id"] in entry["summary"]
         for entry in audit_response.json()["items"]
     )
+
+
+def test_admin_cannot_delete_asset_from_approved_or_landed_exhibit(monkeypatch, tmp_path):
+    monkeypatch.setenv("FILE_STORAGE_ROOT", str(tmp_path))
+
+    upload_response = client.post(
+        "/api/exhibits/lever-play/assets",
+        data={"asset_kind": "document", "note": "受保护说明"},
+        files={"file": ("protected-note.txt", b"protected note", "text/plain")},
+        headers=EDITOR_HEADERS,
+    )
+    assert upload_response.status_code == 201
+    document = upload_response.json()["documents"][-1]
+
+    delete_response = client.delete(
+        f"/api/exhibits/lever-play/assets/{document['id']}",
+        headers=ADMIN_HEADERS,
+    )
+
+    assert delete_response.status_code == 409
+    assert delete_response.json()["detail"]["error"] == "ProtectedExhibit"
+    detail_response = client.get("/api/exhibits/lever-play")
+    assert any(item["id"] == document["id"] for item in detail_response.json()["documents"])
+    assert client.get(document["url"]).status_code == 200

@@ -803,7 +803,7 @@ export function App() {
   };
 
   const removeAsset = async (assetId: string) => {
-    if (!canDelete || !selected || deletingAssetId) return;
+    if (!canDelete || !selected || deletingAssetId || isDeleteProtected) return;
     setDeletingAssetId(assetId);
 
     try {
@@ -1525,6 +1525,7 @@ export function App() {
                     <ImageIcon size={18} />
                     <span>媒体档案</span>
                   </div>
+                  {isDeleteProtected && <span className="asset-protection-note">已审核/已落地档案资料受保护，请先退回审核或变更状态后再删除</span>}
                   <div className="media-gallery-grid thumbnail-grid">
                     {selected.media.map((asset) => (
                       <article key={asset.id} className={canPreviewMedia(asset) ? 'media-card previewable' : 'media-card'}>
@@ -1575,7 +1576,7 @@ export function App() {
                               type="button"
                               className="asset-delete-action"
                               onClick={() => removeAsset(asset.id)}
-                              disabled={deletingAssetId === asset.id}
+                              disabled={deletingAssetId === asset.id || isDeleteProtected}
                               aria-label={`删除媒体 ${asset.name}`}
                             >
                               <Trash2 size={14} />
@@ -1627,6 +1628,7 @@ export function App() {
                     <FileText size={18} />
                     <span>资料文档</span>
                   </div>
+                  {isDeleteProtected && <span className="asset-protection-note">已审核/已落地档案资料受保护，请先退回审核或变更状态后再删除</span>}
                   <div className="document-items">
                     {selected.documents.map((document) => (
                       <div className="document-item" key={document.id}>
@@ -1640,7 +1642,7 @@ export function App() {
                               type="button"
                               className="asset-delete-action"
                               onClick={() => removeAsset(document.id)}
-                              disabled={deletingAssetId === document.id}
+                              disabled={deletingAssetId === document.id || isDeleteProtected}
                               aria-label={`删除资料 ${document.name}`}
                             >
                               <Trash2 size={14} />

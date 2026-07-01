@@ -328,6 +328,45 @@ describe('App exhibit management', () => {
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(false);
   });
 
+  it('protects media and document assets on approved or landed exhibits from deletion', async () => {
+    const protectedExhibit = apiExhibit({
+      ...frontendExhibit,
+      status: '已落地',
+      reviewStatus: '已审核',
+      media: [
+        {
+          id: 'protected-media',
+          type: 'image',
+          name: 'protected-scene.png',
+          url: '/api/files/protected-scene',
+          note: '受保护图片'
+        }
+      ],
+      documents: [
+        {
+          id: 'protected-document',
+          name: 'protected-note.txt',
+          fileType: 'txt',
+          url: '/api/files/protected-note',
+          sourceNote: '受保护资料'
+        }
+      ]
+    });
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [protectedExhibit] }));
+
+    render(<App />);
+
+    const mediaDelete = await screen.findByRole('button', { name: '删除媒体 protected-scene.png' });
+    const documentDelete = screen.getByRole('button', { name: '删除资料 protected-note.txt' });
+
+    expect((mediaDelete as HTMLButtonElement).disabled).toBe(true);
+    expect((documentDelete as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getAllByText('已审核/已落地档案资料受保护，请先退回审核或变更状态后再删除')).toHaveLength(2);
+    fireEvent.click(mediaDelete);
+    fireEvent.click(documentDelete);
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(false);
+  });
+
   it('keeps the exhibit visible when backend deletion fails', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) => {
       if (init && init.method === 'DELETE') {

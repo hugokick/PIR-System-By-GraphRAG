@@ -1034,6 +1034,17 @@ textarea:focus {
   margin-bottom: 10px;
 }
 
+.asset-protection-note {
+  display: block;
+  margin: 0 0 10px;
+  padding: 7px 9px;
+  border-radius: 6px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
 .media-gallery-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));

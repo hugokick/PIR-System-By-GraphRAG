@@ -527,6 +527,8 @@ def delete_exhibit_asset(
     exhibit = repository.get_exhibit(exhibit_id)
     if exhibit is None:
         raise not_found(exhibit_id)
+    if exhibit.review_status == "已审核" or exhibit.status == "已落地":
+        raise protected_delete(exhibit)
 
     deleted_media = next((asset for asset in exhibit.media_assets if asset.id == asset_id), None)
     deleted_document = next((document for document in exhibit.documents if document.id == asset_id), None)
