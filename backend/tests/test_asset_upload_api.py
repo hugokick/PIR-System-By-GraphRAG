@@ -237,6 +237,7 @@ def test_only_admin_can_delete_uploaded_document_and_audit_it(monkeypatch, tmp_p
     assert admin_response.status_code == 200
     payload = admin_response.json()
     assert all(item["id"] != document["id"] for item in payload["documents"])
+    assert client.get(document["url"]).status_code == 404
 
     audit_response = client.get("/api/admin/audit-logs", headers=ADMIN_HEADERS)
     assert any(
@@ -268,6 +269,7 @@ def test_admin_can_delete_uploaded_media_asset(monkeypatch, tmp_path):
     assert delete_response.status_code == 200
     payload = delete_response.json()
     assert all(item["id"] != media["id"] for item in payload["media_assets"])
+    assert client.get(media["url"]).status_code == 404
 
     audit_response = client.get("/api/admin/audit-logs", headers=ADMIN_HEADERS)
     assert any(

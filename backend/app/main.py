@@ -29,7 +29,14 @@ from .schemas import (
     RelatedExhibitsUpdateRequest,
     ReviewStatusUpdateRequest,
 )
-from .services.assets import file_extension, file_path, media_type_from_upload, save_upload_file
+from .services.assets import (
+    delete_stored_file,
+    file_extension,
+    file_id_from_url,
+    file_path,
+    media_type_from_upload,
+    save_upload_file,
+)
 from .services.auth import authenticate_demo_user, issue_access_token, verify_access_token
 from .services.dashboard import summarize_dashboard
 from .services.documents import extract_document_chunks
@@ -473,6 +480,8 @@ def delete_exhibit_asset(
     if exhibit is None:
         raise not_found(exhibit_id)
 
+    deleted_media = next((asset for asset in exhibit.media_assets if asset.id == asset_id), None)
+    deleted_document = next((document for document in exhibit.documents if document.id == asset_id), None)
     next_media_assets = [asset for asset in exhibit.media_assets if asset.id != asset_id]
     next_documents = [document for document in exhibit.documents if document.id != asset_id]
     if len(next_media_assets) == len(exhibit.media_assets) and len(next_documents) == len(exhibit.documents):
@@ -483,6 +492,10 @@ def delete_exhibit_asset(
     )
     saved = repository.update_exhibit(exhibit_id, updated) or updated
     action = "delete_document" if len(next_documents) < len(exhibit.documents) else "delete_media"
+    deleted_url = deleted_document.url if deleted_document else deleted_media.url if deleted_media else ""
+    file_id = file_id_from_url(deleted_url)
+    if file_id:
+        delete_stored_file(file_id)
     write_audit(role, action, exhibit_id, f"Deleted asset {asset_id} from exhibit {exhibit_id}")
     return saved
 

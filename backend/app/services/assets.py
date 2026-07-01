@@ -32,6 +32,23 @@ def file_path(file_id: str) -> Path | None:
     return files[0] if files else None
 
 
+def delete_stored_file(file_id: str) -> bool:
+    if not re.fullmatch(r"[a-f0-9]{32}", file_id):
+        return False
+    directory = storage_root() / file_id
+    if not directory.exists() or not directory.is_dir():
+        return False
+    shutil.rmtree(directory)
+    return True
+
+
+def file_id_from_url(url: str) -> str | None:
+    match = re.fullmatch(r"(?:/pir-system)?/api/files/([a-f0-9]{32})", url)
+    if match is None:
+        return None
+    return match.group(1)
+
+
 def safe_filename(filename: str) -> str:
     cleaned = Path(filename).name.strip() or "upload.bin"
     return re.sub(r"[^A-Za-z0-9._\-\u4e00-\u9fff]+", "_", cleaned)
