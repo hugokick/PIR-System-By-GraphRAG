@@ -203,6 +203,12 @@ def _search_filters(filters: GraphRAGContractFilters | None) -> GraphRAGFilters 
 
 def _center_subgraph(snapshot: KGSnapshot, center_id: str) -> tuple[list[KGNode], list[KGEdge]]:
     neighbor_ids = {center_id, *snapshot.adjacency.get(center_id, [])}
+    for edge in snapshot.edges:
+        if edge.source == center_id:
+            neighbor_ids.add(edge.target)
+        if edge.target == center_id:
+            neighbor_ids.add(edge.source)
+
     nodes = [node for node in snapshot.nodes if node.id in neighbor_ids]
     edges = [
         edge

@@ -39,7 +39,7 @@ def test_query_subgraph_by_exhibit_id_includes_deduped_incoming_edges():
             KGEdge(source=owner_id, target=center_id, type="owned_by", label="业主"),
         ],
         evidences=[],
-        adjacency={center_id: [owner_id], owner_id: [center_id]},
+        adjacency={owner_id: [center_id]},
         warnings=[],
     )
 

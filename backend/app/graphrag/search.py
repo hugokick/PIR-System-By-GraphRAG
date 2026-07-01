@@ -117,18 +117,7 @@ def _score_exhibit(
         return None
 
     exhibit_node_id = f"exhibit:{exhibit.id}"
-    neighbor_ids = [exhibit_node_id, *snapshot.adjacency.get(exhibit_node_id, [])]
-    neighborhood = KGSnapshot(
-        nodes=[node for node in snapshot.nodes if node.id in neighbor_ids],
-        edges=[
-            edge
-            for edge in snapshot.edges
-            if edge.source == exhibit_node_id and edge.target in neighbor_ids
-        ],
-        evidences=[],
-        adjacency={exhibit_node_id: snapshot.adjacency.get(exhibit_node_id, [])},
-        warnings=[],
-    )
+    neighborhood = _one_hop_neighborhood(snapshot, exhibit_node_id)
     citations = _dedupe_citations(
         [
             evidence
@@ -142,6 +131,31 @@ def _score_exhibit(
         reasons=reasons,
         citations=citations,
         neighborhood=neighborhood,
+    )
+
+
+def _one_hop_neighborhood(snapshot: KGSnapshot, center_id: str) -> KGSnapshot:
+    neighbor_ids = {center_id, *snapshot.adjacency.get(center_id, [])}
+    for edge in snapshot.edges:
+        if edge.source == center_id:
+            neighbor_ids.add(edge.target)
+        if edge.target == center_id:
+            neighbor_ids.add(edge.source)
+
+    edges = [
+        edge
+        for edge in snapshot.edges
+        if (
+            (edge.source == center_id and edge.target in neighbor_ids)
+            or (edge.target == center_id and edge.source in neighbor_ids)
+        )
+    ]
+    return KGSnapshot(
+        nodes=[node for node in snapshot.nodes if node.id in neighbor_ids],
+        edges=_dedupe_edges(edges),
+        evidences=[],
+        adjacency={center_id: [node_id for node_id in neighbor_ids if node_id != center_id]},
+        warnings=[],
     )
 
 
@@ -163,4 +177,16 @@ def _dedupe_citations(evidences: list[KGEvidence]) -> list[KGEvidence]:
             continue
         seen.add(key)
         unique.append(evidence)
+    return unique
+
+
+def _dedupe_edges(edges):
+    seen: set[str] = set()
+    unique = []
+    for edge in edges:
+        key = f"{edge.source}|{edge.type}|{edge.target}"
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(edge)
     return unique

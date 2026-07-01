@@ -41,6 +41,13 @@
 - `backend/app/graphrag/contract.py`
 - `backend/app/services/graphrag.py`
 
+## 2026-07-01 Mainline Follow-up
+
+- `search_graph_rag` now builds candidate neighborhoods from both outgoing and incoming one-hop KG edges.
+- `query_subgraph_by_exhibit_id` uses the same bidirectional one-hop rule even when the center node has no outgoing adjacency entry.
+- Both paths deduplicate relationship triples by `source|type|target`.
+- API request and response schemas remain unchanged.
+
 尤其保留了主线已有的：
 
 - `venue_type` / `status` / `review_status` 过滤
