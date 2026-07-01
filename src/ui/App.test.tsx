@@ -1248,6 +1248,41 @@ describe('App exhibit management', () => {
     expect(screen.queryByLabelText('引用来源 [1]')).toBeNull();
   });
 
+  it('shows no-evidence guidance when GraphRAG returns candidates without citations', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/api/graphrag/answer')) {
+        expect(init?.method).toBe('POST');
+        return okJson({
+          query: 'candidate without sources',
+          answer: '未找到依据：库内资料命中了候选展项，但没有可引用来源支撑“candidate without sources”。',
+          citations: [],
+          items: [
+            {
+              exhibit: apiExhibit(),
+              score: 7,
+              reasons: ['candidate match'],
+              citations: [],
+              graph: { nodes: [], edges: [] }
+            }
+          ]
+        });
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: frontendExhibit.name });
+    fireEvent.change(screen.getByLabelText(/GraphRAG/), { target: { value: 'candidate without sources' } });
+    fireEvent.click(screen.getByRole('button', { name: '生成答案' }));
+
+    const notice = await screen.findByRole('alert');
+    expect(notice.textContent).toContain('未找到可引用来源');
+    expect(screen.getByText('candidate match')).toBeTruthy();
+    expect(screen.queryByLabelText('引用来源 [1]')).toBeNull();
+  });
+
   it('renders backend hybrid search reasons in semantic recommendations', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = String(input);

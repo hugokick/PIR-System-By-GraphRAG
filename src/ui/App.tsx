@@ -504,7 +504,7 @@ export function App() {
   const canDelete = role === 'admin';
   const canReview = role === 'admin';
   const hasNoGraphRagEvidence = Boolean(
-    graphRagAnswer && graphRagAnswer.items.length === 0 && graphRagAnswer.citations.length === 0
+    graphRagAnswer && graphRagAnswer.citations.length === 0
   );
   const isDeleteProtected = Boolean(selected && (selected.reviewStatus === '已审核' || selected.status === '已落地'));
   const deleteProtectionMessage = '已审核/已落地档案受保护，请先退回审核或变更状态后再删除';
