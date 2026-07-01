@@ -5,6 +5,12 @@ from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, 
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
+from .ai.document_extraction import (
+    DocumentExtractionInput,
+    DocumentExtractionResult,
+    DocumentTextInput,
+    extract_document_suggestions,
+)
 from .repository import create_repository
 from .neo4j_demo.service import create_neo4j_demo_graph_service
 from .schemas import (
@@ -596,6 +602,41 @@ def upload_exhibit_asset(
     saved = repository.update_exhibit(exhibit_id, updated) or updated
     write_audit(role, audit_action, exhibit_id, f"Uploaded {filename} to exhibit {exhibit_id}")
     return saved
+
+
+@app.get(
+    "/api/exhibits/{exhibit_id}/documents/{document_id}/extraction-suggestions",
+    response_model=DocumentExtractionResult,
+)
+def get_document_extraction_suggestions(
+    exhibit_id: str,
+    document_id: str,
+    role: str = Depends(require_roles("admin", "editor")),
+) -> DocumentExtractionResult:
+    exhibit = repository.get_exhibit(exhibit_id)
+    if exhibit is None:
+        raise not_found(exhibit_id)
+    document = next((item for item in exhibit.documents if item.id == document_id), None)
+    if document is None:
+        raise not_found(document_id)
+
+    return extract_document_suggestions(
+        DocumentExtractionInput(
+            document_id=document.id,
+            file_name=document.name,
+            file_type=document.file_type,
+            source_note=document.source_note,
+            chunks=[
+                DocumentTextInput(
+                    chunk_id=chunk.id,
+                    text=chunk.text,
+                    sequence=chunk.sequence,
+                    source_locator=None,
+                )
+                for chunk in document.chunks
+            ],
+        )
+    )
 
 
 @app.delete("/api/exhibits/{exhibit_id}/assets/{asset_id}", response_model=ExhibitResponse)

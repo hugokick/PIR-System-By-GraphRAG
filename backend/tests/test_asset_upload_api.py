@@ -282,6 +282,59 @@ def test_uploaded_text_document_is_chunked_and_available_to_graphrag(monkeypatch
     assert "伯努利气流环道用于解释低龄儿童可观察的气压差现象" in answer_payload["answer"]
 
 
+def test_editor_can_request_document_extraction_suggestions(monkeypatch, tmp_path):
+    monkeypatch.setenv("FILE_STORAGE_ROOT", str(tmp_path))
+
+    upload_response = client.post(
+        "/api/exhibits/lever-play/assets",
+        data={"asset_kind": "document", "note": "field suggestion smoke"},
+        files={
+            "file": (
+                "suggested-exhibit.txt",
+                b"plain field note for extraction suggestions",
+                "text/plain",
+            )
+        },
+        headers=EDITOR_HEADERS,
+    )
+    assert upload_response.status_code == 201
+    document = upload_response.json()["documents"][-1]
+
+    response = client.get(
+        f"/api/exhibits/lever-play/documents/{document['id']}/extraction-suggestions",
+        headers=EDITOR_HEADERS,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["document_id"] == document["id"]
+    assert payload["file_name"] == "suggested-exhibit.txt"
+    assert payload["file_type"] == "txt"
+    assert payload["source_note"] == "field suggestion smoke"
+    assert payload["exhibit_name"] == "suggested-exhibit"
+    assert payload["field_sources"]["exhibit_name"][0]["chunk_id"] == document["chunks"][0]["id"]
+
+
+def test_viewer_cannot_request_document_extraction_suggestions(monkeypatch, tmp_path):
+    monkeypatch.setenv("FILE_STORAGE_ROOT", str(tmp_path))
+
+    upload_response = client.post(
+        "/api/exhibits/lever-play/assets",
+        data={"asset_kind": "document", "note": "protected suggestions"},
+        files={"file": ("viewer-denied.txt", b"viewer denied text", "text/plain")},
+        headers=EDITOR_HEADERS,
+    )
+    assert upload_response.status_code == 201
+    document = upload_response.json()["documents"][-1]
+
+    response = client.get(
+        f"/api/exhibits/lever-play/documents/{document['id']}/extraction-suggestions",
+        headers={"X-User-Role": "viewer"},
+    )
+
+    assert response.status_code == 403
+
+
 def test_uploaded_pdf_document_is_chunked_and_available_to_graphrag(monkeypatch, tmp_path):
     monkeypatch.setenv("FILE_STORAGE_ROOT", str(tmp_path))
     pdf_text = "pdf-smoke-token-ca68a67 explains pressure tunnel exhibit evidence"
