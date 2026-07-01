@@ -206,8 +206,18 @@ class ExhibitRepository:
         self._audit_logs.append(entry)
         return entry
 
-    def list_audit_logs(self, limit: int = 100) -> list[AuditLogEntry]:
-        return list(reversed(self._audit_logs[-limit:]))
+    def list_audit_logs(
+        self,
+        limit: int = 100,
+        action: str | None = None,
+        resource_id: str | None = None,
+    ) -> list[AuditLogEntry]:
+        logs = self._audit_logs
+        if action:
+            logs = [entry for entry in logs if entry.action == action]
+        if resource_id:
+            logs = [entry for entry in logs if entry.resource_id == resource_id]
+        return list(reversed(logs[-limit:]))
 
     def list_exhibits(
         self,
@@ -1432,17 +1442,32 @@ class PostgresExhibitRepository:
                 row = cursor.fetchone()
         return self.audit_log_from_row(row)
 
-    def list_audit_logs(self, limit: int = 100) -> list[AuditLogEntry]:
+    def list_audit_logs(
+        self,
+        limit: int = 100,
+        action: str | None = None,
+        resource_id: str | None = None,
+    ) -> list[AuditLogEntry]:
+        conditions: list[str] = []
+        params: list[Any] = []
+        if action:
+            conditions.append("action = %s")
+            params.append(action)
+        if resource_id:
+            conditions.append("resource_id = %s")
+            params.append(resource_id)
+        where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
         with self._connect() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
-                    """
+                    f"""
                     SELECT id, actor_role, action, resource_type, resource_id, summary, created_at
                     FROM audit_log_entries
+                    {where_clause}
                     ORDER BY created_at DESC
                     LIMIT %s
                     """,
-                    (limit,),
+                    (*params, limit),
                 )
                 rows = cursor.fetchall()
         return [self.audit_log_from_row(row) for row in rows]

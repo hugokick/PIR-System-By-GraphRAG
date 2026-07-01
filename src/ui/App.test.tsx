@@ -1019,10 +1019,11 @@ describe('App exhibit management', () => {
     render(<App />);
 
     const auditPanel = (await screen.findByText('操作日志')).closest('section') as HTMLElement;
+    const auditList = auditPanel.querySelector('.audit-list') as HTMLElement;
     expect(auditPanel).toBeTruthy();
-    expect(within(auditPanel).getByText('删除档案')).toBeTruthy();
-    expect(within(auditPanel).getByText('更新相似关系')).toBeTruthy();
-    expect(within(auditPanel).getByText('批量导入')).toBeTruthy();
+    expect(within(auditList).getByText('删除档案')).toBeTruthy();
+    expect(within(auditList).getByText('更新相似关系')).toBeTruthy();
+    expect(within(auditList).getByText('批量导入')).toBeTruthy();
     expect(within(auditPanel).queryByText('delete_exhibit')).toBeNull();
     expect(within(auditPanel).queryByText('update_exhibit_relations')).toBeNull();
     expect(within(auditPanel).queryByText('import_batch')).toBeNull();
@@ -1066,11 +1067,63 @@ describe('App exhibit management', () => {
 
     expect(await screen.findByText('暂无操作记录')).toBeTruthy();
     const auditPanel = screen.getByText('操作日志').closest('section') as HTMLElement;
+    const auditList = auditPanel.querySelector('.audit-list') as HTMLElement;
     fireEvent.click(within(auditPanel).getByRole('button', { name: '刷新操作日志' }));
 
     expect(await within(auditPanel).findAllByText(/manual-refresh-demo/)).toHaveLength(2);
-    expect(within(auditPanel).getByText('删除档案')).toBeTruthy();
+    expect(within(auditList).getByText('删除档案')).toBeTruthy();
     expect(fetchMock.mock.calls.filter(([input]) => String(input).endsWith('/api/admin/audit-logs?limit=8'))).toHaveLength(2);
+  });
+
+  it('lets admins filter audit logs by action and resource id', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (
+        url.includes('/api/admin/audit-logs?')
+        && url.includes('action=delete_exhibit')
+        && url.includes('resource_id=magnet-maze')
+      ) {
+        return okJson({
+          total: 1,
+          items: [
+            {
+              id: 'audit-filtered-delete',
+              actor_role: 'admin',
+              action: 'delete_exhibit',
+              resource_type: 'exhibit',
+              resource_id: 'magnet-maze',
+              summary: '删除档案 magnet-maze',
+              created_at: '2026-07-01T00:30:00+00:00'
+            }
+          ]
+        });
+      }
+      if (url.endsWith('/api/admin/audit-logs?limit=8')) {
+        return okJson({ total: 0, items: [] });
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    const auditPanel = (await screen.findByText('操作日志')).closest('section') as HTMLElement;
+    fireEvent.change(within(auditPanel).getByLabelText('日志动作'), { target: { value: 'delete_exhibit' } });
+    fireEvent.change(within(auditPanel).getByLabelText('资源编号'), { target: { value: 'magnet-maze' } });
+    fireEvent.click(within(auditPanel).getByRole('button', { name: '刷新操作日志' }));
+
+    expect(await within(auditPanel).findByText('删除档案')).toBeTruthy();
+    expect(within(auditPanel).getAllByText(/magnet-maze/).length).toBeGreaterThan(0);
+    expect(
+      fetchMock.mock.calls.some(([input]) => {
+        const url = String(input);
+        return (
+          url.includes('/api/admin/audit-logs?')
+          && url.includes('limit=8')
+          && url.includes('action=delete_exhibit')
+          && url.includes('resource_id=magnet-maze')
+        );
+      })
+    ).toBe(true);
   });
 
   it('refreshes audit log entries after admin mutations', async () => {
@@ -1109,7 +1162,8 @@ describe('App exhibit management', () => {
     fireEvent.click(screen.getByRole('button', { name: /删除档案/ }));
 
     const auditPanel = (await screen.findByText('操作日志')).closest('section') as HTMLElement;
-    expect(await within(auditPanel).findByText('删除档案')).toBeTruthy();
+    const auditList = auditPanel.querySelector('.audit-list') as HTMLElement;
+    expect(await within(auditList).findByText('删除档案')).toBeTruthy();
     expect(fetchMock.mock.calls.filter(([input]) => String(input).endsWith('/api/admin/audit-logs?limit=8'))).toHaveLength(2);
   });
 

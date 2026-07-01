@@ -204,6 +204,31 @@ def test_admin_can_delete_and_audit_log_records_mutations():
     )
 
 
+def test_admin_can_filter_audit_logs_by_action_and_resource_id():
+    audit_id = "admin-audit-filter-demo"
+    create_response = client.post(
+        "/api/exhibits",
+        json=exhibit_payload(audit_id),
+        headers=ADMIN_HEADERS,
+    )
+    assert create_response.status_code == 201
+
+    delete_response = client.delete(f"/api/exhibits/{audit_id}", headers=ADMIN_HEADERS)
+    assert delete_response.status_code == 204
+
+    audit_response = client.get(
+        "/api/admin/audit-logs",
+        params={"action": "delete_exhibit", "resource_id": audit_id},
+        headers=ADMIN_HEADERS,
+    )
+    assert audit_response.status_code == 200
+    payload = audit_response.json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["action"] == "delete_exhibit"
+    assert payload["items"][0]["resource_id"] == audit_id
+    assert "删除档案 admin-audit-filter-demo" in payload["items"][0]["summary"]
+
+
 def test_admin_cannot_delete_approved_or_landed_exhibit_directly():
     protected_id = "protected-delete-demo"
     payload = exhibit_payload(protected_id)

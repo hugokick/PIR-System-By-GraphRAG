@@ -217,6 +217,11 @@ type ApiAuditLogListResponse = {
   items: ApiAuditLogEntry[];
 };
 
+export type AuditLogFilters = {
+  action?: string;
+  resourceId?: string;
+};
+
 type ApiAuthLoginResponse = {
   access_token: string;
   token_type: 'bearer';
@@ -758,8 +763,11 @@ export async function importExhibits(file: File, commit = true): Promise<Exhibit
   };
 }
 
-export async function fetchAuditLogs(limit = 8): Promise<AuditLogEntry[]> {
-  const response = await fetch(`${apiBaseUrl}/api/admin/audit-logs?limit=${encodeURIComponent(String(limit))}`, {
+export async function fetchAuditLogs(limit = 8, filters: AuditLogFilters = {}): Promise<AuditLogEntry[]> {
+  const query = new URLSearchParams({ limit: String(limit) });
+  if (filters.action) query.set('action', filters.action);
+  if (filters.resourceId) query.set('resource_id', filters.resourceId);
+  const response = await fetch(`${apiBaseUrl}/api/admin/audit-logs?${query.toString()}`, {
     headers: authHeaders()
   });
   if (!response.ok) {

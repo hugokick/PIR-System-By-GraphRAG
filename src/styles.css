@@ -389,6 +389,29 @@ textarea:focus {
   opacity: 0.55;
 }
 
+.audit-filters {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.audit-filters label {
+  display: grid;
+  gap: 5px;
+  color: #53615d;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.audit-filters select,
+.audit-filters input {
+  border: 1px solid #d7e0dc;
+  border-radius: 6px;
+  color: #203b39;
+  font: inherit;
+  padding: 7px 8px;
+}
+
 .audit-item {
   display: grid;
   gap: 5px;

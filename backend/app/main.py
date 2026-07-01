@@ -719,9 +719,11 @@ def delete_exhibit_asset(
 @app.get("/api/admin/audit-logs", response_model=AuditLogListResponse)
 def list_audit_logs(
     limit: int = Query(default=100, ge=1, le=500),
+    action: str | None = None,
+    resource_id: str | None = None,
     role: str = Depends(require_roles("admin")),
 ) -> AuditLogListResponse:
-    logs = repository.list_audit_logs(limit=limit)
+    logs = repository.list_audit_logs(limit=limit, action=action, resource_id=resource_id)
     return AuditLogListResponse(total=len(logs), items=logs)
 
 

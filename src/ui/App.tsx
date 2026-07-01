@@ -135,6 +135,7 @@ const auditActionLabels: Record<string, string> = {
   import_exhibits: '批量导入',
   import_batch: '批量导入'
 };
+const auditActionOptions = Object.entries(auditActionLabels);
 const importErrorFieldLabels: Record<string, string> = {
   id: '展项编号',
   name: '展项名称',
@@ -462,6 +463,8 @@ export function App() {
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [auditError, setAuditError] = useState<string | null>(null);
   const [isAuditLoading, setIsAuditLoading] = useState(false);
+  const [auditActionFilter, setAuditActionFilter] = useState('');
+  const [auditResourceIdFilter, setAuditResourceIdFilter] = useState('');
   const [dashboardSummary, setDashboardSummary] = useState<DashboardStats | null>(null);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [isDashboardLoading, setIsDashboardLoading] = useState(false);
@@ -695,7 +698,10 @@ export function App() {
     }
 
     setIsAuditLoading(true);
-    await fetchAuditLogs(8)
+    await fetchAuditLogs(8, {
+      action: auditActionFilter,
+      resourceId: auditResourceIdFilter.trim()
+    })
       .then((logs) => {
         setAuditLogs(logs);
         setAuditError(null);
@@ -1356,6 +1362,27 @@ export function App() {
                 <RotateCcw size={13} />
                 {isAuditLoading ? '刷新中' : '刷新'}
               </button>
+            </div>
+            <div className="audit-filters">
+              <label>
+                日志动作
+                <select value={auditActionFilter} onChange={(event) => setAuditActionFilter(event.target.value)}>
+                  <option value="">全部动作</option>
+                  {auditActionOptions.map(([action, label]) => (
+                    <option key={action} value={action}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                资源编号
+                <input
+                  value={auditResourceIdFilter}
+                  onChange={(event) => setAuditResourceIdFilter(event.target.value)}
+                  placeholder="档案 ID / 文件名"
+                />
+              </label>
             </div>
             {auditError && <p className="audit-error">{auditError}</p>}
             {!auditError && isAuditLoading && auditLogs.length === 0 && <p className="audit-empty">正在加载操作日志...</p>}
