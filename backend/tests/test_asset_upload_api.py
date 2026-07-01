@@ -476,6 +476,28 @@ def test_upload_asset_returns_404_for_unknown_exhibit(monkeypatch, tmp_path):
     assert response.status_code == 404
 
 
+def test_upload_asset_rejects_unknown_asset_kind_before_storing_file(monkeypatch, tmp_path):
+    monkeypatch.setenv("FILE_STORAGE_ROOT", str(tmp_path))
+
+    response = client.post(
+        "/api/exhibits/pulley-wall/assets",
+        data={"asset_kind": "blueprint"},
+        files={"file": ("wrong-kind.png", b"should not be stored", "image/png")},
+        headers=EDITOR_HEADERS,
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == {
+        "error": "InvalidAssetKind",
+        "message": "Asset kind must be media or document",
+        "details": {
+            "asset_kind": "blueprint",
+            "valid_asset_kinds": ["media", "document"],
+        },
+    }
+    assert list(tmp_path.iterdir()) == []
+
+
 def test_only_admin_can_delete_uploaded_document_and_audit_it(monkeypatch, tmp_path):
     monkeypatch.setenv("FILE_STORAGE_ROOT", str(tmp_path))
 

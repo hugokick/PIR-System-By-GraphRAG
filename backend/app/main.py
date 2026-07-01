@@ -178,6 +178,20 @@ def invalid_import_file(filename: str | None) -> HTTPException:
     )
 
 
+def invalid_asset_kind(asset_kind: str) -> HTTPException:
+    return HTTPException(
+        status_code=400,
+        detail={
+            "error": "InvalidAssetKind",
+            "message": "Asset kind must be media or document",
+            "details": {
+                "asset_kind": asset_kind,
+                "valid_asset_kinds": ["media", "document"],
+            },
+        },
+    )
+
+
 def normalize_related_exhibit_ids(related_exhibit_ids: list[str]) -> list[str]:
     return list(dict.fromkeys([item.strip() for item in related_exhibit_ids if item.strip()]))
 
@@ -540,6 +554,8 @@ def upload_exhibit_asset(
     exhibit = repository.get_exhibit(exhibit_id)
     if exhibit is None:
         raise not_found(exhibit_id)
+    if asset_kind not in {"media", "document"}:
+        raise invalid_asset_kind(asset_kind)
 
     file_id, filename = save_upload_file(file)
     url = f"/api/files/{file_id}"
