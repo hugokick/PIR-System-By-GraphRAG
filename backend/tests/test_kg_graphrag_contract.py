@@ -6,6 +6,7 @@ from app.graphrag.contract import (
     query_graphrag_contract,
     query_subgraph_by_exhibit_id,
 )
+from app.kg.models import KGEdge, KGNode, KGSnapshot
 from app.repository import seed_exhibits
 
 
@@ -23,6 +24,36 @@ def test_query_subgraph_by_exhibit_id_returns_center_neighborhood():
     assert result.source_nodes
     assert result.source_edges
     assert result.citations
+
+
+def test_query_subgraph_by_exhibit_id_includes_deduped_incoming_edges():
+    center_id = "exhibit:lever-play"
+    owner_id = "owner:qinghe"
+    snapshot = KGSnapshot(
+        nodes=[
+            KGNode(id=center_id, type="exhibit", label="杠杆乐园"),
+            KGNode(id=owner_id, type="owner", label="青禾科技馆"),
+        ],
+        edges=[
+            KGEdge(source=owner_id, target=center_id, type="owned_by", label="业主"),
+            KGEdge(source=owner_id, target=center_id, type="owned_by", label="业主"),
+        ],
+        evidences=[],
+        adjacency={center_id: [owner_id], owner_id: [center_id]},
+        warnings=[],
+    )
+
+    result = query_subgraph_by_exhibit_id(
+        KGSubgraphQueryInput(exhibit_id="lever-play"),
+        exhibits=seed_exhibits,
+        snapshot=snapshot,
+    )
+
+    assert {node.id for node in result.graph_context.nodes} == {center_id, owner_id}
+    assert [
+        (edge.source, edge.type, edge.target)
+        for edge in result.graph_context.edges
+    ] == [(owner_id, "owned_by", center_id)]
 
 
 def test_query_graphrag_contract_returns_candidates_citations_and_signals():
@@ -59,6 +90,20 @@ def test_query_graphrag_contract_can_use_vector_semantic_scores_as_recall_signal
         for signal in result.reasoning_signals
     )
     assert result.citations
+
+
+def test_query_graphrag_contract_labels_document_reasoning_signals():
+    result = query_graphrag_contract(
+        GraphRAGContractQueryInput(query_text="样例文档 来源链路", top_k=1),
+        exhibits=seed_exhibits,
+    )
+
+    assert result.matched_exhibits[0].exhibit.id == "lever-play"
+    assert any(
+        signal.exhibit_id == "lever-play"
+        and signal.signal_type == "document_chunk_match"
+        for signal in result.reasoning_signals
+    )
 
 
 def test_contract_queries_are_pure_models_not_fastapi_route_responses():
