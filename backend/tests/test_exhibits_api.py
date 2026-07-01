@@ -349,13 +349,13 @@ def test_update_exhibit_relationships_refreshes_graph_edges():
     assert response.status_code == 200
 
     graph_response = client.get("/api/exhibits/lever-play/graph")
-    similar_edges = [
+    outgoing_similar_edges = [
         edge
         for edge in graph_response.json()["edges"]
-        if edge["type"] == "similar_to"
+        if edge["type"] == "similar_to" and edge["source"] == "exhibit:lever-play"
     ]
 
-    assert similar_edges == [
+    assert outgoing_similar_edges == [
         {
             "source": "exhibit:lever-play",
             "target": "exhibit:water-cycle",
@@ -391,6 +391,31 @@ def test_patch_related_exhibits_updates_curated_similarity_graph_edges():
         assert similar_targets == ["exhibit:lever-play", "exhibit:water-cycle"]
     finally:
         client.delete("/api/exhibits/relation-editor-demo", headers=ADMIN_HEADERS)
+
+
+def test_get_exhibit_graph_includes_incoming_similarity_edges():
+    create_payload = client.get("/api/exhibits/pulley-wall").json()
+    create_payload["id"] = "incoming-relation-demo"
+    create_payload["related_exhibit_ids"] = ["lever-play"]
+    create_response = client.post("/api/exhibits", json=create_payload, headers=EDITOR_HEADERS)
+    assert create_response.status_code == 201
+
+    try:
+        graph_response = client.get("/api/exhibits/lever-play/graph")
+
+        assert graph_response.status_code == 200
+        assert any(
+            edge["source"] == "exhibit:incoming-relation-demo"
+            and edge["target"] == "exhibit:lever-play"
+            and edge["type"] == "similar_to"
+            for edge in graph_response.json()["edges"]
+        )
+        assert any(
+            node["id"] == "exhibit:incoming-relation-demo"
+            for node in graph_response.json()["nodes"]
+        )
+    finally:
+        client.delete("/api/exhibits/incoming-relation-demo", headers=ADMIN_HEADERS)
 
 
 def test_delete_exhibit_soft_removes_from_list_and_detail():

@@ -246,6 +246,82 @@ def test_postgres_repository_reads_exhibit_graph_from_kg_projection_tables():
     assert any("FROM kg_nodes" in query for query, _ in repository.cursor.calls)
 
 
+def test_postgres_repository_reads_incoming_similarity_edges_for_exhibit_graph():
+    from app.repository import PostgresExhibitRepository
+
+    class RecordingCursor:
+        def __init__(self):
+            self.calls = []
+            self.rows = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def execute(self, query, params=None):
+            normalized = " ".join(query.split())
+            self.calls.append((normalized, params))
+            if "FROM kg_edges" in normalized:
+                self.rows = (
+                    [
+                        {
+                            "source": "exhibit:lever-play",
+                            "target": "exhibit:pulley-wall",
+                            "label": "similar exhibit",
+                            "type": "similar_to",
+                        }
+                    ]
+                    if params == ("exhibit:pulley-wall", "exhibit:pulley-wall", "exhibit:pulley-wall")
+                    else []
+                )
+            elif "FROM kg_nodes" in normalized:
+                self.rows = [
+                    {"id": "exhibit:pulley-wall", "label": "Pulley Wall", "type": "exhibit"},
+                    {"id": "exhibit:lever-play", "label": "Lever Play", "type": "exhibit"},
+                ]
+
+        def fetchall(self):
+            return self.rows
+
+    class RecordingConnection:
+        def __init__(self, cursor):
+            self.cursor_instance = cursor
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def cursor(self):
+            return self.cursor_instance
+
+    class RecordingPostgresRepository(PostgresExhibitRepository):
+        def __init__(self):
+            super().__init__("postgresql://example", initialize=False)
+            self.cursor = RecordingCursor()
+
+        def _connect(self):
+            return RecordingConnection(self.cursor)
+
+    repository = RecordingPostgresRepository()
+
+    graph = repository.get_exhibit_graph("pulley-wall")
+
+    assert [node.id for node in graph.nodes] == ["exhibit:pulley-wall", "exhibit:lever-play"]
+    assert [
+        (edge.source, edge.type, edge.target)
+        for edge in graph.edges
+    ] == [("exhibit:lever-play", "similar_to", "exhibit:pulley-wall")]
+    assert any(
+        "target = %s" in query
+        and params == ("exhibit:pulley-wall", "exhibit:pulley-wall", "exhibit:pulley-wall")
+        for query, params in repository.cursor.calls
+    )
+
+
 def test_postgres_repository_reads_kg_snapshot_from_projection_tables():
     from app.repository import PostgresExhibitRepository, seed_exhibits
 

@@ -712,10 +712,14 @@ class PostgresExhibitRepository:
                     """
                     SELECT source, target, label, type
                     FROM kg_edges
-                    WHERE source = %s
-                    ORDER BY type ASC, target ASC
+                    WHERE source = %s OR target = %s
+                    ORDER BY
+                      CASE WHEN source = %s THEN 0 ELSE 1 END,
+                      type ASC,
+                      target ASC,
+                      source ASC
                     """,
-                    (center_id,),
+                    (center_id, center_id, center_id),
                 )
                 edge_rows = cursor.fetchall()
 

@@ -4,14 +4,20 @@ from ..schemas import ExhibitResponse, GraphEdge, GraphNode, GraphResponse
 def build_exhibit_graph(exhibit: ExhibitResponse, all_exhibits: list[ExhibitResponse]) -> GraphResponse:
     nodes: dict[str, GraphNode] = {}
     edges: list[GraphEdge] = []
+    edge_keys: set[tuple[str, str, str]] = set()
 
     def add_node(node_id: str, label: str, node_type: str) -> None:
         nodes[node_id] = GraphNode(id=node_id, label=label, type=node_type)
 
-    def add_edge(target: str, label: str, edge_type: str) -> None:
+    def add_edge(target: str, label: str, edge_type: str, source: str | None = None) -> None:
+        edge_source = source or f"exhibit:{exhibit.id}"
+        edge_key = (edge_source, edge_type, target)
+        if edge_key in edge_keys:
+            return
+        edge_keys.add(edge_key)
         edges.append(
             GraphEdge(
-                source=f"exhibit:{exhibit.id}",
+                source=edge_source,
                 target=target,
                 label=label,
                 type=edge_type,
@@ -64,5 +70,17 @@ def build_exhibit_graph(exhibit: ExhibitResponse, all_exhibits: list[ExhibitResp
         node_id = f"exhibit:{related.id}"
         add_node(node_id, related.name, "exhibit")
         add_edge(node_id, "相似展项", "similar_to")
+
+    for candidate in all_exhibits:
+        if candidate.id == exhibit.id or exhibit.id not in candidate.related_exhibit_ids:
+            continue
+        node_id = f"exhibit:{candidate.id}"
+        add_node(node_id, candidate.name, "exhibit")
+        add_edge(
+            f"exhibit:{exhibit.id}",
+            "相似展项",
+            "similar_to",
+            source=node_id,
+        )
 
     return GraphResponse(nodes=list(nodes.values()), edges=edges)

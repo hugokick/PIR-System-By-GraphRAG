@@ -270,6 +270,7 @@ GET /api/exhibits/{id}/graph
 - 普通新增 / 编辑展项接口已校验 `related_exhibit_ids`，拒绝不存在展项或自引用关系，避免从手工录入口写入无效图谱关系
 - PostgreSQL 运行时仓储已新增 `kg_nodes` / `kg_edges` 投影表，新增、编辑、删除展项后会从当前有效展项重建 KG 快照并同步节点/边，为后续从关系表查询图谱和 GraphRAG 上下文打基础
 - `GET /api/exhibits/{id}/graph` 已优先读取 PostgreSQL KG 投影表生成当前展项一跳子图；投影为空或查询演示库专有展项时，继续回退到 Neo4j 演示图谱服务
+- 当前展项图谱的一跳子图已同时包含出边与入边的相似展项关系，避免只在关系发起方查看时才能看到 `similar_to`
 - GraphRAG 检索 / 问答接口已在 PostgreSQL 仓储可用时复用 `kg_nodes` / `kg_edges` 投影快照，避免每次请求临时重建图谱上下文
 
 ### 阶段 4：文件与多媒体档案
