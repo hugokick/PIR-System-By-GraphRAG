@@ -71,6 +71,17 @@ def answer_from_graphrag_context(
         for item in search_response.items
         for citation in item.citations
     )
+    if not citations:
+        return GraphRagAnswerResponse(
+            query=query,
+            answer=(
+                f"未找到依据：库内资料命中了候选展项，但没有可引用来源支撑“{query}”。"
+                "请补充展项档案、上传资料，或调整筛选条件后重试。"
+            ),
+            citations=[],
+            items=search_response.items,
+        )
+
     answer = _compose_grounded_answer(query, search_response.items, citations)
     return GraphRagAnswerResponse(
         query=query,

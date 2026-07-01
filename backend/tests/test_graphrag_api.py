@@ -328,6 +328,42 @@ def test_graphrag_answer_is_source_grounded_with_numbered_citations():
     assert payload["citations"][0]["snippet"]
 
 
+def test_graphrag_answer_refuses_to_compose_without_citations(monkeypatch):
+    from app.schemas import GraphResponse, GraphRagSearchHit, GraphRagSearchResponse
+    from app.services import graphrag as graphrag_service
+
+    def search_without_citations(query, exhibits, top_k=3, filters=None, semantic_scores=None, snapshot=None):
+        return GraphRagSearchResponse(
+            query=query,
+            total=1,
+            items=[
+                GraphRagSearchHit(
+                    exhibit=seed_exhibits[0],
+                    score=1,
+                    reasons=["候选展项与查询语义匹配"],
+                    citations=[],
+                    graph=GraphResponse(nodes=[], edges=[]),
+                )
+            ],
+        )
+
+    monkeypatch.setattr(graphrag_service, "search_graphrag_context", search_without_citations)
+
+    response = client.post(
+        "/api/graphrag/answer",
+        json={"query": "适合儿童的机械互动展项", "top_k": 1},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["items"][0]["exhibit"]["id"] == seed_exhibits[0].id
+    assert payload["citations"] == []
+    assert "未找到依据" in payload["answer"]
+    assert "可引用来源" in payload["answer"]
+    assert "根据库内资料" not in payload["answer"]
+    assert seed_exhibits[0].description not in payload["answer"]
+
+
 def test_graphrag_answer_reports_when_no_evidence_is_found():
     response = client.post(
         "/api/graphrag/answer",
