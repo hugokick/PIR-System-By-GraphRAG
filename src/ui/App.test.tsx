@@ -286,6 +286,40 @@ describe('App exhibit management', () => {
     expect(updatedPayload?.review_status).toBe('已审核');
   });
 
+  it('hides review status from editor edit forms and preserves the existing workflow state', async () => {
+    let updatedPayload: ApiExhibit | undefined;
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) => {
+      if (init && init.method === 'PUT') {
+        const body = JSON.parse(String(init.body));
+        updatedPayload = body;
+        return okJson(body);
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: '磁力迷宫' });
+    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'editor' } });
+    fireEvent.click(screen.getByRole('button', { name: /编辑档案/ }));
+
+    expect(screen.queryByLabelText('档案审核状态')).toBeNull();
+
+    fireEvent.change(screen.getByPlaceholderText('展项名称'), { target: { value: '磁力迷宫 Editor Draft' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存修改' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://127.0.0.1:8000/api/exhibits/magnet-maze',
+        expect.objectContaining({
+          method: 'PUT',
+          body: expect.stringContaining('磁力迷宫 Editor Draft')
+        })
+      );
+    });
+    expect(updatedPayload?.review_status).toBe('待审核');
+  });
+
   it('deletes the selected exhibit through the backend API', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) => {
       if (init && init.method === 'DELETE') {

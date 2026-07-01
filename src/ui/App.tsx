@@ -270,7 +270,7 @@ function makeExhibitFromForm(form: HTMLFormElement, existingItem?: Exhibit): Exh
     projectYear: Number(data.get('projectYear') ?? new Date().getFullYear()),
     owner: String(data.get('owner') ?? '').trim(),
     status: String(data.get('status') ?? '概念方案') as ExhibitStatus,
-    reviewStatus: String(data.get('reviewStatus') ?? '待审核') as ReviewStatus,
+    reviewStatus: String(data.get('reviewStatus') ?? existingItem?.reviewStatus ?? '待审核') as ReviewStatus,
     description: String(data.get('description') ?? '').trim(),
     tags: list('tags'),
     media: existingItem?.media ?? [],
@@ -1279,14 +1279,16 @@ export function App() {
                 <option key={status}>{status}</option>
               ))}
             </select>
-            <label className="form-field">
-              档案审核状态
-              <select name="reviewStatus" defaultValue={editingItem?.reviewStatus ?? reviewStatuses[1]}>
-                {reviewStatuses.map((status) => (
-                  <option key={status}>{status}</option>
-                ))}
-              </select>
-            </label>
+            {canReview && (
+              <label className="form-field">
+                档案审核状态
+                <select name="reviewStatus" defaultValue={editingItem?.reviewStatus ?? reviewStatuses[1]}>
+                  {reviewStatuses.map((status) => (
+                    <option key={status}>{status}</option>
+                  ))}
+                </select>
+              </label>
+            )}
             <input name="tags" placeholder="标签，用逗号分隔" defaultValue={editingItem?.tags.join(',') ?? ''} />
             <input name="relatedProjectIds" placeholder="项目编号，用逗号分隔" defaultValue={editingItem?.relatedProjectIds.join(',') ?? ''} />
             <input
