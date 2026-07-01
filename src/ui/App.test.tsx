@@ -807,7 +807,7 @@ describe('App exhibit management', () => {
       const url = String(input);
       if (url.endsWith('/api/admin/audit-logs?limit=8')) {
         return okJson({
-          total: 1,
+          total: 3,
           items: [
             {
               id: 'audit-1',
@@ -817,6 +817,24 @@ describe('App exhibit management', () => {
               resource_id: 'magnet-maze',
               summary: 'Deleted exhibit magnet-maze',
               created_at: '2026-07-01T00:00:00+00:00'
+            },
+            {
+              id: 'audit-2',
+              actor_role: 'editor',
+              action: 'update_exhibit_relations',
+              resource_type: 'exhibit',
+              resource_id: 'lever-play',
+              summary: 'Updated related exhibits for lever-play',
+              created_at: '2026-07-01T00:10:00+00:00'
+            },
+            {
+              id: 'audit-3',
+              actor_role: 'editor',
+              action: 'import_batch',
+              resource_type: 'exhibit',
+              resource_id: 'exhibits.xlsx',
+              summary: 'Imported spreadsheet exhibits.xlsx',
+              created_at: '2026-07-01T00:20:00+00:00'
             }
           ]
         });
@@ -829,7 +847,11 @@ describe('App exhibit management', () => {
     const auditPanel = (await screen.findByText('操作日志')).closest('section') as HTMLElement;
     expect(auditPanel).toBeTruthy();
     expect(within(auditPanel).getByText('删除档案')).toBeTruthy();
+    expect(within(auditPanel).getByText('更新相似关系')).toBeTruthy();
+    expect(within(auditPanel).getByText('批量导入')).toBeTruthy();
     expect(within(auditPanel).queryByText('delete_exhibit')).toBeNull();
+    expect(within(auditPanel).queryByText('update_exhibit_relations')).toBeNull();
+    expect(within(auditPanel).queryByText('import_batch')).toBeNull();
     expect(within(auditPanel).getByText(/2026-07-01 00:00/)).toBeTruthy();
     expect(screen.getAllByText(/magnet-maze/).length).toBeGreaterThan(0);
     expect(screen.getAllByText('admin').length).toBeGreaterThan(0);

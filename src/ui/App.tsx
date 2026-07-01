@@ -121,9 +121,11 @@ const auditActionLabels: Record<string, string> = {
   upload_media: '上传媒体',
   delete_document: '删除资料',
   delete_media: '删除媒体',
+  update_exhibit_relations: '更新相似关系',
   import_create_exhibit: '导入新增',
   import_update_exhibit: '导入更新',
-  import_exhibits: '批量导入'
+  import_exhibits: '批量导入',
+  import_batch: '批量导入'
 };
 
 function auditActionLabel(action: string) {
