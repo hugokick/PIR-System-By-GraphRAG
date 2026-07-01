@@ -1,0 +1,12 @@
+[
+  {
+    "query": "力学 启思互动工坊",
+    "top_k": 2,
+    "expected_top_ids": ["lever-play", "pulley-wall"]
+  },
+  {
+    "query": "样例文档 来源链路",
+    "top_k": 1,
+    "expected_top_ids": ["lever-play"]
+  }
+]
