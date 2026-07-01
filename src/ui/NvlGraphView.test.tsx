@@ -10,7 +10,7 @@ let lastNvlProps: {
   layout?: string;
   layoutOptions?: Record<string, unknown>;
   nvlOptions?: Record<string, unknown>;
-  positions?: { id: string; x?: number; y?: number; caption?: string }[];
+  positions?: { id: string; x?: number; y?: number; caption?: string; captions?: { value: string }[] }[];
 } | null = null;
 
 vi.mock('@neo4j-nvl/react', () => ({
@@ -20,7 +20,7 @@ vi.mock('@neo4j-nvl/react', () => ({
         layout?: string;
         layoutOptions?: Record<string, unknown>;
         nvlOptions?: Record<string, unknown>;
-        positions?: { id: string; x?: number; y?: number; caption?: string }[];
+        positions?: { id: string; x?: number; y?: number; caption?: string; captions?: { value: string }[] }[];
       },
       _ref
     ) => {
@@ -103,8 +103,7 @@ describe('NvlGraphView graph mapping', () => {
       captionSize: 12
     });
     expect(nodes.find((node) => node.id === 'material:acrylic')?.captions?.map((caption) => caption.value)).toEqual([
-      'Acrylic',
-      'material'
+      'Acrylic'
     ]);
     expect(nodes.find((node) => node.id === 'supplier:qisi')).toMatchObject({
       disabled: true
@@ -118,9 +117,10 @@ describe('NvlGraphView graph mapping', () => {
       color: '#f79767',
       width: 3.4,
       captionSize: 12,
-      captionAlign: 'center',
+      captionAlign: 'top',
       disabled: false
     });
+    expect(selectedRelationship?.captions?.map((caption) => caption.value)).toEqual(['使用材料']);
     expect(rels.find((rel) => rel.type === 'SUPPORTS_THEME')).toMatchObject({
       caption: '支持主题',
       disabled: true,
@@ -214,6 +214,12 @@ describe('NvlGraphView graph mapping', () => {
     expect(lastNvlProps?.positions?.find((node) => node.id === 'material:acrylic')).toMatchObject({
       caption: 'Acrylic'
     });
+    expect(lastNvlProps?.positions?.find((node) => node.id === 'material:acrylic')?.captions?.map((caption) => caption.value)).toEqual([
+      'Acrylic'
+    ]);
+    expect(buildNvlGraphData(graph, 'exhibit:magnet-maze', nodeColors).rels.find((rel) => rel.type === 'USES_MATERIAL')?.captions?.map((caption) => caption.value)).toEqual([
+      '使用材料'
+    ]);
     expect(buildNvlGraphData(graph, 'exhibit:magnet-maze', nodeColors).rels.map((rel) => rel.caption)).toContain('使用材料');
   });
 
@@ -257,11 +263,13 @@ describe('NvlGraphView graph mapping', () => {
   it('expands the graph viewport and keeps media assets as small thumbnails', () => {
     const styles = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf8');
 
-    expect(styles).toContain('--graph-viewport-height: clamp(960px, 120vh, 1440px);');
+    expect(styles).toContain('--graph-viewport-height: clamp(1120px, 140vh, 1680px);');
     expect(styles).toContain('height: var(--graph-viewport-height);');
     expect(styles).toContain('max-height: var(--graph-viewport-height);');
+    expect(styles).toContain('.nvl-stage canvas');
+    expect(styles).toContain('height: 100%;');
     expect(styles).not.toContain('.nvl-readable-overlay');
-    expect(styles).toContain('grid-template-columns: repeat(auto-fill, minmax(88px, 112px));');
+    expect(styles).toContain('grid-template-columns: repeat(auto-fill, minmax(72px, 92px));');
     expect(styles).toContain('aspect-ratio: 1 / 1;');
     expect(styles).toContain('overflow: auto;');
   });

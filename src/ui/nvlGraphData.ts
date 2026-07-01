@@ -113,9 +113,6 @@ export function buildNvlGraphData(
         {
           value: node.label,
           styles: ['bold']
-        },
-        {
-          value: node.kind
         }
       ]
     };
@@ -132,8 +129,14 @@ export function buildNvlGraphData(
       to: edge.target,
       type: relationshipType,
       caption: readableCaption,
+      captions: [
+        {
+          value: readableCaption,
+          styles: ['bold']
+        }
+      ],
       captionSize: highlighted ? 12 : 11,
-      captionAlign: 'center',
+      captionAlign: 'top',
       color: highlighted ? '#f79767' : disabled ? '#6f7d8f' : '#8f9bad',
       width: highlighted ? 3.4 : disabled ? 1 : 2,
       disabled

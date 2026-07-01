@@ -1010,7 +1010,7 @@ textarea:focus {
 }
 
 .media-gallery-grid.thumbnail-grid {
-  grid-template-columns: repeat(auto-fill, minmax(88px, 112px));
+  grid-template-columns: repeat(auto-fill, minmax(72px, 92px));
   gap: 8px;
 }
 
@@ -1021,7 +1021,7 @@ textarea:focus {
   border: 1px solid #e0e8e4;
   border-radius: 8px;
   background: #ffffff;
-  padding: 6px;
+  padding: 5px;
 }
 
 .media-thumbnail,
@@ -1056,7 +1056,7 @@ textarea:focus {
   color: #174d44;
   text-align: center;
   text-decoration: none;
-  padding: 14px;
+  padding: 10px;
 }
 
 .media-file-link span {
@@ -1070,7 +1070,7 @@ textarea:focus {
 
 .media-card strong {
   color: #203b39;
-  font-size: 12px;
+  font-size: 11px;
   overflow-wrap: anywhere;
 }
 
@@ -1084,7 +1084,7 @@ textarea:focus {
 .media-card span,
 .media-card small {
   color: #60766f;
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .document-list {
@@ -1199,7 +1199,7 @@ textarea:focus {
   border-top: 1px solid #e0e7e3;
   padding-top: 14px;
   container-type: inline-size;
-  --graph-viewport-height: clamp(960px, 120vh, 1440px);
+  --graph-viewport-height: clamp(1120px, 140vh, 1680px);
 }
 
 .graph-mode-switch,
@@ -1286,6 +1286,12 @@ textarea:focus {
 
 .nvl-stage > div:first-child {
   height: var(--graph-viewport-height);
+}
+
+.nvl-stage canvas,
+.nvl-stage svg {
+  width: 100%;
+  height: 100%;
 }
 
 .nvl-minimap {
@@ -1467,7 +1473,7 @@ textarea:focus {
   }
 
   .graph {
-    --graph-viewport-height: 780px;
+    --graph-viewport-height: 960px;
   }
 
   .nvl-minimap {
