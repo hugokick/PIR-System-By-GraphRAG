@@ -48,3 +48,28 @@ def test_extract_budget_range_and_theme_from_text():
     assert "theme" in result.field_sources
     assert "budget_min" in result.field_sources
     assert "budget_max" in result.field_sources
+
+
+def test_extract_materials_interactions_summary_and_name():
+    result = extract_document_suggestions(
+        DocumentExtractionInput(
+            document_id="doc-mechanics",
+            file_name="杠杆乐园方案说明.txt",
+            file_type="txt",
+            source_note=None,
+            text=(
+                "展项名称：杠杆乐园。"
+                "本方案围绕力学主题，采用钢结构与亚克力组合。"
+                "观众可通过机械互动和按钮互动理解杠杆原理。"
+            ),
+            chunks=[],
+        )
+    )
+
+    assert result.exhibit_name == "杠杆乐园"
+    assert result.theme == "力学"
+    assert result.materials == ["钢结构", "亚克力"]
+    assert result.interactions == ["机械互动", "按钮互动"]
+    assert "杠杆乐园" in result.summary
+    assert "materials" in result.field_sources
+    assert "interactions" in result.field_sources
