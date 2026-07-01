@@ -1,5 +1,9 @@
 # 上传资料字段抽取建议契约
 
+## 配套文档
+
+如果需要主线后端整合步骤、提交顺序和字段映射示例，请同时阅读 `docs/document-extraction-mainline-integration.md`。
+
 ## 目标
 
 `extract_document_suggestions()` 从文档文本或 chunk 中生成展项建档建议值。
