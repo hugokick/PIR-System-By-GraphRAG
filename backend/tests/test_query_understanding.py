@@ -44,3 +44,16 @@ def test_understand_query_returns_low_confidence_for_empty_or_weak_query():
     assert result.budget_intent == "unknown"
     assert result.confidence < 0.4
     assert any("未识别出有效检索槽位" in item for item in result.reasoning)
+
+
+class NoneProvider:
+    def understand(self, query: str):
+        return None
+
+
+def test_understand_query_falls_back_to_rules_when_provider_returns_none():
+    result = understand_query("低龄儿童 力学", provider=NoneProvider())
+
+    assert result.themes == ["力学"]
+    assert result.audience == ["low_age_children"]
+    assert result.budget_intent == "unknown"
