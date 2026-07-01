@@ -404,16 +404,14 @@ def import_exhibits(
             else:
                 exhibit = normalize_write_review_status(item, role, existing)
                 imported.append(repository.update_exhibit(item.id, exhibit) or exhibit)
-                review_reset_note = (
-                    " and moved review status back to 待审核"
-                    if role != "admin" and existing.review_status in {"已审核", "已退回"}
-                    else ""
-                )
+                summary = f"导入覆盖档案 {item.id}"
+                if role != "admin" and existing.review_status in {"已审核", "已退回"}:
+                    summary += "，审核状态已回到待审核"
                 write_audit(
                     role,
                     "import_update_exhibit",
                     item.id,
-                    f"Updated exhibit {item.id} from import{review_reset_note}",
+                    summary,
                 )
         filename = file.filename or "uploaded-file"
         write_audit(
@@ -499,12 +497,10 @@ def update_exhibit(
     )
     if updated is None:
         raise not_found(exhibit_id)
-    review_reset_note = (
-        " and moved review status back to 待审核"
-        if role != "admin" and existing.review_status in {"已审核", "已退回"}
-        else ""
-    )
-    write_audit(role, "update_exhibit", exhibit_id, f"Updated exhibit {exhibit_id}{review_reset_note}")
+    summary = f"编辑档案 {exhibit_id}"
+    if role != "admin" and existing.review_status in {"已审核", "已退回"}:
+        summary += "，审核状态已回到待审核"
+    write_audit(role, "update_exhibit", exhibit_id, summary)
     return updated
 
 

@@ -291,7 +291,8 @@ def test_import_update_moves_approved_exhibit_back_to_pending_for_editors():
         assert any(
             entry["action"] == "import_update_exhibit"
             and entry["resource_id"] == "lever-play"
-            and "待审核" in entry["summary"]
+            and "审核状态已回到待审核" in entry["summary"]
+            and "Updated exhibit" not in entry["summary"]
             for entry in entries
         )
     finally:

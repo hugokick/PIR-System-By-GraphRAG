@@ -422,7 +422,8 @@ def test_editor_update_approved_exhibit_moves_back_to_pending_review():
         assert any(
             entry["action"] == "update_exhibit"
             and entry["resource_id"] == "editor-approved-review-reset-demo"
-            and "待审核" in entry["summary"]
+            and "审核状态已回到待审核" in entry["summary"]
+            and "Updated exhibit" not in entry["summary"]
             for entry in entries
         )
     finally:
