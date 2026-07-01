@@ -11,6 +11,12 @@ from .ai.document_extraction import (
     DocumentTextInput,
     extract_document_suggestions,
 )
+from .kg.recommendations import (
+    DocumentChunkRef,
+    RecommendationInputs,
+    RecommendationResult,
+    recommend_relations,
+)
 from .repository import create_repository
 from .neo4j_demo.service import create_neo4j_demo_graph_service
 from .schemas import (
@@ -639,6 +645,29 @@ def get_document_extraction_suggestions(
     )
 
 
+@app.get(
+    "/api/exhibits/{exhibit_id}/relation-recommendations",
+    response_model=RecommendationResult,
+)
+def get_exhibit_relation_recommendations(
+    exhibit_id: str,
+    role: str = Depends(require_roles("admin", "editor")),
+) -> RecommendationResult:
+    exhibit = repository.get_exhibit(exhibit_id)
+    if exhibit is None:
+        raise not_found(exhibit_id)
+
+    exhibits = repository.list_exhibits()
+    return recommend_relations(
+        RecommendationInputs(
+            target_exhibit=exhibit,
+            all_exhibits=exhibits,
+            snapshot=kg_snapshot_for_query(),
+            document_chunks=document_chunk_refs_for_recommendations(exhibits),
+        )
+    )
+
+
 @app.delete("/api/exhibits/{exhibit_id}/assets/{asset_id}", response_model=ExhibitResponse)
 def delete_exhibit_asset(
     exhibit_id: str,
@@ -756,6 +785,21 @@ def kg_snapshot_for_query():
         return snapshot_reader()
     except Exception:
         return None
+
+
+def document_chunk_refs_for_recommendations(exhibits: list[ExhibitResponse]) -> list[DocumentChunkRef]:
+    return [
+        DocumentChunkRef(
+            exhibit_id=exhibit.id,
+            document_id=document.id,
+            chunk_id=chunk.id,
+            text=chunk.text,
+        )
+        for exhibit in exhibits
+        for document in exhibit.documents
+        for chunk in document.chunks
+        if chunk.id
+    ]
 
 
 @app.post("/api/graphrag/search", response_model=GraphRagSearchResponse)
