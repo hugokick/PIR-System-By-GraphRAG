@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .kg.builder import build_exhibit_kg_snapshot
+from .kg.models import KGEdge, KGNode, KGSnapshot
 from .schemas import (
     AuditLogEntry,
     DocumentAsset,
@@ -760,6 +761,61 @@ class PostgresExhibitRepository:
             ],
         )
 
+    def get_kg_snapshot(self) -> KGSnapshot:
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT id, type, label, attributes, source_refs
+                    FROM kg_nodes
+                    ORDER BY id ASC
+                    """
+                )
+                node_rows = cursor.fetchall()
+
+                cursor.execute(
+                    """
+                    SELECT source, target, type, label, weight, source_refs
+                    FROM kg_edges
+                    ORDER BY source ASC, type ASC, target ASC
+                    """
+                )
+                edge_rows = cursor.fetchall()
+
+        nodes = [
+            KGNode(
+                id=self._row_value(row, "id", 0),
+                type=self._row_value(row, "type", 1),
+                label=self._row_value(row, "label", 2),
+                attributes=self._kg_attributes(self._row_value(row, "attributes", 3)),
+                source_refs=self._kg_source_refs(self._row_value(row, "source_refs", 4)),
+            )
+            for row in node_rows
+        ]
+        edges = [
+            KGEdge(
+                source=self._row_value(row, "source", 0),
+                target=self._row_value(row, "target", 1),
+                type=self._row_value(row, "type", 2),
+                label=self._row_value(row, "label", 3),
+                weight=float(self._row_value(row, "weight", 4) or 1.0),
+                source_refs=self._kg_source_refs(self._row_value(row, "source_refs", 5)),
+            )
+            for row in edge_rows
+        ]
+        adjacency: dict[str, list[str]] = {}
+        for edge in edges:
+            adjacency.setdefault(edge.source, []).append(edge.target)
+
+        evidence_snapshot = build_exhibit_kg_snapshot(self.list_exhibits())
+        return KGSnapshot(
+            nodes=nodes,
+            edges=edges,
+            evidences=evidence_snapshot.evidences,
+            adjacency=adjacency,
+            warnings=evidence_snapshot.warnings,
+        )
+
     @staticmethod
     def _kg_node_id(row: Mapping[str, Any] | tuple[Any, ...]) -> str:
         return row["id"] if isinstance(row, Mapping) else row[0]
@@ -771,6 +827,24 @@ class PostgresExhibitRepository:
     @staticmethod
     def _kg_node_type(row: Mapping[str, Any] | tuple[Any, ...]) -> str:
         return row["type"] if isinstance(row, Mapping) else row[2]
+
+    @staticmethod
+    def _row_value(row: Mapping[str, Any] | tuple[Any, ...], key: str, index: int) -> Any:
+        return row[key] if isinstance(row, Mapping) else row[index]
+
+    @staticmethod
+    def _kg_attributes(value: Any) -> dict[str, Any]:
+        if value is None:
+            return {}
+        if isinstance(value, str):
+            return json.loads(value)
+        return dict(value)
+
+    @staticmethod
+    def _kg_source_refs(value: Any) -> list[str]:
+        if value is None:
+            return []
+        return list(value)
 
     def add_audit_log(
         self,

@@ -6,6 +6,7 @@ from app.graphrag.contract import (
     KGGraphRAGQueryResult,
     query_graphrag_contract,
 )
+from app.kg.models import KGSnapshot
 from app.schemas import (
     ExhibitResponse,
     GraphEdge,
@@ -25,6 +26,7 @@ def search_graphrag_context(
     top_k: int = 5,
     filters: GraphRagRequestFilters | None = None,
     semantic_scores: Mapping[str, float] | None = None,
+    snapshot: KGSnapshot | None = None,
 ) -> GraphRagSearchResponse:
     contract_result = query_graphrag_contract(
         GraphRAGContractQueryInput(
@@ -33,6 +35,7 @@ def search_graphrag_context(
             filters=_contract_filters(filters),
         ),
         exhibits=exhibits,
+        snapshot=snapshot,
         semantic_scores=semantic_scores,
     )
     return _contract_to_search_response(query, contract_result)
@@ -44,6 +47,7 @@ def answer_from_graphrag_context(
     top_k: int = 3,
     filters: GraphRagRequestFilters | None = None,
     semantic_scores: Mapping[str, float] | None = None,
+    snapshot: KGSnapshot | None = None,
 ) -> GraphRagAnswerResponse:
     search_response = search_graphrag_context(
         query,
@@ -51,6 +55,7 @@ def answer_from_graphrag_context(
         top_k=top_k,
         filters=filters,
         semantic_scores=semantic_scores,
+        snapshot=snapshot,
     )
 
     if not search_response.items:

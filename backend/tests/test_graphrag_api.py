@@ -130,6 +130,76 @@ def test_graphrag_search_uses_repository_vector_scores(monkeypatch):
     assert payload["items"][0]["citations"]
 
 
+def test_graphrag_search_passes_repository_kg_snapshot_to_contract(monkeypatch):
+    from app import main
+    from app.graphrag.contract import KGGraphRAGQueryResult
+    from app.kg.builder import build_exhibit_kg_snapshot
+    from app.services import graphrag as graphrag_service
+
+    snapshot = build_exhibit_kg_snapshot(seed_exhibits)
+    seen = {}
+
+    class SnapshotRepository:
+        def list_exhibits(self):
+            return seed_exhibits
+
+        def semantic_scores(self, query: str, limit: int = 20):
+            return {}
+
+        def get_kg_snapshot(self):
+            return snapshot
+
+    def recording_query_contract(query_input, exhibits, snapshot=None, semantic_scores=None):
+        seen["snapshot"] = snapshot
+        return KGGraphRAGQueryResult()
+
+    monkeypatch.setattr(main, "repository", SnapshotRepository())
+    monkeypatch.setattr(graphrag_service, "query_graphrag_contract", recording_query_contract)
+
+    response = client.post(
+        "/api/graphrag/search",
+        json={"query": "力学", "top_k": 1},
+    )
+
+    assert response.status_code == 200
+    assert seen["snapshot"] is snapshot
+
+
+def test_graphrag_answer_passes_repository_kg_snapshot_to_contract(monkeypatch):
+    from app import main
+    from app.graphrag.contract import KGGraphRAGQueryResult
+    from app.kg.builder import build_exhibit_kg_snapshot
+    from app.services import graphrag as graphrag_service
+
+    snapshot = build_exhibit_kg_snapshot(seed_exhibits)
+    seen = {}
+
+    class SnapshotRepository:
+        def list_exhibits(self):
+            return seed_exhibits
+
+        def semantic_scores(self, query: str, limit: int = 20):
+            return {}
+
+        def get_kg_snapshot(self):
+            return snapshot
+
+    def recording_query_contract(query_input, exhibits, snapshot=None, semantic_scores=None):
+        seen["snapshot"] = snapshot
+        return KGGraphRAGQueryResult()
+
+    monkeypatch.setattr(main, "repository", SnapshotRepository())
+    monkeypatch.setattr(graphrag_service, "query_graphrag_contract", recording_query_contract)
+
+    response = client.post(
+        "/api/graphrag/answer",
+        json={"query": "力学", "top_k": 1},
+    )
+
+    assert response.status_code == 200
+    assert seen["snapshot"] is snapshot
+
+
 def test_graphrag_answer_uses_search_hits_and_returns_citations():
     response = client.post(
         "/api/graphrag/answer",

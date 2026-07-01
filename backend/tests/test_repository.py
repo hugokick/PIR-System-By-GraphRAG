@@ -246,6 +246,91 @@ def test_postgres_repository_reads_exhibit_graph_from_kg_projection_tables():
     assert any("FROM kg_nodes" in query for query, _ in repository.cursor.calls)
 
 
+def test_postgres_repository_reads_kg_snapshot_from_projection_tables():
+    from app.repository import PostgresExhibitRepository, seed_exhibits
+
+    class RecordingCursor:
+        def __init__(self):
+            self.calls = []
+            self.rows = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def execute(self, query, params=None):
+            normalized = " ".join(query.split())
+            self.calls.append((normalized, params))
+            if "FROM kg_nodes" in normalized:
+                self.rows = [
+                    {
+                        "id": "exhibit:lever-play",
+                        "type": "exhibit",
+                        "label": "杠杆乐园",
+                        "attributes": {"category": "基础科学"},
+                        "source_refs": ["exhibit:lever-play"],
+                    },
+                    {
+                        "id": "material:metal",
+                        "type": "material",
+                        "label": "金属",
+                        "attributes": {},
+                        "source_refs": ["exhibit:lever-play"],
+                    },
+                ]
+            elif "FROM kg_edges" in normalized:
+                self.rows = [
+                    {
+                        "source": "exhibit:lever-play",
+                        "target": "material:metal",
+                        "type": "uses_material",
+                        "label": "使用材料",
+                        "weight": 1.0,
+                        "source_refs": ["exhibit:lever-play"],
+                    }
+                ]
+
+        def fetchall(self):
+            return self.rows
+
+    class RecordingConnection:
+        def __init__(self, cursor):
+            self.cursor_instance = cursor
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def cursor(self):
+            return self.cursor_instance
+
+    class RecordingPostgresRepository(PostgresExhibitRepository):
+        def __init__(self):
+            super().__init__("postgresql://example", initialize=False)
+            self.cursor = RecordingCursor()
+
+        def _connect(self):
+            return RecordingConnection(self.cursor)
+
+        def list_exhibits(self, **_filters):
+            return [seed_exhibits[0]]
+
+    repository = RecordingPostgresRepository()
+
+    snapshot = repository.get_kg_snapshot()
+
+    assert [node.id for node in snapshot.nodes] == ["exhibit:lever-play", "material:metal"]
+    assert snapshot.nodes[0].attributes == {"category": "基础科学"}
+    assert snapshot.edges[0].source == "exhibit:lever-play"
+    assert snapshot.edges[0].target == "material:metal"
+    assert snapshot.adjacency == {"exhibit:lever-play": ["material:metal"]}
+    assert any(evidence.source_id == "lever-play" for evidence in snapshot.evidences)
+
+
 def test_postgres_repository_update_refreshes_record_and_search_embeddings():
     from app.repository import PostgresExhibitRepository
 

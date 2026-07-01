@@ -625,6 +625,16 @@ def semantic_scores_for_query(query: str, limit: int) -> dict[str, float]:
         return {}
 
 
+def kg_snapshot_for_query():
+    snapshot_reader = getattr(repository, "get_kg_snapshot", None)
+    if not callable(snapshot_reader):
+        return None
+    try:
+        return snapshot_reader()
+    except Exception:
+        return None
+
+
 @app.post("/api/graphrag/search", response_model=GraphRagSearchResponse)
 def graphrag_search(payload: GraphRagSearchRequest) -> GraphRagSearchResponse:
     return search_graphrag_context(
@@ -633,6 +643,7 @@ def graphrag_search(payload: GraphRagSearchRequest) -> GraphRagSearchResponse:
         top_k=payload.top_k,
         filters=payload.filters,
         semantic_scores=semantic_scores_for_query(payload.query, payload.top_k),
+        snapshot=kg_snapshot_for_query(),
     )
 
 
@@ -644,4 +655,5 @@ def graphrag_answer(payload: GraphRagAnswerRequest) -> GraphRagAnswerResponse:
         top_k=payload.top_k,
         filters=payload.filters,
         semantic_scores=semantic_scores_for_query(payload.query, payload.top_k),
+        snapshot=kg_snapshot_for_query(),
     )
