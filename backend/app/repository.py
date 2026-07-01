@@ -5,6 +5,7 @@ from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Any
 
+from .kg.builder import build_exhibit_kg_snapshot
 from .schemas import AuditLogEntry, DocumentAsset, EntityRef, ExhibitResponse, MediaAsset
 from .services.embeddings import (
     embedding_text_for_document_chunk,
@@ -329,6 +330,35 @@ class PostgresExhibitRepository:
           ON search_embeddings USING ivfflat (embedding vector_cosine_ops)
           WITH (lists = 100);
 
+        CREATE TABLE IF NOT EXISTS kg_nodes (
+          id TEXT PRIMARY KEY,
+          type TEXT NOT NULL,
+          label TEXT NOT NULL,
+          attributes JSONB NOT NULL DEFAULT '{}'::jsonb,
+          source_refs TEXT[] NOT NULL DEFAULT '{}',
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        CREATE TABLE IF NOT EXISTS kg_edges (
+          id TEXT PRIMARY KEY,
+          source TEXT NOT NULL,
+          target TEXT NOT NULL,
+          type TEXT NOT NULL,
+          label TEXT NOT NULL,
+          weight NUMERIC(8, 4) NOT NULL DEFAULT 1.0,
+          source_refs TEXT[] NOT NULL DEFAULT '{}',
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_kg_nodes_type
+          ON kg_nodes (type);
+
+        CREATE INDEX IF NOT EXISTS idx_kg_edges_source
+          ON kg_edges (source);
+
+        CREATE INDEX IF NOT EXISTS idx_kg_edges_target
+          ON kg_edges (target);
+
         CREATE TABLE IF NOT EXISTS audit_log_entries (
           id TEXT PRIMARY KEY,
           actor_role TEXT NOT NULL,
@@ -377,6 +407,7 @@ class PostgresExhibitRepository:
             (exhibit.id, exhibit.model_dump_json(), exhibit_embedding),
         )
         self._sync_search_embeddings(cursor, exhibit, exhibit_embedding)
+        self._sync_kg_projection(cursor)
 
     def _sync_search_embeddings(
         self,
@@ -451,6 +482,73 @@ class PostgresExhibitRepository:
         )
         for row in cursor.fetchall():
             self._sync_search_embeddings(cursor, self.exhibit_from_row(row))
+        self._sync_kg_projection(cursor)
+
+    def _list_active_exhibits_with_cursor(self, cursor: Any) -> list[ExhibitResponse]:
+        cursor.execute(
+            """
+            SELECT payload
+            FROM exhibit_records
+            WHERE deleted_at IS NULL
+            ORDER BY created_at ASC
+            """
+        )
+        return [self.exhibit_from_row(row) for row in cursor.fetchall()]
+
+    def _sync_kg_projection(self, cursor: Any) -> None:
+        snapshot = build_exhibit_kg_snapshot(self._list_active_exhibits_with_cursor(cursor))
+
+        cursor.execute("DELETE FROM kg_edges")
+        cursor.execute("DELETE FROM kg_nodes")
+
+        for node in snapshot.nodes:
+            cursor.execute(
+                """
+                INSERT INTO kg_nodes
+                  (id, type, label, attributes, source_refs, updated_at)
+                VALUES (%s, %s, %s, %s::jsonb, %s, now())
+                ON CONFLICT (id) DO UPDATE
+                SET type = EXCLUDED.type,
+                    label = EXCLUDED.label,
+                    attributes = EXCLUDED.attributes,
+                    source_refs = EXCLUDED.source_refs,
+                    updated_at = now()
+                """,
+                (
+                    node.id,
+                    node.type,
+                    node.label,
+                    json.dumps(node.attributes, ensure_ascii=False),
+                    node.source_refs,
+                ),
+            )
+
+        for edge in snapshot.edges:
+            edge_id = f"{edge.source}|{edge.type}|{edge.target}"
+            cursor.execute(
+                """
+                INSERT INTO kg_edges
+                  (id, source, target, type, label, weight, source_refs, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, now())
+                ON CONFLICT (id) DO UPDATE
+                SET source = EXCLUDED.source,
+                    target = EXCLUDED.target,
+                    type = EXCLUDED.type,
+                    label = EXCLUDED.label,
+                    weight = EXCLUDED.weight,
+                    source_refs = EXCLUDED.source_refs,
+                    updated_at = now()
+                """,
+                (
+                    edge_id,
+                    edge.source,
+                    edge.target,
+                    edge.type,
+                    edge.label,
+                    edge.weight,
+                    edge.source_refs,
+                ),
+            )
 
     def exhibit_from_row(self, row: Mapping[str, Any] | tuple[Any, ...]) -> ExhibitResponse:
         payload = row["payload"] if isinstance(row, Mapping) else row[0]
@@ -498,6 +596,7 @@ class PostgresExhibitRepository:
                     (updated.model_dump_json(), exhibit_embedding, exhibit_id),
                 )
                 self._sync_search_embeddings(cursor, updated, exhibit_embedding)
+                self._sync_kg_projection(cursor)
         return updated
 
     def delete_exhibit(self, exhibit_id: str) -> bool:
@@ -521,6 +620,7 @@ class PostgresExhibitRepository:
                     """,
                     ("exhibit", exhibit_id),
                 )
+                self._sync_kg_projection(cursor)
         return True
 
     def list_exhibits(
