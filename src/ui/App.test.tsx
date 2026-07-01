@@ -175,6 +175,24 @@ describe('App exhibit management', () => {
     expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8000/api/exhibits/magnet-maze/graph');
   });
 
+  it('marks the Neo4j graph panel as a full-width detail section', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.endsWith('/api/exhibits/magnet-maze/graph')) {
+        return okJson({
+          nodes: [{ id: 'exhibit:magnet-maze', label: 'Magnet Maze', type: 'exhibit' }],
+          edges: []
+        });
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    const title = await screen.findByText('Neo4j 知识图谱');
+    expect(title.closest('section')?.classList.contains('graph-full-width')).toBe(true);
+  });
+
   it('switches the graph panel to the full Neo4j demo graph', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
       const url = String(input);

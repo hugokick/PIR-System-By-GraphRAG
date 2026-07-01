@@ -1503,7 +1503,11 @@ export function App() {
                 </div>
               )}
 
-              <section className="graph">
+            </section>
+          )}
+
+          {selected && (
+            <section className="graph graph-full-width">
                 <div className="panel-title">
                   <GitBranch size={18} />
                   <span>Neo4j 知识图谱</span>
@@ -1588,7 +1592,6 @@ export function App() {
                     </div>
                   </aside>
                 </div>
-              </section>
             </section>
           )}
         </div>

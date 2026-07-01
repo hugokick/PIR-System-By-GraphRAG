@@ -1191,6 +1191,14 @@ textarea:focus {
   --graph-viewport-height: clamp(520px, 68vh, 720px);
 }
 
+.graph-full-width {
+  grid-column: 1 / -1;
+  border: 1px solid #d9e1dc;
+  border-radius: 8px;
+  background: #fff;
+  padding: 16px;
+}
+
 .graph-mode-switch,
 .graph-meta {
   display: flex;
