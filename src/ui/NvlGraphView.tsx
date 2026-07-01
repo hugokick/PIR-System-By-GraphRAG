@@ -15,7 +15,7 @@ type NvlGraphViewProps = {
   onNodeSelect: (nodeId: string | null) => void;
 };
 
-const nvlForceDirectedLayout = 'forceDirected' as Layout;
+const nvlForceDirectedLayout = 'd3Force' as Layout;
 
 function nvlCanUseDomRenderer() {
   if (typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('jsdom')) return false;
@@ -42,11 +42,9 @@ export function NvlGraphView({ graph, selectedNodeId, layoutVersion, nodeColors,
   useEffect(() => {
     if (!nvlCanUseDomRenderer()) return;
     graphRef.current?.setLayout?.(nvlForceDirectedLayout);
-    graphRef.current?.setLayoutOptions?.({ enableCytoscape: true });
     graphRef.current?.restart?.(
       {
         layout: nvlForceDirectedLayout,
-        layoutOptions: { enableCytoscape: true },
         styling: nvlGraphStyling
       },
       false
@@ -65,6 +63,7 @@ export function NvlGraphView({ graph, selectedNodeId, layoutVersion, nodeColors,
         ref={graphRef}
         nodes={graphData.nodes}
         rels={graphData.rels}
+        positions={graphData.nodes}
         layout={nvlForceDirectedLayout}
         nvlOptions={{
           disableTelemetry: true,
@@ -73,7 +72,6 @@ export function NvlGraphView({ graph, selectedNodeId, layoutVersion, nodeColors,
           maxZoom: 4.5,
           initialZoom: 0.7,
           allowDynamicMinZoom: true,
-          layoutOptions: { enableCytoscape: true },
           minimapContainer,
           styling: nvlGraphStyling
         }}

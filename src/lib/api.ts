@@ -558,6 +558,21 @@ export async function uploadExhibitAsset(
   return mapApiExhibit(payload);
 }
 
+export async function deleteExhibitAsset(exhibitId: string, assetId: string): Promise<Exhibit> {
+  const response = await fetch(
+    `${apiBaseUrl}/api/exhibits/${encodeURIComponent(exhibitId)}/assets/${encodeURIComponent(assetId)}`,
+    {
+      method: 'DELETE',
+      headers: authHeaders()
+    }
+  );
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+  }
+  const payload = (await response.json()) as ApiExhibit;
+  return mapApiExhibit(payload);
+}
+
 export async function importExhibits(file: File, commit = true): Promise<ExhibitImportResult> {
   const form = new FormData();
   form.set('commit', String(commit));

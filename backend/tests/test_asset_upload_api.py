@@ -5,6 +5,7 @@ from app.main import app
 
 client = TestClient(app)
 
+ADMIN_HEADERS = {"X-User-Role": "admin"}
 EDITOR_HEADERS = {"X-User-Role": "editor"}
 
 
@@ -199,3 +200,70 @@ def test_upload_asset_returns_404_for_unknown_exhibit(monkeypatch, tmp_path):
     )
 
     assert response.status_code == 404
+
+
+def test_only_admin_can_delete_uploaded_document_and_audit_it(monkeypatch, tmp_path):
+    monkeypatch.setenv("FILE_STORAGE_ROOT", str(tmp_path))
+
+    upload_response = client.post(
+        "/api/exhibits/lever-play/assets",
+        data={"asset_kind": "document", "note": "误传资料"},
+        files={"file": ("delete-me.txt", b"temporary document", "text/plain")},
+        headers=EDITOR_HEADERS,
+    )
+    assert upload_response.status_code == 201
+    document = upload_response.json()["documents"][-1]
+
+    editor_response = client.delete(
+        f"/api/exhibits/lever-play/assets/{document['id']}",
+        headers=EDITOR_HEADERS,
+    )
+    assert editor_response.status_code == 403
+
+    admin_response = client.delete(
+        f"/api/exhibits/lever-play/assets/{document['id']}",
+        headers=ADMIN_HEADERS,
+    )
+    assert admin_response.status_code == 200
+    payload = admin_response.json()
+    assert all(item["id"] != document["id"] for item in payload["documents"])
+
+    audit_response = client.get("/api/admin/audit-logs", headers=ADMIN_HEADERS)
+    assert any(
+        entry["actor_role"] == "admin"
+        and entry["action"] == "delete_document"
+        and entry["resource_id"] == "lever-play"
+        and document["id"] in entry["summary"]
+        for entry in audit_response.json()["items"]
+    )
+
+
+def test_admin_can_delete_uploaded_media_asset(monkeypatch, tmp_path):
+    monkeypatch.setenv("FILE_STORAGE_ROOT", str(tmp_path))
+
+    upload_response = client.post(
+        "/api/exhibits/pulley-wall/assets",
+        data={"asset_kind": "media", "note": "误传照片"},
+        files={"file": ("delete-media.png", b"temporary image", "image/png")},
+        headers=EDITOR_HEADERS,
+    )
+    assert upload_response.status_code == 201
+    media = upload_response.json()["media_assets"][-1]
+
+    delete_response = client.delete(
+        f"/api/exhibits/pulley-wall/assets/{media['id']}",
+        headers=ADMIN_HEADERS,
+    )
+
+    assert delete_response.status_code == 200
+    payload = delete_response.json()
+    assert all(item["id"] != media["id"] for item in payload["media_assets"])
+
+    audit_response = client.get("/api/admin/audit-logs", headers=ADMIN_HEADERS)
+    assert any(
+        entry["actor_role"] == "admin"
+        and entry["action"] == "delete_media"
+        and entry["resource_id"] == "pulley-wall"
+        and media["id"] in entry["summary"]
+        for entry in audit_response.json()["items"]
+    )

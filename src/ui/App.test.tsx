@@ -841,6 +841,46 @@ describe('App exhibit management', () => {
     expect(preview.getAttribute('src')).toBe('http://127.0.0.1:8000/api/files/quote-download-doc');
   });
 
+  it('lets admins remove uploaded document assets from the detail panel', async () => {
+    const withDocument = apiExhibit({
+      ...frontendExhibit,
+      documents: [
+        {
+          id: 'document-remove-demo',
+          name: 'remove-me.txt',
+          fileType: 'txt',
+          url: '/api/files/remove-me',
+          sourceNote: '误传资料'
+        }
+      ]
+    });
+    const withoutDocument = { ...withDocument, documents: [] };
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/api/exhibits/magnet-maze/assets/document-remove-demo')) {
+        expect(init?.method).toBe('DELETE');
+        return okJson(withoutDocument);
+      }
+      if (url.endsWith('/api/admin/audit-logs?limit=8')) {
+        return okJson({ total: 0, items: [] });
+      }
+      return okJson({ total: 1, items: [withDocument] });
+    });
+
+    render(<App />);
+
+    expect(await screen.findByRole('link', { name: 'remove-me.txt' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '删除资料 remove-me.txt' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://127.0.0.1:8000/api/exhibits/magnet-maze/assets/document-remove-demo',
+        { method: 'DELETE', headers: { 'X-User-Role': 'admin' } }
+      );
+    });
+    expect(screen.queryByRole('link', { name: 'remove-me.txt' })).toBeNull();
+  });
+
   it('uploads selected media through the backend and renders the returned asset link', async () => {
     const updated = {
       ...apiExhibit(),

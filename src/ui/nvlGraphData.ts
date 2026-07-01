@@ -1,22 +1,22 @@
 import type { Node as NvlNode, Relationship as NvlRelationship } from '@neo4j-nvl/base';
 import type { GraphEdge, GraphNode } from '../types';
 
-const defaultNodeColor = '#607d75';
+const defaultNodeColor = '#a5abb6';
 
 export const nvlGraphStyling = {
   defaultNodeColor,
-  defaultRelationshipColor: '#8aa19a',
+  defaultRelationshipColor: '#8f9bad',
   nodeDefaultBorderColor: '#ffffff',
-  selectedBorderColor: '#4f88ff',
+  selectedBorderColor: '#f79767',
   selectedInnerBorderColor: '#ffffff',
-  dropShadowColor: '#1f4e79',
-  disabledItemColor: '#c8d2cf',
-  disabledItemFontColor: '#7d8c87',
-  minimapViewportBoxColor: '#4f88ff'
+  dropShadowColor: '#68bdf6',
+  disabledItemColor: '#2b3442',
+  disabledItemFontColor: '#778395',
+  minimapViewportBoxColor: '#68bdf6'
 };
 
 const nodeBaseSizes: Record<string, number> = {
-  exhibit: 42,
+  exhibit: 46,
   project: 36,
   owner: 36,
   material: 34,
@@ -48,6 +48,16 @@ function graphNodeSize(kind: string, selected: boolean) {
   return selected ? baseSize + 12 : baseSize;
 }
 
+function initialNodePosition(index: number, total: number) {
+  if (total <= 1) return { x: 0, y: 0 };
+  const radius = Math.min(360, 150 + total * 12);
+  const angle = -Math.PI / 2 + (2 * Math.PI * index) / total;
+  return {
+    x: Math.round(Math.cos(angle) * radius),
+    y: Math.round(Math.sin(angle) * radius)
+  };
+}
+
 export function collectGraphNeighborIds(graph: { nodes: GraphNode[]; edges: GraphEdge[] }, selectedNodeId: string | null) {
   const ids = new Set<string>();
   if (!selectedNodeId) return ids;
@@ -65,26 +75,32 @@ export function buildNvlGraphData(
   nodeColors: Record<string, string>
 ) {
   const neighborIds = collectGraphNeighborIds(graph, selectedNodeId);
-  const nodes: NvlNode[] = graph.nodes.map((node) => ({
-    id: node.id,
-    caption: node.label,
-    color: nodeColors[node.kind] ?? defaultNodeColor,
-    size: graphNodeSize(node.kind, node.id === selectedNodeId),
-    selected: node.id === selectedNodeId,
-    activated: node.id === selectedNodeId,
-    disabled: Boolean(selectedNodeId) && !neighborIds.has(node.id),
-    captionSize: node.id === selectedNodeId ? 13 : 11,
-    icon: nodeIconPaths[node.kind] ? buildSvgIcon(nodeIconPaths[node.kind]) : undefined,
-    captions: [
-      {
-        value: node.label,
-        styles: ['bold']
-      },
-      {
-        value: node.kind
-      }
-    ]
-  }));
+  const nodes: NvlNode[] = graph.nodes.map((node, index) => {
+    const position = initialNodePosition(index, graph.nodes.length);
+
+    return {
+      id: node.id,
+      caption: node.label,
+      color: nodeColors[node.kind] ?? defaultNodeColor,
+      size: graphNodeSize(node.kind, node.id === selectedNodeId),
+      selected: node.id === selectedNodeId,
+      activated: node.id === selectedNodeId,
+      disabled: Boolean(selectedNodeId) && !neighborIds.has(node.id),
+      captionSize: node.id === selectedNodeId ? 14 : 11,
+      x: position.x,
+      y: position.y,
+      icon: nodeIconPaths[node.kind] ? buildSvgIcon(nodeIconPaths[node.kind]) : undefined,
+      captions: [
+        {
+          value: node.label,
+          styles: ['bold']
+        },
+        {
+          value: node.kind
+        }
+      ]
+    };
+  });
   const rels: NvlRelationship[] = graph.edges.map((edge, index) => {
     const highlighted = Boolean(selectedNodeId) && (edge.source === selectedNodeId || edge.target === selectedNodeId);
     const disabled = Boolean(selectedNodeId) && edge.source !== selectedNodeId && edge.target !== selectedNodeId;
@@ -96,10 +112,10 @@ export function buildNvlGraphData(
       to: edge.target,
       type: relationshipType,
       caption: relationshipType,
-      captionSize: highlighted ? 6 : 5,
+      captionSize: highlighted ? 5.5 : 4.5,
       captionAlign: 'center',
-      color: highlighted ? '#243f80' : '#8aa19a',
-      width: highlighted ? 4 : disabled ? 1.5 : 2.4,
+      color: highlighted ? '#f79767' : disabled ? '#6f7d8f' : '#8f9bad',
+      width: highlighted ? 4.5 : disabled ? 1.2 : 2.4,
       disabled
     };
   });

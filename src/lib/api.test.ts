@@ -4,6 +4,7 @@ import {
   buildExhibitQuery,
   createExhibit,
   deleteExhibit,
+  deleteExhibitAsset,
   fetchAuditLogs,
   fetchDashboardSummary,
   fetchDemoGraph,
@@ -736,6 +737,29 @@ describe('uploadExhibitAsset', () => {
       url: 'http://127.0.0.1:8000/api/files/uploaded-document',
       sourceNote: '报价资料'
     });
+  });
+
+  it('deletes an uploaded asset and maps the updated exhibit', async () => {
+    const updatedPayload = {
+      ...mapExhibitToApiPayload(frontendExhibit),
+      media_assets: []
+    };
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => updatedPayload
+    } as Response);
+
+    const result = await deleteExhibitAsset('magnet-maze', 'media-uploaded');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/exhibits/magnet-maze/assets/media-uploaded',
+      {
+        method: 'DELETE',
+        headers: { 'X-User-Role': 'admin' }
+      }
+    );
+    expect(result.id).toBe('magnet-maze');
+    expect(result.media).toEqual([]);
   });
 });
 

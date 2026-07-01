@@ -463,6 +463,30 @@ def upload_exhibit_asset(
     return saved
 
 
+@app.delete("/api/exhibits/{exhibit_id}/assets/{asset_id}", response_model=ExhibitResponse)
+def delete_exhibit_asset(
+    exhibit_id: str,
+    asset_id: str,
+    role: str = Depends(require_roles("admin")),
+) -> ExhibitResponse:
+    exhibit = repository.get_exhibit(exhibit_id)
+    if exhibit is None:
+        raise not_found(exhibit_id)
+
+    next_media_assets = [asset for asset in exhibit.media_assets if asset.id != asset_id]
+    next_documents = [document for document in exhibit.documents if document.id != asset_id]
+    if len(next_media_assets) == len(exhibit.media_assets) and len(next_documents) == len(exhibit.documents):
+        raise not_found(asset_id)
+
+    updated = exhibit.model_copy(
+        update={"media_assets": next_media_assets, "documents": next_documents}
+    )
+    saved = repository.update_exhibit(exhibit_id, updated) or updated
+    action = "delete_document" if len(next_documents) < len(exhibit.documents) else "delete_media"
+    write_audit(role, action, exhibit_id, f"Deleted asset {asset_id} from exhibit {exhibit_id}")
+    return saved
+
+
 @app.get("/api/admin/audit-logs", response_model=AuditLogListResponse)
 def list_audit_logs(
     limit: int = Query(default=100, ge=1, le=500),

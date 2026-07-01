@@ -22,6 +22,7 @@ import {
   askGraphRag,
   createExhibit,
   deleteExhibit,
+  deleteExhibitAsset,
   fetchAuditLogs,
   fetchDashboardSummary,
   fetchDemoGraph,
@@ -127,14 +128,14 @@ function storeRole(role: UserRole) {
 }
 
 const graphNodeColors: Record<string, string> = {
-  exhibit: '#0f8b78',
-  project: '#d18a24',
-  owner: '#4361a8',
-  material: '#6b7a30',
-  supplier: '#7a4f9f',
-  theme: '#8b4d2f',
-  interaction: '#c05621',
-  document: '#50677d'
+  exhibit: '#68bdf6',
+  project: '#ffd86e',
+  owner: '#6dce9e',
+  material: '#f79767',
+  supplier: '#de9bf9',
+  theme: '#fb95af',
+  interaction: '#ff928c',
+  document: '#a5abb6'
 };
 
 const LazyNvlGraphView = lazy(() => import('./NvlGraphView'));
@@ -242,6 +243,7 @@ export function App() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null);
   const [isReviewing, setIsReviewing] = useState(false);
   const [isUpdatingRelations, setIsUpdatingRelations] = useState(false);
   const [selectedRelatedId, setSelectedRelatedId] = useState('');
@@ -647,6 +649,25 @@ export function App() {
       setLoadError('删除失败，请检查权限或档案保护状态');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const removeAsset = async (assetId: string) => {
+    if (!canDelete || !selected || deletingAssetId) return;
+    setDeletingAssetId(assetId);
+
+    try {
+      const updatedExhibit = await deleteExhibitAsset(selected.id, assetId);
+      const updated = items.map((item) => (item.id === updatedExhibit.id ? updatedExhibit : item));
+      setItems(updated);
+      setSelectedId(updatedExhibit.id);
+      setDataSource('api');
+      setLoadError(null);
+      void refreshAuditLogs();
+    } catch {
+      setLoadError('资料删除失败，请检查权限或网络连接');
+    } finally {
+      setDeletingAssetId(null);
     }
   };
 
@@ -1315,6 +1336,18 @@ export function App() {
                           )}
                           <span>{asset.type}</span>
                           {asset.note && <small>{asset.note}</small>}
+                          {canDelete && (
+                            <button
+                              type="button"
+                              className="asset-delete-action"
+                              onClick={() => removeAsset(asset.id)}
+                              disabled={deletingAssetId === asset.id}
+                              aria-label={`删除媒体 ${asset.name}`}
+                            >
+                              <Trash2 size={14} />
+                              删除
+                            </button>
+                          )}
                         </div>
                       </article>
                     ))}
@@ -1336,6 +1369,18 @@ export function App() {
                             <FileText size={16} />
                             <span>{document.name}</span>
                           </a>
+                          {canDelete && (
+                            <button
+                              type="button"
+                              className="asset-delete-action"
+                              onClick={() => removeAsset(document.id)}
+                              disabled={deletingAssetId === document.id}
+                              aria-label={`删除资料 ${document.name}`}
+                            >
+                              <Trash2 size={14} />
+                              删除
+                            </button>
+                          )}
                           {document.sourceNote && <small>{document.sourceNote}</small>}
                         </div>
                         {isPdfDocument(document) && (
