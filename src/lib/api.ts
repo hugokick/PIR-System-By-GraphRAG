@@ -726,7 +726,9 @@ function mapHybridSearchFilters(filters: ExhibitFilters) {
 
 function mapGraphRagFilters(filters: ExhibitFilters) {
   const payload: Record<string, string | number> = {};
+  if (filters.category) payload.category = filters.category;
   if (filters.theme) payload.theme = filters.theme;
+  if (filters.projectId) payload.project_id = filters.projectId;
   if (filters.material) payload.material = filters.material;
   if (filters.interaction) payload.interaction = filters.interaction;
   if (filters.owner) payload.owner = filters.owner;

@@ -640,7 +640,9 @@ describe('askGraphRag', () => {
     } as Response);
 
     await askGraphRag('力学', 2, {
+      category: '基础科学',
       theme: '力学',
+      projectId: 'qinghe-2024',
       owner: '青禾儿童科技馆',
       supplier: '启思互动工坊',
       tag: '低预算',
@@ -652,7 +654,9 @@ describe('askGraphRag', () => {
       query: '力学',
       top_k: 2,
       filters: {
+        category: '基础科学',
         theme: '力学',
+        project_id: 'qinghe-2024',
         owner: '青禾儿童科技馆',
         supplier: '启思互动工坊',
         tag: '低预算',

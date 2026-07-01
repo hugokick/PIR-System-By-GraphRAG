@@ -12,7 +12,9 @@ from .search import search_graph_rag
 
 
 class GraphRAGContractFilters(BaseModel):
+    category: str | None = None
     theme: str | None = None
+    project_id: str | None = None
     material: str | None = None
     interaction: str | None = None
     owner: str | None = None
@@ -176,9 +178,9 @@ def _apply_contract_filters(
             exhibit,
             keyword=None,
             venue_type=filters.venue_type,
-            category=None,
+            category=filters.category,
             theme=filters.theme,
-            project_id=None,
+            project_id=filters.project_id,
             owner=filters.owner,
             supplier=filters.supplier,
             tag=filters.tag,
@@ -196,7 +198,9 @@ def _search_filters(filters: GraphRAGContractFilters | None) -> GraphRAGFilters 
     if filters is None:
         return None
     return GraphRAGFilters(
+        category=filters.category,
         theme=filters.theme,
+        project_id=filters.project_id,
         material=filters.material,
         interaction=filters.interaction,
         owner=filters.owner,

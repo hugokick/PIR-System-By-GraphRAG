@@ -5,7 +5,9 @@ from app.schemas import ExhibitResponse
 
 
 class GraphRAGFilters(BaseModel):
+    category: str | None = None
     theme: str | None = None
+    project_id: str | None = None
     material: str | None = None
     interaction: str | None = None
     owner: str | None = None

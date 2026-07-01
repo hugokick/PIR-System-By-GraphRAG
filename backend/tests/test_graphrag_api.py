@@ -122,6 +122,39 @@ def test_graphrag_search_applies_owner_and_supplier_filters():
     assert supplier_payload["items"] == []
 
 
+def test_graphrag_search_applies_category_and_project_filters():
+    category_response = client.post(
+        "/api/graphrag/search",
+        json={
+            "query": "水循环",
+            "top_k": 5,
+            "filters": {
+                "category": "基础科学",
+            },
+        },
+    )
+    project_response = client.post(
+        "/api/graphrag/search",
+        json={
+            "query": "水循环",
+            "top_k": 5,
+            "filters": {
+                "project_id": "qinghe-2024",
+            },
+        },
+    )
+
+    assert category_response.status_code == 200
+    category_payload = category_response.json()
+    assert category_payload["total"] == 0
+    assert category_payload["items"] == []
+
+    assert project_response.status_code == 200
+    project_payload = project_response.json()
+    assert project_payload["total"] == 0
+    assert project_payload["items"] == []
+
+
 def test_graphrag_search_total_counts_all_matches_before_top_k():
     response = client.post(
         "/api/graphrag/search",
