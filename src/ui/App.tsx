@@ -27,6 +27,7 @@ import {
   fetchAuditLogs,
   fetchDashboardSummary,
   fetchDemoGraph,
+  fetchDocumentExtractionSuggestions,
   fetchExhibitGraph,
   fetchExhibitRelationRecommendations,
   fetchExhibits,
@@ -50,6 +51,7 @@ import type {
   AuditLogEntry,
   DashboardStats,
   DocumentAsset,
+  DocumentExtractionSuggestion,
   Exhibit,
   ExhibitFilters,
   ExhibitStatus,
@@ -59,6 +61,7 @@ import type {
   GraphRagCitation,
   MediaAsset,
   RelationRecommendation,
+  SuggestedFieldSource,
   ReviewStatus,
   SearchResults,
   UserSession
@@ -291,6 +294,33 @@ function downloadUrl(url: string) {
   return nextUrl.toString();
 }
 
+function formatSuggestedBudget(min?: number, max?: number) {
+  if (min !== undefined && max !== undefined) return `${Math.round(min / 10000)}-${Math.round(max / 10000)} 万`;
+  if (min !== undefined) return `${Math.round(min / 10000)} 万以上`;
+  if (max !== undefined) return `${Math.round(max / 10000)} 万以内`;
+  return '';
+}
+
+function documentSuggestionFields(suggestion: DocumentExtractionSuggestion) {
+  return [
+    ['展项名称', suggestion.exhibitName],
+    ['类别', suggestion.category],
+    ['主题', suggestion.theme],
+    ['适用场馆', suggestion.venueType],
+    ['预算', formatSuggestedBudget(suggestion.budgetMin, suggestion.budgetMax)],
+    ['材料', suggestion.materials.join('、')],
+    ['互动方式', suggestion.interactions.join('、')],
+    ['供应商', suggestion.supplier],
+    ['业主', suggestion.owner],
+    ['项目年份', suggestion.projectYear ? String(suggestion.projectYear) : undefined],
+    ['标签', suggestion.tags.join('、')]
+  ].filter((item): item is [string, string] => Boolean(item[1]));
+}
+
+function flattenSuggestionSources(suggestion: DocumentExtractionSuggestion): SuggestedFieldSource[] {
+  return Object.values(suggestion.fieldSources).flat().slice(0, 3);
+}
+
 function findGraphRagCitationDocument(answer: GraphRagAnswer | null, citation: GraphRagCitation) {
   if (!answer || citation.sourceType !== 'document') return null;
 
@@ -393,6 +423,15 @@ export function App() {
   } | null>(null);
   const [relationRecommendationError, setRelationRecommendationError] = useState<string | null>(null);
   const [isLoadingRelationRecommendations, setIsLoadingRelationRecommendations] = useState(false);
+  const [documentExtractionSuggestion, setDocumentExtractionSuggestion] = useState<{
+    documentId: string;
+    result: DocumentExtractionSuggestion;
+  } | null>(null);
+  const [documentExtractionError, setDocumentExtractionError] = useState<{
+    documentId: string;
+    message: string;
+  } | null>(null);
+  const [loadingDocumentExtractionId, setLoadingDocumentExtractionId] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [importPreview, setImportPreview] = useState<{ file: File; result: ExhibitImportResult } | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
@@ -1014,6 +1053,25 @@ export function App() {
   const removeRelatedExhibit = (relatedId: string) => {
     if (!selected) return;
     changeRelatedExhibits(selected.relatedExhibitIds.filter((id) => id !== relatedId));
+  };
+
+  const requestDocumentExtractionSuggestion = async (document: DocumentAsset) => {
+    if (!selected || !canWrite || loadingDocumentExtractionId) return;
+
+    setLoadingDocumentExtractionId(document.id);
+    setDocumentExtractionError(null);
+    try {
+      const result = await fetchDocumentExtractionSuggestions(selected.id, document.id);
+      setDocumentExtractionSuggestion({ documentId: document.id, result });
+    } catch {
+      setDocumentExtractionSuggestion(null);
+      setDocumentExtractionError({
+        documentId: document.id,
+        message: '字段抽取建议暂不可用'
+      });
+    } finally {
+      setLoadingDocumentExtractionId(null);
+    }
   };
 
   const submitGraphRagQuestion = async (event: FormEvent<HTMLFormElement>) => {
@@ -1837,6 +1895,18 @@ export function App() {
                               删除
                             </button>
                           )}
+                          {canWrite && (
+                            <button
+                              type="button"
+                              className="document-suggestion-action"
+                              onClick={() => requestDocumentExtractionSuggestion(document)}
+                              disabled={loadingDocumentExtractionId !== null}
+                              aria-label={`抽取字段建议 ${document.name}`}
+                            >
+                              <Sparkles size={14} />
+                              {loadingDocumentExtractionId === document.id ? '分析中' : '字段建议'}
+                            </button>
+                          )}
                           {document.sourceNote && <small>{document.sourceNote}</small>}
                           <small
                             className={
@@ -1866,6 +1936,43 @@ export function App() {
                                 {chunk.text}
                               </blockquote>
                             ))}
+                          </div>
+                        )}
+                        {documentExtractionError?.documentId === document.id && (
+                          <span className="document-extraction-error">{documentExtractionError.message}</span>
+                        )}
+                        {documentExtractionSuggestion?.documentId === document.id && (
+                          <div
+                            className="document-extraction-panel"
+                            aria-label={`字段抽取建议 ${document.name}`}
+                          >
+                            <div className="document-extraction-title">
+                              <Sparkles size={16} />
+                              <strong>字段抽取建议</strong>
+                              <span>置信度 {Math.round(documentExtractionSuggestion.result.confidence * 100)}%</span>
+                            </div>
+                            <div className="document-extraction-fields">
+                              {documentSuggestionFields(documentExtractionSuggestion.result).map(([label, value]) => (
+                                <div key={label}>
+                                  <span>{label}</span>
+                                  <strong>{value}</strong>
+                                </div>
+                              ))}
+                            </div>
+                            {documentExtractionSuggestion.result.summary && (
+                              <p>{documentExtractionSuggestion.result.summary}</p>
+                            )}
+                            {flattenSuggestionSources(documentExtractionSuggestion.result).length > 0 && (
+                              <div className="document-extraction-sources">
+                                <strong>来源片段</strong>
+                                {flattenSuggestionSources(documentExtractionSuggestion.result).map((source) => (
+                                  <blockquote key={`${source.fieldName}:${source.chunkId ?? source.snippet}`}>
+                                    <span>{source.fieldName}</span>
+                                    {source.snippet}
+                                  </blockquote>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

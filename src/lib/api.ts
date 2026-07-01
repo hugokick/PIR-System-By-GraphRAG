@@ -1,6 +1,7 @@
 import type {
   AuditLogEntry,
   DashboardStats,
+  DocumentExtractionSuggestion,
   Exhibit,
   ExhibitFilters,
   GraphEdge,
@@ -154,6 +155,37 @@ type ApiRelationRecommendationResult = {
   target_exhibit_id: string | null;
   warnings: string[];
   recommendations: ApiRelationRecommendation[];
+};
+
+type ApiSuggestedFieldSource = {
+  document_id: string;
+  field_name: string;
+  chunk_id: string | null;
+  source_locator: string | null;
+  snippet: string;
+  reason: string;
+};
+
+type ApiDocumentExtractionSuggestion = {
+  document_id: string;
+  file_name: string;
+  file_type: string;
+  source_note?: string | null;
+  exhibit_name?: string | null;
+  category?: string | null;
+  theme?: string | null;
+  venue_type?: string | null;
+  budget_min?: number | null;
+  budget_max?: number | null;
+  materials: string[];
+  interactions: string[];
+  supplier?: string | null;
+  owner?: string | null;
+  project_year?: number | null;
+  tags: string[];
+  summary: string;
+  confidence: number;
+  field_sources: Record<string, ApiSuggestedFieldSource[]>;
 };
 
 type ApiExhibitImportError = {
@@ -454,6 +486,48 @@ function mapApiRelationRecommendationResult(
   };
 }
 
+function mapApiSuggestedFieldSource(source: ApiSuggestedFieldSource) {
+  return {
+    documentId: source.document_id,
+    fieldName: source.field_name,
+    chunkId: source.chunk_id,
+    sourceLocator: source.source_locator,
+    snippet: source.snippet,
+    reason: source.reason
+  };
+}
+
+function mapApiDocumentExtractionSuggestion(
+  payload: ApiDocumentExtractionSuggestion
+): DocumentExtractionSuggestion {
+  return {
+    documentId: payload.document_id,
+    fileName: payload.file_name,
+    fileType: payload.file_type,
+    sourceNote: payload.source_note ?? undefined,
+    exhibitName: payload.exhibit_name ?? undefined,
+    category: payload.category ?? undefined,
+    theme: payload.theme ?? undefined,
+    venueType: payload.venue_type ?? undefined,
+    budgetMin: payload.budget_min ?? undefined,
+    budgetMax: payload.budget_max ?? undefined,
+    materials: payload.materials,
+    interactions: payload.interactions,
+    supplier: payload.supplier ?? undefined,
+    owner: payload.owner ?? undefined,
+    projectYear: payload.project_year ?? undefined,
+    tags: payload.tags,
+    summary: payload.summary,
+    confidence: payload.confidence,
+    fieldSources: Object.fromEntries(
+      Object.entries(payload.field_sources).map(([fieldName, sources]) => [
+        fieldName,
+        sources.map(mapApiSuggestedFieldSource)
+      ])
+    )
+  };
+}
+
 function mapApiAuditLogEntry(entry: ApiAuditLogEntry): AuditLogEntry {
   return {
     id: entry.id,
@@ -718,6 +792,22 @@ export async function fetchExhibitRelationRecommendations(
     throw new Error(`API request failed: ${response.status} ${response.statusText}`);
   }
   return mapApiRelationRecommendationResult((await response.json()) as ApiRelationRecommendationResult);
+}
+
+export async function fetchDocumentExtractionSuggestions(
+  exhibitId: string,
+  documentId: string
+): Promise<DocumentExtractionSuggestion> {
+  const response = await fetch(
+    `${apiBaseUrl}/api/exhibits/${encodeURIComponent(exhibitId)}/documents/${encodeURIComponent(documentId)}/extraction-suggestions`,
+    {
+      headers: authHeaders()
+    }
+  );
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+  }
+  return mapApiDocumentExtractionSuggestion((await response.json()) as ApiDocumentExtractionSuggestion);
 }
 
 export async function askGraphRag(query: string, topK = 3, filters: ExhibitFilters = {}): Promise<GraphRagAnswer> {

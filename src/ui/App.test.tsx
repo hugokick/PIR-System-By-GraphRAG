@@ -1471,6 +1471,78 @@ describe('App exhibit management', () => {
     expect(screen.getByText('未生成引用片段，仅可下载/预览')).toBeTruthy();
   });
 
+  it('renders read-only document extraction suggestions for uploaded documents', async () => {
+    const withDocument = {
+      ...apiExhibit(),
+      documents: [
+        {
+          id: 'field-note-doc',
+          name: 'field-note.txt',
+          file_type: 'txt',
+          url: '/api/files/field-note-doc',
+          source_note: '现场记录',
+          chunks: [{ id: 'field-note-doc:chunk-1', text: '展项名称：风洞实验台。预算：20-35 万。', sequence: 1 }]
+        }
+      ]
+    };
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/api/exhibits/magnet-maze/documents/field-note-doc/extraction-suggestions')) {
+        expect(init?.headers).toEqual({ 'X-User-Role': 'admin' });
+        return okJson({
+          document_id: 'field-note-doc',
+          file_name: 'field-note.txt',
+          file_type: 'txt',
+          source_note: '现场记录',
+          exhibit_name: '风洞实验台',
+          category: '基础科学',
+          theme: '力学',
+          venue_type: null,
+          budget_min: 200000,
+          budget_max: 350000,
+          materials: ['亚克力'],
+          interactions: ['按钮互动'],
+          supplier: '启思互动工坊',
+          owner: '青禾儿童科技馆',
+          project_year: 2024,
+          tags: ['低龄儿童'],
+          summary: '适合低龄儿童体验气流变化。',
+          confidence: 0.76,
+          field_sources: {
+            exhibit_name: [
+              {
+                document_id: 'field-note-doc',
+                field_name: 'exhibit_name',
+                chunk_id: 'field-note-doc:chunk-1',
+                source_locator: null,
+                snippet: '展项名称：风洞实验台。预算：20-35 万。',
+                reason: 'matched exhibit name'
+              }
+            ]
+          }
+        });
+      }
+      return okJson({ total: 1, items: [withDocument] });
+    });
+
+    render(<App />);
+
+    expect(await screen.findByRole('link', { name: 'field-note.txt' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '抽取字段建议 field-note.txt' }));
+
+    const suggestionPanel = await screen.findByLabelText('字段抽取建议 field-note.txt');
+    expect(within(suggestionPanel).getByText('风洞实验台')).toBeTruthy();
+    expect(within(suggestionPanel).getByText('力学')).toBeTruthy();
+    expect(within(suggestionPanel).getByText('20-35 万')).toBeTruthy();
+    expect(within(suggestionPanel).getByText('置信度 76%')).toBeTruthy();
+    expect(within(suggestionPanel).getByText(/展项名称：风洞实验台/)).toBeTruthy();
+    expect(screen.getByRole('heading', { name: '磁力迷宫' })).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/exhibits/magnet-maze/documents/field-note-doc/extraction-suggestions',
+      expect.objectContaining({ headers: { 'X-User-Role': 'admin' } })
+    );
+  });
+
   it('uses explicit download URLs while keeping PDF preview URLs inline', async () => {
     const withDocument = {
       ...apiExhibit(),

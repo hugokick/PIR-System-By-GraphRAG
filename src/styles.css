@@ -1409,6 +1409,27 @@ textarea:focus {
   opacity: 0.55;
 }
 
+.document-suggestion-action {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #25364b;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 5px 7px;
+  width: fit-content;
+}
+
+.document-suggestion-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .document-preview {
   width: 100%;
   min-height: 280px;
@@ -1445,6 +1466,93 @@ textarea:focus {
   color: #0f6c5f;
   font-size: 12px;
   font-weight: 700;
+}
+
+.document-extraction-error {
+  border-radius: 6px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 0.86rem;
+  font-weight: 700;
+  padding: 7px 9px;
+}
+
+.document-extraction-panel {
+  border-top: 1px solid #edf2ef;
+  display: grid;
+  gap: 10px;
+  padding-top: 10px;
+}
+
+.document-extraction-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: #203b39;
+}
+
+.document-extraction-title span {
+  border: 1px solid #d6e2dd;
+  border-radius: 999px;
+  background: #f4f8f6;
+  color: #36534c;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 4px 8px;
+}
+
+.document-extraction-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.document-extraction-fields div {
+  border: 1px solid #e0e8e4;
+  border-radius: 6px;
+  background: #fbfcfa;
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+}
+
+.document-extraction-fields span,
+.document-extraction-sources blockquote span {
+  color: #60736d;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.document-extraction-fields strong {
+  color: #203b39;
+}
+
+.document-extraction-panel p {
+  color: #4e5f5a;
+  margin: 0;
+}
+
+.document-extraction-sources {
+  display: grid;
+  gap: 8px;
+}
+
+.document-extraction-sources > strong {
+  color: #203b39;
+  font-size: 13px;
+}
+
+.document-extraction-sources blockquote {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  border-left: 3px solid #475569;
+  border-radius: 4px;
+  background: #f8fafc;
+  color: #4e5f5a;
+  padding: 8px 10px;
+  line-height: 1.6;
 }
 
 .graph {

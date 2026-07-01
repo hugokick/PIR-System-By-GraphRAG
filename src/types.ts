@@ -140,6 +140,37 @@ export type RelationRecommendationResult = {
   recommendations: RelationRecommendation[];
 };
 
+export type SuggestedFieldSource = {
+  documentId: string;
+  fieldName: string;
+  chunkId: string | null;
+  sourceLocator: string | null;
+  snippet: string;
+  reason: string;
+};
+
+export type DocumentExtractionSuggestion = {
+  documentId: string;
+  fileName: string;
+  fileType: string;
+  sourceNote?: string;
+  exhibitName?: string;
+  category?: string;
+  theme?: string;
+  venueType?: string;
+  budgetMin?: number;
+  budgetMax?: number;
+  materials: string[];
+  interactions: string[];
+  supplier?: string;
+  owner?: string;
+  projectYear?: number;
+  tags: string[];
+  summary: string;
+  confidence: number;
+  fieldSources: Record<string, SuggestedFieldSource[]>;
+};
+
 export type AuditLogEntry = {
   id: string;
   actorRole: string;
