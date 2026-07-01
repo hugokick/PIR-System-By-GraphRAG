@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from app.ai.query_understanding import understand_query
 
 
@@ -74,3 +76,12 @@ def test_ai_module_exports_stable_constants_and_entrypoint():
     assert BUDGET_LOW == "low"
     assert BUDGET_LOWER_THAN_REFERENCE == "lower_than_reference"
     assert isinstance(result, QueryUnderstandingResult)
+
+
+def test_query_understanding_contract_doc_mentions_hybrid_and_graphrag_mapping():
+    content = Path("docs/llm-query-understanding-contract.md").read_text(encoding="utf-8")
+
+    assert "hybrid_search" in content
+    assert "GraphRAG" in content
+    assert "budget_intent" in content
+    assert "audience" in content
