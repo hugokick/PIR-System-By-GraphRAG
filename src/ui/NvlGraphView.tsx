@@ -87,31 +87,53 @@ function worldToScreen(position: { x: number; y: number }, viewport: ReturnType<
   };
 }
 
+function isPointInViewport(point: { x: number; y: number }, viewport: ReturnType<typeof readNvlViewport>, padding = 64) {
+  return (
+    point.x >= -padding &&
+    point.x <= viewport.width + padding &&
+    point.y >= -padding &&
+    point.y <= viewport.height + padding
+  );
+}
+
 function buildOverlayFrame(nodes: NvlNode[], rels: NvlRelationship[], instance: any): OverlayFrame {
   const viewport = readNvlViewport(instance);
   const positions = normalizeNodePositions(instance?.getNodePositions?.(), nodes);
-  const nodeLabels = nodes.map((node) => {
-    const screenPosition = worldToScreen(positions.get(node.id) ?? { x: 0, y: 0 }, viewport);
-    return {
-      id: node.id,
-      label: node.caption ?? node.id,
-      x: screenPosition.x,
-      y: screenPosition.y + Number(node.size ?? 20) + 16,
-      dimmed: Boolean(node.disabled)
-    };
-  });
+  const nodeLabels = nodes
+    .map((node) => {
+      const screenPosition = worldToScreen(positions.get(node.id) ?? { x: 0, y: 0 }, viewport);
+      return {
+        id: node.id,
+        label: node.caption ?? node.id,
+        x: screenPosition.x,
+        y: screenPosition.y + Number(node.size ?? 20) + 16,
+        dimmed: Boolean(node.disabled)
+      };
+    })
+    .filter((node) => isPointInViewport(node, viewport));
   const edgeLabels = rels
     .filter((rel) => !rel.disabled)
-    .map((rel) => {
+    .flatMap((rel) => {
       const source = worldToScreen(positions.get(rel.from) ?? { x: 0, y: 0 }, viewport);
       const target = worldToScreen(positions.get(rel.to) ?? { x: 0, y: 0 }, viewport);
-      return {
+      const midpoint = {
+        x: (source.x + target.x) / 2,
+        y: (source.y + target.y) / 2 - 8
+      };
+      if (
+        !isPointInViewport(source, viewport) ||
+        !isPointInViewport(target, viewport) ||
+        !isPointInViewport(midpoint, viewport, 24)
+      ) {
+        return [];
+      }
+      return [{
         id: rel.id,
         label: rel.caption ?? rel.type ?? rel.id,
-        x: (source.x + target.x) / 2,
-        y: (source.y + target.y) / 2 - 8,
+        x: midpoint.x,
+        y: midpoint.y,
         dimmed: false
-      };
+      }];
     });
   return {
     width: viewport.width,
@@ -124,6 +146,7 @@ function buildOverlayFrame(nodes: NvlNode[], rels: NvlRelationship[], instance: 
 export function NvlGraphView({ graph, selectedNodeId, layoutVersion, nodeColors, onNodeSelect }: NvlGraphViewProps) {
   const graphRef = useRef<any>(null);
   const overlayFrameRef = useRef<number | null>(null);
+  const overlayTrackingRef = useRef<number | null>(null);
   const [minimapContainer, setMinimapContainer] = useState<HTMLDivElement | null>(null);
   const handleMinimapRef = useCallback((node: HTMLDivElement | null) => {
     setMinimapContainer(node);
@@ -148,15 +171,38 @@ export function NvlGraphView({ graph, selectedNodeId, layoutVersion, nodeColors,
       syncOverlayFrame();
     });
   }, [syncOverlayFrame]);
+  const trackOverlayDuringLayout = useCallback(
+    (frames = 90) => {
+      if (typeof window === 'undefined') {
+        syncOverlayFrame();
+        return;
+      }
+      if (overlayTrackingRef.current !== null) {
+        window.cancelAnimationFrame(overlayTrackingRef.current);
+      }
+      let remainingFrames = frames;
+      const tick = () => {
+        syncOverlayFrame();
+        remainingFrames -= 1;
+        if (remainingFrames > 0) {
+          overlayTrackingRef.current = window.requestAnimationFrame(tick);
+          return;
+        }
+        overlayTrackingRef.current = null;
+      };
+      overlayTrackingRef.current = window.requestAnimationFrame(tick);
+    },
+    [syncOverlayFrame]
+  );
 
   useEffect(() => {
     if (!nvlCanUseDomRenderer()) return;
     const timer = window.setTimeout(() => {
       graphRef.current?.fit?.(graph.nodes.map((node) => node.id));
-      syncOverlayFrame();
+      trackOverlayDuringLayout(45);
     }, 120);
     return () => window.clearTimeout(timer);
-  }, [graph.nodes, graph.edges, layoutVersion, syncOverlayFrame]);
+  }, [graph.nodes, graph.edges, layoutVersion, trackOverlayDuringLayout]);
 
   useEffect(() => {
     if (!nvlCanUseDomRenderer()) return;
@@ -169,14 +215,17 @@ export function NvlGraphView({ graph, selectedNodeId, layoutVersion, nodeColors,
       false
     );
     graphRef.current?.fit?.(graph.nodes.map((node) => node.id));
-    scheduleOverlaySync();
-  }, [layoutVersion, graph.nodes, scheduleOverlaySync]);
+    trackOverlayDuringLayout();
+  }, [layoutVersion, graph.nodes, trackOverlayDuringLayout]);
 
   useEffect(() => {
     syncOverlayFrame();
     return () => {
       if (overlayFrameRef.current !== null && typeof window !== 'undefined') {
         window.cancelAnimationFrame(overlayFrameRef.current);
+      }
+      if (overlayTrackingRef.current !== null && typeof window !== 'undefined') {
+        window.cancelAnimationFrame(overlayTrackingRef.current);
       }
     };
   }, [syncOverlayFrame]);
@@ -217,8 +266,8 @@ export function NvlGraphView({ graph, selectedNodeId, layoutVersion, nodeColors,
             graphRef.current?.fit?.(graph.nodes.map((node) => node.id), { outOnly: true });
             scheduleOverlaySync();
           },
-          onDrag: scheduleOverlaySync,
-          onDragEnd: scheduleOverlaySync,
+          onDrag: () => trackOverlayDuringLayout(8),
+          onDragEnd: () => trackOverlayDuringLayout(12),
           onPan: scheduleOverlaySync,
           onZoom: scheduleOverlaySync,
           onZoomAndPan: scheduleOverlaySync

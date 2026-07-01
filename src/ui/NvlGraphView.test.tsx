@@ -240,7 +240,9 @@ describe('NvlGraphView graph mapping', () => {
     );
 
     expect(container.querySelector('.nvl-readable-overlay')).toBeTruthy();
-    expect(container.querySelectorAll('.nvl-edge-caption')).toHaveLength(19);
+    const visibleEdgeLabels = [...container.querySelectorAll('.nvl-edge-caption')].map((node) => node.textContent);
+    expect(visibleEdgeLabels.length).toBeGreaterThan(0);
+    expect(visibleEdgeLabels).not.toContain('unrelated');
     expect(buildNvlGraphData(denseGraph, 'exhibit:center', nodeColors).rels.find((rel) => rel.type === 'UNRELATED_EDGE')).toMatchObject({
       disabled: true
     });
@@ -252,6 +254,7 @@ describe('NvlGraphView graph mapping', () => {
     expect(styles).toContain('--graph-viewport-height: clamp(520px, 68vh, 720px);');
     expect(styles).toContain('height: var(--graph-viewport-height);');
     expect(styles).toContain('max-height: var(--graph-viewport-height);');
+    expect(styles).toMatch(/\.nvl-readable-overlay\s*\{[^}]*overflow: hidden;/);
     expect(styles).toContain('overflow: auto;');
   });
 });
