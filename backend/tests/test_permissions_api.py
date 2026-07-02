@@ -110,6 +110,19 @@ def test_bearer_token_authorizes_role_protected_mutations():
     assert delete_response.status_code == 403
 
 
+def test_role_header_auth_can_be_disabled_for_public_runtime(monkeypatch):
+    monkeypatch.setenv("ALLOW_ROLE_HEADER_AUTH", "false")
+
+    response = client.post(
+        "/api/exhibits",
+        json=exhibit_payload("header-auth-disabled-demo"),
+        headers=ADMIN_HEADERS,
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["details"]["role"] == "viewer"
+
+
 def test_editor_can_create_and_update_but_cannot_delete():
     create_response = client.post(
         "/api/exhibits",

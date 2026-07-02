@@ -289,6 +289,18 @@ describe('App exhibit management', () => {
   it('hides review status from editor edit forms and preserves the existing workflow state', async () => {
     let updatedPayload: ApiExhibit | undefined;
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) => {
+      const url = String(_input);
+      if (url.endsWith('/api/auth/login')) {
+        return okJson({
+          access_token: 'editor-token',
+          token_type: 'bearer',
+          user: {
+            username: 'editor',
+            role: 'editor',
+            display_name: '编辑员'
+          }
+        });
+      }
       if (init && init.method === 'PUT') {
         const body = JSON.parse(String(init.body));
         updatedPayload = body;
@@ -300,7 +312,11 @@ describe('App exhibit management', () => {
     render(<App />);
 
     await screen.findByRole('heading', { name: '磁力迷宫' });
-    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'editor' } });
+    expect(screen.queryByLabelText('Role')).toBeNull();
+    fireEvent.change(screen.getByLabelText('用户名'), { target: { value: 'editor' } });
+    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'editor123' } });
+    fireEvent.click(screen.getByRole('button', { name: '登录' }));
+    expect(await screen.findByText(/编辑员/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /编辑档案/ }));
 
     expect(screen.queryByLabelText('档案审核状态')).toBeNull();
@@ -817,12 +833,30 @@ describe('App exhibit management', () => {
   });
 
   it('disables write controls after switching to viewer role', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [apiExhibit()] }));
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.endsWith('/api/auth/login')) {
+        return okJson({
+          access_token: 'viewer-token',
+          token_type: 'bearer',
+          user: {
+            username: 'viewer',
+            role: 'viewer',
+            display_name: '只读访客'
+          }
+        });
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
 
     render(<App />);
 
     await screen.findByRole('heading', { name: frontendExhibit.name });
-    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'viewer' } });
+    expect(screen.queryByLabelText('Role')).toBeNull();
+    fireEvent.change(screen.getByLabelText('用户名'), { target: { value: 'viewer' } });
+    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'viewer123' } });
+    fireEvent.click(screen.getByRole('button', { name: '登录' }));
+    expect(await screen.findByText(/只读访客/)).toBeTruthy();
 
     expect((screen.getByRole('button', { name: '新增展项' }) as HTMLButtonElement).disabled).toBe(true);
     expect((document.querySelector('.secondary-action') as HTMLButtonElement).disabled).toBe(true);
@@ -1029,7 +1063,7 @@ describe('App exhibit management', () => {
     expect(within(auditPanel).queryByText('import_batch')).toBeNull();
     expect(within(auditPanel).getByText(/2026-07-01 00:00/)).toBeTruthy();
     expect(screen.getAllByText(/magnet-maze/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText('admin').length).toBeGreaterThan(0);
+    expect(within(auditList).getByText(/admin \/ magnet-maze/)).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledWith(
       'http://127.0.0.1:8000/api/admin/audit-logs?limit=8',
       expect.objectContaining({ headers: { 'X-User-Role': 'admin' } })
@@ -1168,13 +1202,30 @@ describe('App exhibit management', () => {
   });
 
   it('hides audit log entries from viewers', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [apiExhibit()] }));
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.endsWith('/api/auth/login')) {
+        return okJson({
+          access_token: 'viewer-token',
+          token_type: 'bearer',
+          user: {
+            username: 'viewer',
+            role: 'viewer',
+            display_name: '只读访客'
+          }
+        });
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
 
     render(<App />);
 
     await screen.findByRole('heading', { name: frontendExhibit.name });
     fetchMock.mockClear();
-    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'viewer' } });
+    fireEvent.change(screen.getByLabelText('用户名'), { target: { value: 'viewer' } });
+    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'viewer123' } });
+    fireEvent.click(screen.getByRole('button', { name: '登录' }));
+    expect(await screen.findByText(/只读访客/)).toBeTruthy();
 
     expect(screen.queryByText('操作日志')).toBeNull();
     expect(

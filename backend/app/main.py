@@ -165,6 +165,11 @@ def invalid_token() -> HTTPException:
     )
 
 
+def role_header_auth_enabled() -> bool:
+    value = os.environ.get("ALLOW_ROLE_HEADER_AUTH", "true").strip().lower()
+    return value not in {"0", "false", "no", "off"}
+
+
 def invalid_related_exhibits(exhibit_id: str, invalid_ids: list[str]) -> HTTPException:
     return HTTPException(
         status_code=400,
@@ -242,6 +247,9 @@ def current_role(
         if user is None:
             raise invalid_token()
         return user.role
+
+    if not role_header_auth_enabled():
+        return "viewer"
 
     role = (x_user_role or "viewer").strip().lower()
     if role not in VALID_ROLES:

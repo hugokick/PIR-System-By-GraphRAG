@@ -141,16 +141,6 @@ textarea:focus {
   color: #24514b;
 }
 
-.role-select {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 0;
-  color: #47615d;
-  font-size: 12px;
-  font-weight: 700;
-}
-
 .auth-form,
 .auth-session {
   display: inline-flex;
@@ -186,15 +176,6 @@ textarea:focus {
 .auth-session span {
   color: #24514b;
   font-size: 13px;
-  font-weight: 700;
-}
-
-.role-select select {
-  min-height: 38px;
-  border: 1px solid #cbdad4;
-  border-radius: 6px;
-  background: #f8fbf8;
-  color: #163f3a;
   font-weight: 700;
 }
 

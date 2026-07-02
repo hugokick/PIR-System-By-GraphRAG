@@ -120,6 +120,7 @@ const uploadAcceptTypes = [
 ].join(',');
 const userRoles: UserRole[] = ['admin', 'editor', 'viewer'];
 const sessionStorageKey = 'pir-system-session';
+const requireLoginForWrites = import.meta.env.VITE_REQUIRE_LOGIN === 'true';
 const auditActionLabels: Record<string, string> = {
   create_exhibit: '新增档案',
   update_exhibit: '编辑档案',
@@ -188,24 +189,6 @@ function auditActionLabel(action: string) {
 function formatAuditTime(value?: string) {
   if (!value) return '时间未知';
   return value.replace('T', ' ').replace(/\.\d+/, '').replace(/([+-]\d{2}:\d{2}|Z)$/, '').slice(0, 16);
-}
-
-function readInitialRole(): UserRole {
-  let stored: string | null = null;
-  try {
-    stored = globalThis.localStorage?.getItem('pir-system-role') ?? null;
-  } catch {
-    stored = null;
-  }
-  return userRoles.includes(stored as UserRole) ? (stored as UserRole) : 'admin';
-}
-
-function storeRole(role: UserRole) {
-  try {
-    globalThis.localStorage?.setItem('pir-system-role', role);
-  } catch {
-    // Storage can be unavailable in restricted test/browser contexts.
-  }
 }
 
 function readStoredSession(): UserSession | null {
@@ -410,7 +393,7 @@ export function App() {
   });
   const [role, setRole] = useState<UserRole>(() => {
     if (session) return session.user.role;
-    const initialRole = readInitialRole();
+    const initialRole = requireLoginForWrites ? 'viewer' : 'admin';
     setApiRole(initialRole);
     return initialRole;
   });
@@ -623,10 +606,9 @@ export function App() {
       storeSession(session);
     } else {
       setApiSession(null);
-      setApiRole(role);
+      setApiRole(requireLoginForWrites ? 'viewer' : role);
       clearStoredSession();
     }
-    storeRole(role);
   }, [role, session]);
 
   useEffect(() => {
@@ -1442,23 +1424,6 @@ export function App() {
                 {authError && <small>{authError}</small>}
               </form>
             )}
-            <label className="role-select">
-              Role
-              <select
-                value={role}
-                onChange={(event) => {
-                  setSession(null);
-                  setApiSession(null);
-                  setRole(event.target.value as UserRole);
-                }}
-              >
-                {userRoles.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </label>
             <button
               type="button"
               disabled={!canWrite}

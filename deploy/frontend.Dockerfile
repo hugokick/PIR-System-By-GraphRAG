@@ -9,7 +9,9 @@ COPY index.html tsconfig.json tsconfig.node.json vite.config.ts ./
 COPY src ./src
 
 ARG VITE_API_BASE_URL=""
+ARG VITE_REQUIRE_LOGIN="false"
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+ENV VITE_REQUIRE_LOGIN=${VITE_REQUIRE_LOGIN}
 
 RUN npm run build
 
