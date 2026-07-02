@@ -51,29 +51,34 @@ import_template_fields = [
 ]
 
 field_aliases = {
-    "id": {"展项编号", "展项id", "展项ID", "编号"},
-    "name": {"展项名称", "名称"},
-    "category": {"类别", "学科领域", "分类"},
-    "theme": {"主题", "主题名称"},
-    "venue_type": {"适用场馆", "场馆类型", "展馆类型", "适用场馆类型"},
-    "budget_min": {"造价下限", "最低造价", "预算下限", "预算最低", "最小预算"},
-    "budget_max": {"造价上限", "最高造价", "预算上限", "预算最高", "最大预算"},
-    "materials": {"材料", "材质", "材料列表"},
-    "dimensions": {"尺寸", "规格", "外形尺寸"},
+    "id": {"展项编号", "展项id", "展项ID", "展品编号", "档案编号", "编号"},
+    "name": {"展项名称", "展品名称", "名称"},
+    "category": {"类别", "展项类别", "学科领域", "分类"},
+    "theme": {"主题", "展项主题", "主题名称", "学科主题"},
+    "venue_type": {"适用场馆", "场馆类型", "展馆类型", "适用场馆类型", "适用展馆"},
+    "budget_min": {"造价下限", "最低造价", "预算下限", "预算最低", "最低预算", "最小预算", "预算最小值"},
+    "budget_max": {"造价上限", "最高造价", "预算上限", "预算最高", "最高预算", "最大预算", "预算最大值"},
+    "materials": {"材料", "材质", "主要材质", "材料列表"},
+    "dimensions": {"尺寸", "规格", "规格尺寸", "外形尺寸"},
     "interactions": {"交互方式", "互动形式", "互动方式", "交互形式"},
-    "supplier": {"供应商", "制作单位"},
+    "supplier": {"供应商", "制作单位", "实施单位"},
     "project_id": {"项目编号", "项目id", "项目ID"},
-    "project_name": {"项目名称", "项目案例"},
-    "owner": {"业主", "业主单位", "甲方"},
-    "project_year": {"项目年份", "年份", "项目年度"},
+    "project_name": {"项目名称", "项目案例", "所属项目"},
+    "owner": {"业主", "业主单位", "建设单位", "甲方"},
+    "project_year": {"项目年份", "建设年份", "年份", "项目年度"},
     "status": {"状态", "展项状态"},
     "description": {"展项说明", "说明", "描述", "简介"},
     "tags": {"标签", "关键词"},
-    "related_exhibit_ids": {"相似展项", "关联展项", "相似展项编号", "相关展项"},
+    "related_exhibit_ids": {"相似展项", "关联展项", "相似展项编号", "关联展项编号", "相关展项"},
 }
 
+
+def normalize_header_key(value: str | None) -> str:
+    return re.sub(r"\s+", "", (value or "").replace("\ufeff", "").strip().lower())
+
+
 header_alias_lookup = {
-    alias.strip().lower(): field
+    normalize_header_key(alias): field
     for field, aliases in field_aliases.items()
     for alias in aliases | {field}
 }
@@ -276,7 +281,7 @@ def normalize_row(row: dict[str, str]) -> dict[str, str]:
 
 
 def normalize_header(value: str | None) -> str:
-    normalized = (value or "").strip().lower()
+    normalized = normalize_header_key(value)
     return header_alias_lookup.get(normalized, normalized)
 
 

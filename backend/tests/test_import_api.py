@@ -546,6 +546,61 @@ def test_import_accepts_chinese_header_aliases():
     assert client.get("/api/exhibits/chinese-header-demo").status_code == 404
 
 
+def test_import_accepts_historical_header_aliases_with_spacing():
+    historical_headers = [
+        " 档案编号 ",
+        "展品名称",
+        "学科领域",
+        "展项主题",
+        "展馆类型",
+        "预算 下限",
+        "预算 上限",
+        "主要材质",
+        "规格尺寸",
+        "互动 形式",
+        "实施单位",
+        "项目 ID",
+        "所属项目",
+        "建设单位",
+        "建设年份",
+        "展项状态",
+        "简介",
+        "关键词",
+        "关联展项编号",
+    ]
+
+    response = client.post(
+        "/api/exhibits/import",
+        data={"commit": "false"},
+        files={
+            "file": (
+                "historical-headers.csv",
+                csv_bytes_with_headers(
+                    historical_headers,
+                    [valid_import_row("historical-header-demo")],
+                ),
+                "text/csv",
+            )
+        },
+        headers=EDITOR_HEADERS,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total_rows"] == 1
+    assert payload["valid_rows"] == 1
+    assert payload["errors"] == []
+    assert payload["items"][0]["id"] == "historical-header-demo"
+    assert payload["items"][0]["name"] == "Import Demo"
+    assert payload["items"][0]["project"]["name"] == "Import Project"
+    assert payload["items"][0]["owner"]["name"] == "Demo Owner"
+    assert payload["items"][0]["interactions"] == [
+        {"id": "hands-on", "name": "Hands-on"},
+        {"id": "mechanical", "name": "Mechanical"},
+    ]
+    assert client.get("/api/exhibits/historical-header-demo").status_code == 404
+
+
 def test_import_accepts_gb18030_encoded_chinese_csv():
     chinese_headers = [
         "展项编号",
