@@ -143,9 +143,24 @@ npm run build
 
 ## 后续建议
 
-- 接入真实 embedding 模型；GraphRAG 答案已预留 OpenAI-compatible LLM provider，保留现有 GraphRAG API 契约
+- 继续接入生产级 embedding / LLM 服务与检索评测；当前已预留 OpenAI-compatible embedding 和 LLM provider，保留现有 GraphRAG API 契约
 - 将本地文件存储平滑替换为 MinIO 或云对象存储
 - 完善生产级认证、备份、监控和审计策略
+
+## 可选 Embedding Provider
+
+默认不配置外部 embedding 服务，系统会继续使用可测试、可复现的本地 `stable_embedding` fallback。需要接入兼容 OpenAI embeddings 的服务时，可在后端环境中配置：
+
+```text
+EMBEDDING_PROVIDER=openai-compatible
+EMBEDDING_BASE_URL=https://your-embedding-endpoint/v1
+EMBEDDING_API_KEY=your-api-key
+EMBEDDING_MODEL=your-embedding-model
+EMBEDDING_DIMENSIONS=1536
+EMBEDDING_TIMEOUT_SECONDS=20
+```
+
+配置缺失、provider 调用失败或返回向量维度不匹配时，会自动回退到本地 `stable_embedding`；数据库 `pgvector` 字段和现有检索 / GraphRAG API 结构不变。
 
 ## 可选 LLM Provider
 

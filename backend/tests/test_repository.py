@@ -155,6 +155,40 @@ def test_postgres_repository_syncs_exhibit_and_document_chunk_embeddings():
     assert all(str(params[5]).startswith("[") for _, params in insert_calls)
 
 
+def test_postgres_repository_uses_provider_aware_embedding_vector(monkeypatch):
+    from app import repository as repository_module
+    from app.repository import PostgresExhibitRepository
+
+    class RecordingCursor:
+        def __init__(self):
+            self.calls = []
+
+        def execute(self, query, params=None):
+            self.calls.append((" ".join(query.split()), params))
+
+        def fetchall(self):
+            return [{"payload": seed_exhibits[0].model_dump(mode="json")}]
+
+    calls = []
+
+    def fake_embedding_vector(text, *, dimensions=1536, provider=None):
+        calls.append((text, dimensions, provider))
+        return [0.5, 0.25, -0.25]
+
+    monkeypatch.setattr(repository_module, "embedding_provider_from_env", lambda: "configured-provider")
+    monkeypatch.setattr(repository_module, "embedding_vector", fake_embedding_vector)
+
+    cursor = RecordingCursor()
+    repository = PostgresExhibitRepository("postgresql://example", initialize=False)
+
+    repository._insert_or_restore(cursor, seed_exhibits[0])
+
+    assert calls
+    assert all(call[1] == 1536 for call in calls)
+    assert all(call[2] == "configured-provider" for call in calls)
+    assert any(params[2] == "[0.500000,0.250000,-0.250000]" for _, params in cursor.calls if params)
+
+
 def test_postgres_repository_backfills_search_embeddings_for_existing_records():
     from app.repository import PostgresExhibitRepository
 

@@ -1,12 +1,59 @@
 import hashlib
 import math
+import os
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from typing import Any, Protocol
+
+import httpx
 
 from app.schemas import DocumentAsset, DocumentChunk, ExhibitResponse
 
 
 EMBEDDING_DIMENSIONS = 1536
+PostJson = Callable[[str, dict[str, Any], dict[str, str], float], dict[str, Any]]
+
+
+class EmbeddingProvider(Protocol):
+    def embed(self, text: str) -> list[float] | None: ...
+
+
+class OpenAICompatibleEmbeddingProvider:
+    def __init__(
+        self,
+        *,
+        base_url: str,
+        api_key: str,
+        model: str,
+        dimensions: int = EMBEDDING_DIMENSIONS,
+        timeout: float = 20.0,
+        post_json: PostJson | None = None,
+    ) -> None:
+        self.base_url = base_url.rstrip("/")
+        self.api_key = api_key
+        self.model = model
+        self.dimensions = dimensions
+        self.timeout = timeout
+        self._post_json = post_json or _post_json
+
+    def embed(self, text: str) -> list[float] | None:
+        try:
+            response = self._post_json(
+                f"{self.base_url}/embeddings",
+                {"model": self.model, "input": text},
+                {
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                },
+                self.timeout,
+            )
+            values = response["data"][0]["embedding"]
+            if not isinstance(values, list):
+                return None
+            vector = [float(value) for value in values]
+            return vector if len(vector) == self.dimensions else None
+        except Exception:  # noqa: BLE001 - embedding failures must fall back
+            return None
 
 
 def stable_embedding(text: str, dimensions: int = EMBEDDING_DIMENSIONS) -> list[float]:
@@ -25,6 +72,39 @@ def stable_embedding(text: str, dimensions: int = EMBEDDING_DIMENSIONS) -> list[
     if norm == 0:
         return vector
     return [round(value / norm, 6) for value in vector]
+
+
+def embedding_vector(
+    text: str,
+    *,
+    dimensions: int = EMBEDDING_DIMENSIONS,
+    provider: EmbeddingProvider | None = None,
+) -> list[float]:
+    if provider is not None:
+        vector = provider.embed(text)
+        if vector is not None and len(vector) == dimensions:
+            return vector
+    return stable_embedding(text, dimensions=dimensions)
+
+
+def embedding_provider_from_env() -> EmbeddingProvider | None:
+    provider_name = os.environ.get("EMBEDDING_PROVIDER", "").strip().lower()
+    if provider_name not in {"openai-compatible", "openai_compatible"}:
+        return None
+
+    base_url = os.environ.get("EMBEDDING_BASE_URL", "").strip()
+    api_key = os.environ.get("EMBEDDING_API_KEY", "").strip()
+    model = os.environ.get("EMBEDDING_MODEL", "").strip()
+    if not base_url or not api_key or not model:
+        return None
+
+    return OpenAICompatibleEmbeddingProvider(
+        base_url=base_url,
+        api_key=api_key,
+        model=model,
+        dimensions=_int_env("EMBEDDING_DIMENSIONS", EMBEDDING_DIMENSIONS),
+        timeout=_float_env("EMBEDDING_TIMEOUT_SECONDS", 20.0),
+    )
 
 
 def embedding_text_for_exhibit(exhibit: ExhibitResponse) -> str:
@@ -88,3 +168,30 @@ def _tokens(text: str) -> list[str]:
         if len(token) > 1:
             tokens.extend(token[index : index + 2] for index in range(len(token) - 1))
     return tokens
+
+
+def _post_json(url: str, payload: dict[str, Any], headers: dict[str, str], timeout: float) -> dict[str, Any]:
+    with httpx.Client(timeout=timeout) as client:
+        response = client.post(url, json=payload, headers=headers)
+        response.raise_for_status()
+        return response.json()
+
+
+def _int_env(name: str, default: int) -> int:
+    value = os.environ.get(name, "").strip()
+    if not value:
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
+
+def _float_env(name: str, default: float) -> float:
+    value = os.environ.get(name, "").strip()
+    if not value:
+        return default
+    try:
+        return float(value)
+    except ValueError:
+        return default

@@ -18,9 +18,10 @@ from .schemas import (
     MediaAsset,
 )
 from .services.embeddings import (
+    embedding_provider_from_env,
     embedding_text_for_document_chunk,
     embedding_text_for_exhibit,
-    stable_embedding,
+    embedding_vector,
     vector_literal,
 )
 
@@ -573,7 +574,10 @@ class PostgresExhibitRepository:
         return psycopg.connect(self.database_url, row_factory=dict_row)
 
     def _insert_or_restore(self, cursor: Any, exhibit: ExhibitResponse) -> None:
-        exhibit_embedding = vector_literal(stable_embedding(embedding_text_for_exhibit(exhibit)))
+        provider = embedding_provider_from_env()
+        exhibit_embedding = vector_literal(
+            embedding_vector(embedding_text_for_exhibit(exhibit), provider=provider)
+        )
         cursor.execute(
             """
             INSERT INTO exhibit_records (id, payload, embedding, deleted_at, updated_at)
@@ -586,7 +590,7 @@ class PostgresExhibitRepository:
             """,
             (exhibit.id, exhibit.model_dump_json(), exhibit_embedding),
         )
-        self._sync_search_embeddings(cursor, exhibit, exhibit_embedding)
+        self._sync_search_embeddings(cursor, exhibit, exhibit_embedding, provider=provider)
         self._sync_kg_projection(cursor)
 
     def _sync_search_embeddings(
@@ -594,6 +598,7 @@ class PostgresExhibitRepository:
         cursor: Any,
         exhibit: ExhibitResponse,
         exhibit_embedding: str | None = None,
+        provider: Any = None,
     ) -> None:
         cursor.execute(
             """
@@ -611,7 +616,7 @@ class PostgresExhibitRepository:
             owner_id=exhibit.id,
             chunk_id=None,
             text=exhibit_text,
-            embedding=exhibit_embedding or vector_literal(stable_embedding(exhibit_text)),
+            embedding=exhibit_embedding or vector_literal(embedding_vector(exhibit_text, provider=provider)),
         )
 
         for document in exhibit.documents:
@@ -624,7 +629,7 @@ class PostgresExhibitRepository:
                     owner_id=exhibit.id,
                     chunk_id=chunk.id,
                     text=chunk_text,
-                    embedding=vector_literal(stable_embedding(chunk_text)),
+                    embedding=vector_literal(embedding_vector(chunk_text, provider=provider)),
                 )
 
     def _insert_search_embedding(
@@ -660,8 +665,9 @@ class PostgresExhibitRepository:
             ORDER BY created_at ASC
             """
         )
+        provider = embedding_provider_from_env()
         for row in cursor.fetchall():
-            self._sync_search_embeddings(cursor, self.exhibit_from_row(row))
+            self._sync_search_embeddings(cursor, self.exhibit_from_row(row), provider=provider)
         self._sync_kg_projection(cursor)
 
     def _list_active_exhibits_with_cursor(self, cursor: Any) -> list[ExhibitResponse]:
@@ -892,6 +898,7 @@ class PostgresExhibitRepository:
                     """,
                     (asset.id, exhibit.id, asset.type, asset.name, asset.url, asset.url, asset.note),
                 )
+            provider = embedding_provider_from_env()
             for document in exhibit.documents:
                 document_text = embedding_text_for_document_chunk(
                     exhibit,
@@ -915,7 +922,7 @@ class PostgresExhibitRepository:
                         document.file_type,
                         document.url,
                         document.source_note,
-                        vector_literal(stable_embedding(document_text)),
+                        vector_literal(embedding_vector(document_text, provider=provider)),
                     ),
                 )
                 cursor.execute(
@@ -947,7 +954,7 @@ class PostgresExhibitRepository:
                             document.id,
                             chunk.sequence,
                             chunk.text,
-                            vector_literal(stable_embedding(chunk_text)),
+                            vector_literal(embedding_vector(chunk_text, provider=provider)),
                         ),
                     )
 
@@ -1001,7 +1008,10 @@ class PostgresExhibitRepository:
         if self.get_exhibit(exhibit_id) is None:
             return None
         updated = exhibit.model_copy(update={"id": exhibit_id})
-        exhibit_embedding = vector_literal(stable_embedding(embedding_text_for_exhibit(updated)))
+        provider = embedding_provider_from_env()
+        exhibit_embedding = vector_literal(
+            embedding_vector(embedding_text_for_exhibit(updated), provider=provider)
+        )
         with self._connect() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -1014,7 +1024,7 @@ class PostgresExhibitRepository:
                     """,
                     (updated.model_dump_json(), exhibit_embedding, exhibit_id),
                 )
-                self._sync_search_embeddings(cursor, updated, exhibit_embedding)
+                self._sync_search_embeddings(cursor, updated, exhibit_embedding, provider=provider)
                 self._sync_kg_projection(cursor)
         return updated
 
@@ -1096,7 +1106,7 @@ class PostgresExhibitRepository:
         ]
 
     def semantic_scores(self, query: str, limit: int = 20) -> dict[str, float]:
-        query_embedding = vector_literal(stable_embedding(query))
+        query_embedding = vector_literal(embedding_vector(query, provider=embedding_provider_from_env()))
         with self._connect() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
