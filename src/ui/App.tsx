@@ -726,8 +726,26 @@ export function App() {
   }, [canWrite, dataSource, selected?.id]);
 
   useEffect(() => {
-    setPendingDocumentExtractionSuggestions([]);
-  }, [selected?.id]);
+    if (!selected || !canWrite || dataSource !== 'api') {
+      setPendingDocumentExtractionSuggestions([]);
+      return;
+    }
+
+    let cancelled = false;
+    fetchDocumentExtractionSuggestionQueue(selected.id)
+      .then((records) => {
+        if (cancelled) return;
+        setPendingDocumentExtractionSuggestions(records);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setPendingDocumentExtractionSuggestions([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canWrite, dataSource, selected?.id]);
 
   const refreshAuditLogs = async (
     overrideFilters?: {
@@ -2144,6 +2162,16 @@ export function App() {
                               <em>{record.suggestion.exhibitName ?? record.suggestion.theme ?? '待人工核验'}</em>
                               <button
                                 type="button"
+                                className="apply"
+                                onClick={() => applyDocumentExtractionSuggestion(record.suggestion)}
+                                aria-label={`套用字段建议 ${record.fileName}`}
+                              >
+                                <Check size={13} />
+                                套用到表单
+                              </button>
+                              <button
+                                type="button"
+                                className="ignore"
                                 onClick={() => ignoreDocumentExtractionSuggestion(record)}
                                 disabled={ignoringDocumentExtractionSuggestionId !== null}
                                 aria-label={`忽略字段建议 ${record.fileName}`}

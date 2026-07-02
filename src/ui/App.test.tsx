@@ -2119,6 +2119,85 @@ describe('App exhibit management', () => {
     expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/api/document-extraction-suggestions'))).toBe(true);
   });
 
+  it('loads pending document extraction suggestions and applies queue items to the edit form', async () => {
+    const withDocument = {
+      ...apiExhibit(),
+      documents: [
+        {
+          id: 'field-queue-doc',
+          name: 'field-queue.txt',
+          file_type: 'txt',
+          url: '/api/files/field-queue-doc',
+          source_note: '待确认建议',
+          chunks: [{ id: 'field-queue-doc:chunk-1', text: '展项名称：队列风洞。预算：18-28 万。', sequence: 1 }]
+        }
+      ]
+    };
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.includes('/api/document-extraction-suggestions')) {
+        expect(url).toContain('status=pending');
+        expect(url).toContain('exhibit_id=magnet-maze');
+        return okJson({
+          total: 1,
+          items: [
+            {
+              id: 'doc-suggestion-field-queue-doc',
+              exhibit_id: 'magnet-maze',
+              exhibit_name: '磁力迷宫',
+              document_id: 'field-queue-doc',
+              file_name: 'field-queue.txt',
+              status: 'pending',
+              suggestion: {
+                document_id: 'field-queue-doc',
+                file_name: 'field-queue.txt',
+                file_type: 'txt',
+                source_note: '待确认建议',
+                exhibit_name: '队列风洞',
+                category: '基础科学',
+                theme: '力学',
+                venue_type: '儿童科技馆',
+                budget_min: 180000,
+                budget_max: 280000,
+                materials: ['亚克力', '风机'],
+                interactions: ['按钮互动'],
+                supplier: '启思互动工坊',
+                owner: '青禾儿童科技馆',
+                project_year: 2024,
+                tags: ['低龄儿童', '气流'],
+                summary: '来自待确认队列的风洞展项建议。',
+                confidence: 0.8,
+                field_sources: {}
+              },
+              created_at: '2026-07-03T00:00:00Z',
+              updated_at: '2026-07-03T00:00:01Z'
+            }
+          ]
+        });
+      }
+      if (url.endsWith('/api/exhibits/magnet-maze') && init?.method === 'PUT') {
+        return okJson(JSON.parse(String(init.body)));
+      }
+      return okJson({ total: 1, items: [withDocument] });
+    });
+
+    render(<App />);
+
+    expect(await screen.findByRole('link', { name: 'field-queue.txt' })).toBeTruthy();
+    const pendingPanel = await screen.findByLabelText('待确认字段建议');
+    expect(within(pendingPanel).getByText('队列风洞')).toBeTruthy();
+    fireEvent.click(within(pendingPanel).getByRole('button', { name: '套用字段建议 field-queue.txt' }));
+
+    expect((screen.getByPlaceholderText('展项名称') as HTMLInputElement).value).toBe('队列风洞');
+    expect((screen.getByPlaceholderText('主题，如力学') as HTMLInputElement).value).toBe('力学');
+    expect((screen.getByPlaceholderText('最低造价') as HTMLInputElement).value).toBe('180000');
+    expect((screen.getByPlaceholderText('最高造价') as HTMLInputElement).value).toBe('280000');
+    expect((screen.getByPlaceholderText('材料，用逗号分隔') as HTMLInputElement).value).toBe('亚克力,风机');
+    expect((screen.getByPlaceholderText('标签，用逗号分隔') as HTMLInputElement).value).toBe('低龄儿童,气流');
+    expect((screen.getByPlaceholderText('展项说明') as HTMLTextAreaElement).value).toBe('来自待确认队列的风洞展项建议。');
+    expect(fetchMock.mock.calls.some(([input, init]) => String(input).endsWith('/api/exhibits/magnet-maze') && init?.method === 'PUT')).toBe(false);
+  });
+
   it('applies document extraction suggestions to the edit form without saving automatically', async () => {
     const withDocument = {
       ...apiExhibit(),
