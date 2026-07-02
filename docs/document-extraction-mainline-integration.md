@@ -21,6 +21,31 @@
 - 真实 LLM provider 接入
 - 上线部署流程
 
+## 分支与 worktree
+
+- 分支名：`trae/document-extraction`
+- worktree 路径：`.worktrees/trae-document-extraction`
+- 当前状态：本地与 `origin/trae/document-extraction` 对齐
+
+## 相对 `main` 的变更文件清单
+
+相对 `main` 的完整增量文件如下：
+
+- `backend/app/ai/__init__.py`
+- `backend/app/ai/document_extraction.py`
+- `backend/tests/test_document_extraction.py`
+- `docs/document-extraction-contract.md`
+- `docs/document-extraction-mainline-integration.md`
+- `docs/superpowers/plans/2026-07-01-document-intelligent-extraction.md`
+- `docs/superpowers/specs/2026-07-01-document-intelligent-extraction-design.md`
+
+如果主线只做运行与集成，核心文件可收敛为：
+
+- `backend/app/ai/__init__.py`
+- `backend/app/ai/document_extraction.py`
+- `backend/tests/test_document_extraction.py`
+- `docs/document-extraction-contract.md`
+
 ## 当前分支交付物
 
 主线真正需要关注的文件只有以下几类：
@@ -35,6 +60,26 @@
 - `backend/app/ai/document_extraction.py` 提供稳定纯函数入口 `extract_document_suggestions()`
 - `backend/tests/test_document_extraction.py` 锁定规则 fallback、空建议、多 chunk 来源定位等可承诺行为
 - `docs/document-extraction-contract.md` 说明输入输出契约和人工确认约束
+
+## 已核验测试命令与结果
+
+本次已重新执行以下定向测试：
+
+```bash
+python -m pytest backend/tests/test_document_extraction.py -q
+```
+
+实际结果：
+
+- `5 passed in 0.09s`
+
+测试覆盖的核心行为包括：
+
+- 空文本返回空建议
+- 预算区间与主题抽取
+- 材料、互动、摘要与展项名称抽取
+- 多 chunk 来源定位
+- provider 返回空结果时回退规则解析
 
 ## 推荐 cherry-pick 顺序
 
@@ -79,6 +124,38 @@
 
 - `a75fff1` 不建议拆开
 - 该提交同时收敛了 `field_sources`、组织字段抽取和 provider 回退逻辑，拆开后容易出现契约半成品
+
+## 潜在冲突文件
+
+### 当前 cherry-pick 阶段
+
+最可能产生冲突的是：
+
+- `backend/app/ai/__init__.py`
+
+原因：
+
+- 它与 `query_understanding`、`llm-rag-answerer` 等 AI 子模块共享同一导出入口
+- 主线若已扩展 `app.ai`，最容易在导出列表或包注释上冲突
+
+中风险文件：
+
+- `docs/document-extraction-contract.md`
+
+低风险文件：
+
+- `backend/app/ai/document_extraction.py`
+- `backend/tests/test_document_extraction.py`
+
+### 后续真正接入上传后建议链路时
+
+若主线准备把本模块接入上传完成后的审核流程，后续冲突热点会转移到：
+
+- `backend/app/main.py`
+- `backend/app/services/documents.py`
+- `backend/app/schemas.py`
+
+本分支当前没有直接改动这些文件来接入主线。
 
 ## 可直接执行的 cherry-pick 命令
 
