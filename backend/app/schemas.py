@@ -235,6 +235,8 @@ class GraphRagAnswerResponse(BaseModel):
     answer: str
     citations: list[GraphRagCitation]
     items: list[GraphRagSearchHit]
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class AuditLogEntry(BaseModel):

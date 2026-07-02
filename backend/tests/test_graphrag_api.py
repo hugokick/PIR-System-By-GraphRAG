@@ -379,6 +379,8 @@ def test_graphrag_answer_is_source_grounded_with_numbered_citations():
     assert "杠杆乐园" in payload["answer"]
     assert payload["citations"][0]["title"]
     assert payload["citations"][0]["snippet"]
+    assert 0 <= payload["confidence"] <= 1
+    assert payload["warnings"] == []
 
 
 def test_graphrag_answer_refuses_to_compose_without_citations(monkeypatch):
@@ -513,7 +515,7 @@ def test_graphrag_answer_uses_rag_answerer_for_grounded_composition(monkeypatch)
             used_citation_keys=[("exhibit", cited_exhibit.id)],
             refusal_reason=None,
             confidence=0.8,
-            warnings=[],
+            warnings=["来源片段较少，请人工核验"],
         )
 
     monkeypatch.setattr(graphrag_service, "search_graphrag_context", search_with_mixed_citations)
@@ -527,6 +529,8 @@ def test_graphrag_answer_uses_rag_answerer_for_grounded_composition(monkeypatch)
 
     assert result.answer == "answerer composed text"
     assert result.citations == [citation]
+    assert result.confidence == 0.8
+    assert result.warnings == ["来源片段较少，请人工核验"]
     assert [item.exhibit.id for item in result.items] == [cited_exhibit.id, uncited_exhibit.id]
     assert [item.exhibit_id for item in seen["inputs"].matched_exhibits] == [cited_exhibit.id]
     assert seen["inputs"].matched_exhibits[0].reasons == ["grounded reason"]

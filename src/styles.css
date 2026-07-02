@@ -643,6 +643,31 @@ textarea:focus {
   color: #344641;
 }
 
+.graphrag-answer-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.graphrag-answer-meta span,
+.graphrag-answer-meta em {
+  border: 1px solid #d9e4df;
+  border-radius: 999px;
+  background: #f7faf8;
+  color: #2f514b;
+  padding: 4px 9px;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.graphrag-answer-meta em {
+  border-color: #efd09b;
+  background: #fff8ea;
+  color: #7a4b16;
+}
+
 .graphrag-hits,
 .graphrag-citations {
   display: flex;

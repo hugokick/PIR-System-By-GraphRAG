@@ -614,6 +614,8 @@ describe('askGraphRag', () => {
       json: async () => ({
         query: 'lever-play',
         answer: 'Based on exhibit records and graph context.',
+        confidence: 0.82,
+        warnings: ['来源片段较少，请人工核验'],
         citations: [
           {
             source_id: 'lever-play',
@@ -648,6 +650,8 @@ describe('askGraphRag', () => {
       })
     );
     expect(result.answer).toBe('Based on exhibit records and graph context.');
+    expect(result.confidence).toBe(0.82);
+    expect(result.warnings).toEqual(['来源片段较少，请人工核验']);
     expect(result.items[0].exhibit.id).toBe('lever-play');
     expect(result.citations[0].sourceId).toBe('lever-play');
   });
@@ -658,6 +662,8 @@ describe('askGraphRag', () => {
       json: async () => ({
         query: '力学',
         answer: 'Filtered answer.',
+        confidence: 0.2,
+        warnings: [],
         citations: [],
         items: []
       })

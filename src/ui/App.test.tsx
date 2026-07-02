@@ -1300,6 +1300,8 @@ describe('App exhibit management', () => {
         return okJson({
           query: 'lever-play',
           answer: 'Based on exhibit records and graph context.',
+          confidence: 0.76,
+          warnings: ['来源片段较少，请人工核验'],
           citations: [
             {
               source_id: 'magnet-maze',
@@ -1333,6 +1335,8 @@ describe('App exhibit management', () => {
     fireEvent.click(screen.getByRole('button', { name: '生成答案' }));
 
     expect(await screen.findByText('Based on exhibit records and graph context.')).toBeTruthy();
+    expect(screen.getByText('置信度 76%')).toBeTruthy();
+    expect(screen.getByText('来源片段较少，请人工核验')).toBeTruthy();
     expect(screen.getAllByText('磁力迷宫').length).toBeGreaterThan(0);
     const citationButton = screen.getByRole('button', { name: '引用来源 [1] 磁力迷宫' });
     const citationCard = citationButton.closest('.graphrag-citation-card') as HTMLElement;

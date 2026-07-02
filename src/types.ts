@@ -119,6 +119,8 @@ export type GraphRagHit = {
 export type GraphRagAnswer = {
   query: string;
   answer: string;
+  confidence: number;
+  warnings: string[];
   citations: GraphRagCitation[];
   items: GraphRagHit[];
 };

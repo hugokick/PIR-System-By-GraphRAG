@@ -124,6 +124,8 @@ type ApiGraphRagHit = {
 type ApiGraphRagAnswerResponse = {
   query: string;
   answer: string;
+  confidence?: number;
+  warnings?: string[];
   citations: ApiGraphRagCitation[];
   items: ApiGraphRagHit[];
 };
@@ -461,6 +463,8 @@ function mapApiGraphRagAnswer(payload: ApiGraphRagAnswerResponse): GraphRagAnswe
   return {
     query: payload.query,
     answer: payload.answer,
+    confidence: payload.confidence ?? 0,
+    warnings: payload.warnings ?? [],
     citations: payload.citations.map(mapApiGraphRagCitation),
     items: payload.items.map((item) => ({
       exhibit: mapApiExhibit(item.exhibit),

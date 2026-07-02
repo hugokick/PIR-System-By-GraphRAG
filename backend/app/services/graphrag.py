@@ -70,6 +70,8 @@ def answer_from_graphrag_context(
             answer=f"未找到依据：库内资料暂未命中“{query}”。请补充展项档案、上传资料，或调整筛选条件后重试。",
             citations=[],
             items=[],
+            confidence=0.05,
+            warnings=["未找到命中展项"],
         )
 
     citations = _deduplicate_citations(
@@ -86,6 +88,8 @@ def answer_from_graphrag_context(
             ),
             citations=[],
             items=search_response.items,
+            confidence=0.2,
+            warnings=["命中候选展项但缺少可引用来源"],
         )
 
     grounded_items = [item for item in search_response.items if item.citations]
@@ -96,6 +100,8 @@ def answer_from_graphrag_context(
         answer=answer_result.answer,
         citations=response_citations,
         items=search_response.items,
+        confidence=answer_result.confidence,
+        warnings=answer_result.warnings,
     )
 
 

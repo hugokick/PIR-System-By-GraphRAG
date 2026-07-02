@@ -1598,6 +1598,12 @@ export function App() {
           {graphRagAnswer && (
             <div className="graphrag-answer">
               <p>{graphRagAnswer.answer}</p>
+              <div className="graphrag-answer-meta">
+                <span>置信度 {Math.round(graphRagAnswer.confidence * 100)}%</span>
+                {graphRagAnswer.warnings.map((warning) => (
+                  <em key={warning}>{warning}</em>
+                ))}
+              </div>
               {hasNoGraphRagEvidence && (
                 <p className="graphrag-no-evidence" role="alert">
                   未找到可引用来源，请补充展项档案、上传资料，或调整筛选条件后重试。

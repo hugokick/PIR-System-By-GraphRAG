@@ -46,6 +46,8 @@ function answerWithCitation(): GraphRagAnswer {
   return {
     query: '热学',
     answer: '基于资料回答。',
+    confidence: 0.8,
+    warnings: [],
     citations: [citation],
     items: [
       {
