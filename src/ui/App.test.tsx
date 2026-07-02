@@ -1648,6 +1648,29 @@ describe('App exhibit management', () => {
     expect(screen.getByText(/伯努利气流环道/)).toBeTruthy();
   });
 
+  it('opens PDF document previews when the document title is clicked', async () => {
+    const withDocument = {
+      ...apiExhibit(),
+      documents: [
+        {
+          id: 'preview-title-doc',
+          name: '点击预览说明.pdf',
+          file_type: 'pdf',
+          url: '/api/files/preview-title-doc',
+          source_note: 'PDF 说明资料'
+        }
+      ]
+    };
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [withDocument] }));
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole('link', { name: '点击预览说明.pdf' }));
+
+    expect(screen.getByRole('dialog', { name: '点击预览说明.pdf' })).toBeTruthy();
+    expect(screen.getByTitle('点击预览说明.pdf 预览')).toBeTruthy();
+  });
+
   it('shows document GraphRAG indexing status for indexed and unindexed files', async () => {
     const withDocuments = {
       ...apiExhibit(),

@@ -1873,7 +1873,15 @@ export function App() {
                     {selected.documents.map((document) => (
                       <div className="document-item" key={document.id}>
                         <div className="document-heading">
-                          <a href={downloadUrl(document.url)} download={document.name}>
+                          <a
+                            href={downloadUrl(document.url)}
+                            download={document.name}
+                            onClick={(event) => {
+                              if (!isPdfDocument(document)) return;
+                              event.preventDefault();
+                              setPreviewAsset({ ...document, kind: 'document' });
+                            }}
+                          >
                             <FileText size={16} />
                             <span>{document.name}</span>
                           </a>
