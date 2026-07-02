@@ -6,6 +6,7 @@ from app.graphrag.contract import (
     query_graphrag_contract,
     query_subgraph_by_exhibit_id,
 )
+from app.ai.query_understanding import TAG_SIGNALS, THEME_SIGNALS
 from app.kg.models import KGEdge, KGNode, KGSnapshot
 from app.repository import seed_exhibits
 
@@ -102,6 +103,22 @@ def test_query_graphrag_contract_labels_document_reasoning_signals():
     assert any(
         signal.exhibit_id == "lever-play"
         and signal.signal_type == "document_chunk_match"
+        for signal in result.reasoning_signals
+    )
+
+
+def test_query_graphrag_contract_labels_query_understanding_signals():
+    result = query_graphrag_contract(
+        GraphRAGContractQueryInput(
+            query_text=f"{THEME_SIGNALS[0]} {TAG_SIGNALS[-1]}",
+            top_k=2,
+        ),
+        exhibits=seed_exhibits,
+    )
+
+    assert any(
+        signal.exhibit_id in {"lever-play", "pulley-wall"}
+        and signal.signal_type == "query_understanding"
         for signal in result.reasoning_signals
     )
 

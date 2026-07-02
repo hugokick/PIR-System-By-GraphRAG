@@ -31,6 +31,7 @@
    - `semantic_recall`
    - `document_chunk_match`
    - `graph_neighbor_match`
+   - `query_understanding`
    - `rule_match`
 
 ## 未整合内容
@@ -54,6 +55,12 @@
 - The upload path passes exhibit id, document id, file name, file type, and source note into the chunk contract.
 - Existing `DocumentAsset.chunks` API output remains the lightweight `id/text/sequence` shape.
 - No independent `document_chunks` table has been introduced.
+
+## 2026-07-02 Reasoning Signal Follow-up
+
+- `query_graphrag_contract` now labels query-understanding-derived reasons as `query_understanding`.
+- Existing API response shapes remain unchanged; the public GraphRAG hit reasons still use the original detail text.
+- Regression coverage: `test_query_graphrag_contract_labels_query_understanding_signals`.
 
 尤其保留了主线已有的：
 

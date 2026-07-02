@@ -243,6 +243,8 @@ def _reasoning_signal_type(reason: str) -> str:
         return "semantic_recall"
     if "documents" in reason or reason.startswith("匹配资料"):
         return "document_chunk_match"
+    if reason.startswith("查询理解：") or reason.startswith("��ѯ���⣺"):
+        return "query_understanding"
     if "project" in reason or "materials" in reason or "interactions" in reason:
         return "graph_neighbor_match"
     return "rule_match"
