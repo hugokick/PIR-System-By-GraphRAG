@@ -1241,6 +1241,20 @@ class PostgresExhibitRepository:
             )
 
     def _sync_domain_projection(self, cursor: Any, exhibits: list[ExhibitResponse]) -> None:
+        owner_ids_by_name: dict[str, str] = {}
+        supplier_ids_by_name: dict[str, str] = {}
+        theme_ids_by_key: dict[tuple[str, str], str] = {}
+        material_ids_by_name: dict[str, str] = {}
+        interaction_ids_by_name: dict[str, str] = {}
+        for exhibit in exhibits:
+            owner_ids_by_name.setdefault(exhibit.owner.name, exhibit.owner.id)
+            supplier_ids_by_name.setdefault(exhibit.supplier.name, exhibit.supplier.id)
+            theme_ids_by_key.setdefault((exhibit.theme.name, exhibit.category), exhibit.theme.id)
+            for material in exhibit.materials:
+                material_ids_by_name.setdefault(material.name, material.id)
+            for interaction in exhibit.interactions:
+                interaction_ids_by_name.setdefault(interaction.name, interaction.id)
+
         for table_name in [
             "exhibit_relations",
             "document_chunks",
@@ -1259,7 +1273,16 @@ class PostgresExhibitRepository:
         ]:
             cursor.execute(f"DELETE FROM {table_name}")
 
+        inserted_owners: set[str] = set()
+        inserted_suppliers: set[str] = set()
+        inserted_themes: set[str] = set()
+        inserted_materials: set[str] = set()
+        inserted_interactions: set[str] = set()
+
         for exhibit in exhibits:
+            owner_id = owner_ids_by_name[exhibit.owner.name]
+            if owner_id in inserted_owners:
+                continue
             cursor.execute(
                 """
                 INSERT INTO owners (id, name, updated_at)
@@ -1268,8 +1291,12 @@ class PostgresExhibitRepository:
                 SET name = EXCLUDED.name,
                     updated_at = now()
                 """,
-                (exhibit.owner.id, exhibit.owner.name),
+                (owner_id, exhibit.owner.name),
             )
+            inserted_owners.add(owner_id)
+
+        for exhibit in exhibits:
+            owner_id = owner_ids_by_name[exhibit.owner.name]
             cursor.execute(
                 """
                 INSERT INTO projects (id, name, owner_id, venue_type, project_year, updated_at)
@@ -1284,11 +1311,16 @@ class PostgresExhibitRepository:
                 (
                     exhibit.project.id,
                     exhibit.project.name,
-                    exhibit.owner.id,
+                    owner_id,
                     exhibit.venue_type,
                     exhibit.project_year,
                 ),
             )
+
+        for exhibit in exhibits:
+            supplier_id = supplier_ids_by_name[exhibit.supplier.name]
+            if supplier_id in inserted_suppliers:
+                continue
             cursor.execute(
                 """
                 INSERT INTO suppliers (id, name, updated_at)
@@ -1297,8 +1329,15 @@ class PostgresExhibitRepository:
                 SET name = EXCLUDED.name,
                     updated_at = now()
                 """,
-                (exhibit.supplier.id, exhibit.supplier.name),
+                (supplier_id, exhibit.supplier.name),
             )
+            inserted_suppliers.add(supplier_id)
+
+        for exhibit in exhibits:
+            theme_key = (exhibit.theme.name, exhibit.category)
+            theme_id = theme_ids_by_key[theme_key]
+            if theme_id in inserted_themes:
+                continue
             cursor.execute(
                 """
                 INSERT INTO themes (id, name, category, updated_at)
@@ -1308,9 +1347,15 @@ class PostgresExhibitRepository:
                     category = EXCLUDED.category,
                     updated_at = now()
                 """,
-                (exhibit.theme.id, exhibit.theme.name, exhibit.category),
+                (theme_id, exhibit.theme.name, exhibit.category),
             )
+            inserted_themes.add(theme_id)
+
+        for exhibit in exhibits:
             for material in exhibit.materials:
+                material_id = material_ids_by_name[material.name]
+                if material_id in inserted_materials:
+                    continue
                 cursor.execute(
                     """
                     INSERT INTO materials (id, name, updated_at)
@@ -1319,9 +1364,13 @@ class PostgresExhibitRepository:
                     SET name = EXCLUDED.name,
                         updated_at = now()
                     """,
-                    (material.id, material.name),
+                    (material_id, material.name),
                 )
+                inserted_materials.add(material_id)
             for interaction in exhibit.interactions:
+                interaction_id = interaction_ids_by_name[interaction.name]
+                if interaction_id in inserted_interactions:
+                    continue
                 cursor.execute(
                     """
                     INSERT INTO interactions (id, name, updated_at)
@@ -1330,10 +1379,13 @@ class PostgresExhibitRepository:
                     SET name = EXCLUDED.name,
                         updated_at = now()
                     """,
-                    (interaction.id, interaction.name),
+                    (interaction_id, interaction.name),
                 )
+                inserted_interactions.add(interaction_id)
 
         for exhibit in exhibits:
+            theme_id = theme_ids_by_key[(exhibit.theme.name, exhibit.category)]
+            supplier_id = supplier_ids_by_name[exhibit.supplier.name]
             cursor.execute(
                 """
                 INSERT INTO exhibits
@@ -1361,9 +1413,9 @@ class PostgresExhibitRepository:
                     exhibit.id,
                     exhibit.name,
                     exhibit.category,
-                    exhibit.theme.id,
+                    theme_id,
                     exhibit.project.id,
-                    exhibit.supplier.id,
+                    supplier_id,
                     exhibit.budget_min,
                     exhibit.budget_max,
                     exhibit.dimensions,
@@ -1374,22 +1426,24 @@ class PostgresExhibitRepository:
                 ),
             )
             for material in exhibit.materials:
+                material_id = material_ids_by_name[material.name]
                 cursor.execute(
                     """
                     INSERT INTO exhibit_materials (exhibit_id, material_id)
                     VALUES (%s, %s)
                     ON CONFLICT DO NOTHING
                     """,
-                    (exhibit.id, material.id),
+                    (exhibit.id, material_id),
                 )
             for interaction in exhibit.interactions:
+                interaction_id = interaction_ids_by_name[interaction.name]
                 cursor.execute(
                     """
                     INSERT INTO exhibit_interactions (exhibit_id, interaction_id)
                     VALUES (%s, %s)
                     ON CONFLICT DO NOTHING
                     """,
-                    (exhibit.id, interaction.id),
+                    (exhibit.id, interaction_id),
                 )
             for asset in exhibit.media_assets:
                 cursor.execute(

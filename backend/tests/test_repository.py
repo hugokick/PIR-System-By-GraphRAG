@@ -287,6 +287,43 @@ def test_postgres_repository_upsert_refreshes_domain_entity_projection_tables():
     assert any(params[1:] == ("lever-play", "pulley-wall", "similar_to") for _, params in relation_inserts)
 
 
+def test_postgres_repository_domain_projection_canonicalizes_duplicate_lookup_names():
+    from app.repository import PostgresExhibitRepository
+
+    canonical = seed_exhibits[0]
+    duplicate_supplier = seed_exhibits[1].supplier.model_copy(
+        update={
+            "id": "legacy-qisi",
+            "name": canonical.supplier.name,
+        }
+    )
+    duplicate = seed_exhibits[1].model_copy(update={"supplier": duplicate_supplier})
+
+    class RecordingCursor:
+        def __init__(self):
+            self.calls = []
+
+        def execute(self, query, params=None):
+            self.calls.append((" ".join(query.split()), params))
+
+        def fetchall(self):
+            return [
+                {"payload": canonical.model_dump(mode="json")},
+                {"payload": duplicate.model_dump(mode="json")},
+            ]
+
+    cursor = RecordingCursor()
+    repository = PostgresExhibitRepository("postgresql://example", initialize=False)
+
+    repository._sync_domain_projection(cursor, [canonical, duplicate])
+
+    supplier_inserts = [call for call in cursor.calls if "INSERT INTO suppliers" in call[0]]
+    exhibit_inserts = [call for call in cursor.calls if "INSERT INTO exhibits" in call[0]]
+
+    assert [params[0] for _, params in supplier_inserts] == [canonical.supplier.id]
+    assert all(params[5] == canonical.supplier.id for _, params in exhibit_inserts)
+
+
 def test_postgres_repository_upsert_refreshes_document_chunk_projection_table():
     from app.repository import PostgresExhibitRepository
 
