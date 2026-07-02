@@ -56,9 +56,9 @@ const nodeKindCaptions: Record<string, string> = {
   supplier: '供应商',
   theme: '主题',
   material: '材料',
-  interaction: '交互',
-  document: '资料',
-  media_asset: '媒体'
+  interaction: '交互方式',
+  document: '资料文档',
+  media_asset: '媒体资产'
 };
 
 function buildSvgIcon(path: string) {

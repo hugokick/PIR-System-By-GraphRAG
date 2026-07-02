@@ -186,12 +186,16 @@ describe('App exhibit management', () => {
             { id: 'exhibit:magnet-maze', label: '磁力迷宫', type: 'exhibit' },
             { id: 'material:acrylic', label: '亚克力', type: 'material' },
             { id: 'material:metal', label: '金属', type: 'material' },
-            { id: 'supplier:qisi', label: '启思互动工坊', type: 'supplier' }
+            { id: 'supplier:qisi', label: '启思互动工坊', type: 'supplier' },
+            { id: 'interaction:hands-on', label: '动手实验', type: 'interaction' },
+            { id: 'document:design-note', label: '设计说明', type: 'document' }
           ],
           edges: [
             { source: 'exhibit:magnet-maze', target: 'material:acrylic', label: '使用材料', type: 'uses_material' },
             { source: 'exhibit:magnet-maze', target: 'material:metal', label: '使用材料', type: 'uses_material' },
-            { source: 'exhibit:magnet-maze', target: 'supplier:qisi', label: '供应商', type: 'supplied_by' }
+            { source: 'exhibit:magnet-maze', target: 'supplier:qisi', label: '供应商', type: 'supplied_by' },
+            { source: 'exhibit:magnet-maze', target: 'interaction:hands-on', label: '交互方式', type: 'has_interaction' },
+            { source: 'exhibit:magnet-maze', target: 'document:design-note', label: '资料文档', type: 'has_document' }
           ]
         });
       }
@@ -200,16 +204,21 @@ describe('App exhibit management', () => {
 
     render(<App />);
 
+    expect(await screen.findByText('节点 6')).toBeTruthy();
     const legend = await screen.findByLabelText('graph node type legend');
     expect(within(legend).getByRole('button', { name: '展项' })).toBeTruthy();
     expect(within(legend).getByRole('button', { name: '材料' })).toBeTruthy();
     expect(within(legend).getByRole('button', { name: '供应商' })).toBeTruthy();
+    expect(within(legend).getByRole('button', { name: '交互方式' })).toBeTruthy();
+    expect(within(legend).getByRole('button', { name: '资料文档' })).toBeTruthy();
     expect(within(legend).queryByText('material')).toBeNull();
+    expect(within(legend).queryByText('interaction')).toBeNull();
+    expect(within(legend).queryByText('document')).toBeNull();
 
     fireEvent.click(within(legend).getByRole('button', { name: '材料' }));
 
-    expect(await screen.findByText('节点 2 / 4')).toBeTruthy();
-    expect(screen.getByText('关系 0 / 3')).toBeTruthy();
+    expect(await screen.findByText('节点 2 / 6')).toBeTruthy();
+    expect(screen.getByText('关系 0 / 5')).toBeTruthy();
     expect(screen.getByText('已筛选：材料')).toBeTruthy();
     expect(screen.getByRole('button', { name: /亚克力/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /金属/ })).toBeTruthy();

@@ -260,6 +260,7 @@ const graphNodeColors: Record<string, string> = {
   supplier: '#de9bf9',
   theme: '#fb95af',
   interaction: '#ff928c',
+  media_asset: '#7fb5ff',
   document: '#a5abb6'
 };
 
