@@ -28,6 +28,7 @@ import {
   fetchAuditLogs,
   fetchDashboardSummary,
   fetchDemoGraph,
+  fetchDocumentExtractionSuggestionQueue,
   fetchDocumentExtractionSuggestions,
   fetchExhibitGraph,
   fetchExhibitRelationRecommendations,
@@ -54,6 +55,7 @@ import type {
   DashboardStats,
   DocumentAsset,
   DocumentExtractionSuggestion,
+  DocumentExtractionSuggestionRecord,
   Exhibit,
   ExhibitFilters,
   ExhibitStatus,
@@ -330,6 +332,12 @@ function flattenSuggestionSources(suggestion: DocumentExtractionSuggestion): Sug
   return Object.values(suggestion.fieldSources).flat().slice(0, 3);
 }
 
+function documentExtractionSuggestionStatusLabel(status: DocumentExtractionSuggestionRecord['status']) {
+  if (status === 'accepted') return '已采纳';
+  if (status === 'ignored') return '已忽略';
+  return '待确认';
+}
+
 function mergeImportedExhibits(currentItems: Exhibit[], importedItems: Exhibit[]) {
   const importedIds = new Set(importedItems.map((item) => item.id));
   return [...importedItems, ...currentItems.filter((item) => !importedIds.has(item.id))];
@@ -453,6 +461,9 @@ export function App() {
     documentId: string;
     result: DocumentExtractionSuggestion;
   } | null>(null);
+  const [pendingDocumentExtractionSuggestions, setPendingDocumentExtractionSuggestions] = useState<
+    DocumentExtractionSuggestionRecord[]
+  >([]);
   const [formDraft, setFormDraft] = useState<{
     exhibitId: string | null;
     version: number;
@@ -709,6 +720,10 @@ export function App() {
       cancelled = true;
     };
   }, [canWrite, dataSource, selected?.id]);
+
+  useEffect(() => {
+    setPendingDocumentExtractionSuggestions([]);
+  }, [selected?.id]);
 
   const refreshAuditLogs = async (
     overrideFilters?: {
@@ -1212,6 +1227,11 @@ export function App() {
     try {
       const result = await fetchDocumentExtractionSuggestions(selected.id, document.id);
       setDocumentExtractionSuggestion({ documentId: document.id, result });
+      try {
+        setPendingDocumentExtractionSuggestions(await fetchDocumentExtractionSuggestionQueue(selected.id));
+      } catch {
+        setPendingDocumentExtractionSuggestions([]);
+      }
     } catch {
       setDocumentExtractionSuggestion(null);
       setDocumentExtractionError({
@@ -2094,6 +2114,24 @@ export function App() {
                         </>
                       )}
                     />
+                    {pendingDocumentExtractionSuggestions.length > 0 && (
+                      <div className="document-extraction-queue" aria-label="待确认字段建议">
+                        <div className="document-extraction-title">
+                          <Sparkles size={16} />
+                          <strong>待确认字段建议</strong>
+                          <span>{pendingDocumentExtractionSuggestions.length} 条</span>
+                        </div>
+                        <div className="document-extraction-queue-list">
+                          {pendingDocumentExtractionSuggestions.map((record) => (
+                            <div key={record.id} className="document-extraction-queue-item">
+                              <span>{documentExtractionSuggestionStatusLabel(record.status)}</span>
+                              <strong>{record.fileName}</strong>
+                              <em>{record.suggestion.exhibitName ?? record.suggestion.theme ?? '待人工核验'}</em>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </section>
                 )}
               </section>

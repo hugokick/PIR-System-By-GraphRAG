@@ -1806,6 +1806,48 @@ textarea:focus {
   padding-top: 10px;
 }
 
+.document-extraction-queue {
+  border-top: 1px solid #edf2ef;
+  display: grid;
+  gap: 10px;
+  padding-top: 10px;
+}
+
+.document-extraction-queue-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 8px;
+}
+
+.document-extraction-queue-item {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #e0e8e4;
+  border-radius: 6px;
+  background: #fbfcfa;
+  padding: 8px;
+}
+
+.document-extraction-queue-item span {
+  width: max-content;
+  border-radius: 999px;
+  background: #e5f5ee;
+  color: #0d7f6f;
+  padding: 2px 7px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.document-extraction-queue-item strong {
+  color: #263d38;
+}
+
+.document-extraction-queue-item em {
+  color: #52645f;
+  font-size: 12px;
+  font-style: normal;
+}
+
 .document-extraction-title {
   display: flex;
   align-items: center;

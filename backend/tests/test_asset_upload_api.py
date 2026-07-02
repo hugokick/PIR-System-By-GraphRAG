@@ -380,6 +380,35 @@ def test_editor_can_request_document_extraction_suggestions(monkeypatch, tmp_pat
     assert payload["field_sources"]["venue_type"][0]["chunk_id"] == document["chunks"][0]["id"]
     assert payload["field_sources"]["tags"][0]["chunk_id"] == document["chunks"][0]["id"]
 
+    pending_response = client.get(
+        "/api/document-extraction-suggestions",
+        params={"status": "pending"},
+        headers=EDITOR_HEADERS,
+    )
+
+    assert pending_response.status_code == 200
+    pending_payload = pending_response.json()
+    matching_records = [
+        item for item in pending_payload["items"] if item["document_id"] == document["id"]
+    ]
+    assert len(matching_records) == 1
+    record = matching_records[0]
+    assert record["status"] == "pending"
+    assert record["exhibit_id"] == "lever-play"
+    assert record["exhibit_name"] == "杠杆乐园"
+    assert record["file_name"] == "suggested-exhibit.txt"
+    assert record["suggestion"]["exhibit_name"] == "儿童风洞实验台"
+    assert record["suggestion"]["venue_type"] == "儿童科技馆"
+
+
+def test_viewer_cannot_list_document_extraction_suggestions():
+    response = client.get(
+        "/api/document-extraction-suggestions",
+        headers={"X-User-Role": "viewer"},
+    )
+
+    assert response.status_code == 403
+
 
 def test_viewer_cannot_request_document_extraction_suggestions(monkeypatch, tmp_path):
     monkeypatch.setenv("FILE_STORAGE_ROOT", str(tmp_path))

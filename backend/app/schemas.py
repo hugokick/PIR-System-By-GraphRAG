@@ -2,8 +2,11 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from .ai.document_extraction import DocumentExtractionResult
+
 
 ReviewStatusValue = Literal["草稿", "待审核", "已审核", "已退回"]
+DocumentExtractionSuggestionStatus = Literal["pending", "accepted", "ignored"]
 
 
 class EntityRef(BaseModel):
@@ -252,6 +255,23 @@ class AuditLogEntry(BaseModel):
 class AuditLogListResponse(BaseModel):
     total: int
     items: list[AuditLogEntry]
+
+
+class DocumentExtractionSuggestionRecord(BaseModel):
+    id: str
+    exhibit_id: str
+    exhibit_name: str
+    document_id: str
+    file_name: str
+    status: DocumentExtractionSuggestionStatus = "pending"
+    suggestion: DocumentExtractionResult
+    created_at: str
+    updated_at: str
+
+
+class DocumentExtractionSuggestionListResponse(BaseModel):
+    total: int
+    items: list[DocumentExtractionSuggestionRecord]
 
 
 class AuthLoginRequest(BaseModel):

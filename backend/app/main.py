@@ -28,6 +28,7 @@ from .schemas import (
     AuthUser,
     DashboardSummaryResponse,
     DocumentAsset,
+    DocumentExtractionSuggestionListResponse,
     ExhibitImportResponse,
     ExhibitListResponse,
     ExhibitResponse,
@@ -826,7 +827,7 @@ def get_document_extraction_suggestions(
     if document is None:
         raise not_found(document_id)
 
-    return extract_document_suggestions(
+    suggestion = extract_document_suggestions(
         DocumentExtractionInput(
             document_id=document.id,
             file_name=document.name,
@@ -843,6 +844,30 @@ def get_document_extraction_suggestions(
             ],
         )
     )
+    repository.upsert_document_extraction_suggestion(
+        exhibit=exhibit,
+        document=document,
+        suggestion=suggestion,
+    )
+    return suggestion
+
+
+@app.get(
+    "/api/document-extraction-suggestions",
+    response_model=DocumentExtractionSuggestionListResponse,
+)
+def list_document_extraction_suggestions(
+    status_filter: str | None = Query(default=None, alias="status"),
+    exhibit_id: str | None = None,
+    limit: int = Query(default=100, ge=1, le=500),
+    role: str = Depends(require_roles("admin", "editor")),
+) -> DocumentExtractionSuggestionListResponse:
+    items = repository.list_document_extraction_suggestions(
+        status=status_filter,
+        exhibit_id=exhibit_id,
+        limit=limit,
+    )
+    return DocumentExtractionSuggestionListResponse(total=len(items), items=items)
 
 
 @app.get(

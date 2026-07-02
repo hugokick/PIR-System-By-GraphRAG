@@ -2,6 +2,7 @@ import type {
   AuditLogEntry,
   DashboardStats,
   DocumentExtractionSuggestion,
+  DocumentExtractionSuggestionRecord,
   Exhibit,
   ExhibitFilters,
   GraphEdge,
@@ -189,6 +190,23 @@ type ApiDocumentExtractionSuggestion = {
   summary: string;
   confidence: number;
   field_sources: Record<string, ApiSuggestedFieldSource[]>;
+};
+
+type ApiDocumentExtractionSuggestionRecord = {
+  id: string;
+  exhibit_id: string;
+  exhibit_name: string;
+  document_id: string;
+  file_name: string;
+  status: 'pending' | 'accepted' | 'ignored';
+  suggestion: ApiDocumentExtractionSuggestion;
+  created_at: string;
+  updated_at: string;
+};
+
+type ApiDocumentExtractionSuggestionListResponse = {
+  total: number;
+  items: ApiDocumentExtractionSuggestionRecord[];
 };
 
 type ApiExhibitImportError = {
@@ -568,6 +586,22 @@ function mapApiDocumentExtractionSuggestion(
   };
 }
 
+function mapApiDocumentExtractionSuggestionRecord(
+  payload: ApiDocumentExtractionSuggestionRecord
+): DocumentExtractionSuggestionRecord {
+  return {
+    id: payload.id,
+    exhibitId: payload.exhibit_id,
+    exhibitName: payload.exhibit_name,
+    documentId: payload.document_id,
+    fileName: payload.file_name,
+    status: payload.status,
+    suggestion: mapApiDocumentExtractionSuggestion(payload.suggestion),
+    createdAt: payload.created_at,
+    updatedAt: payload.updated_at
+  };
+}
+
 function mapApiAuditLogEntry(entry: ApiAuditLogEntry): AuditLogEntry {
   return {
     id: entry.id,
@@ -916,6 +950,23 @@ export async function fetchDocumentExtractionSuggestions(
     throw new Error(`API request failed: ${response.status} ${response.statusText}`);
   }
   return mapApiDocumentExtractionSuggestion((await response.json()) as ApiDocumentExtractionSuggestion);
+}
+
+export async function fetchDocumentExtractionSuggestionQueue(
+  exhibitId?: string
+): Promise<DocumentExtractionSuggestionRecord[]> {
+  const params = new URLSearchParams({ status: 'pending' });
+  if (exhibitId) {
+    params.set('exhibit_id', exhibitId);
+  }
+  const response = await fetch(`${apiBaseUrl}/api/document-extraction-suggestions?${params.toString()}`, {
+    headers: authHeaders()
+  });
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+  }
+  const payload = (await response.json()) as ApiDocumentExtractionSuggestionListResponse;
+  return payload.items.map(mapApiDocumentExtractionSuggestionRecord);
 }
 
 export async function askGraphRag(query: string, topK = 3, filters: ExhibitFilters = {}): Promise<GraphRagAnswer> {

@@ -202,6 +202,18 @@ export type DocumentExtractionSuggestion = {
   fieldSources: Record<string, SuggestedFieldSource[]>;
 };
 
+export type DocumentExtractionSuggestionRecord = {
+  id: string;
+  exhibitId: string;
+  exhibitName: string;
+  documentId: string;
+  fileName: string;
+  status: 'pending' | 'accepted' | 'ignored';
+  suggestion: DocumentExtractionSuggestion;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type AuditLogEntry = {
   id: string;
   actorRole: string;

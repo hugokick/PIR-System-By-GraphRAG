@@ -10,6 +10,7 @@ from .kg.models import KGEdge, KGNode, KGSnapshot
 from .schemas import (
     AuditLogEntry,
     DocumentAsset,
+    DocumentExtractionSuggestionRecord,
     EntityRef,
     ExhibitResponse,
     GraphEdge,
@@ -659,6 +660,7 @@ class ExhibitRepository:
         self._exhibits = list(exhibits or seed_exhibits)
         self._deleted_ids: set[str] = set()
         self._audit_logs: list[AuditLogEntry] = []
+        self._document_extraction_suggestions: dict[str, DocumentExtractionSuggestionRecord] = {}
 
     def get_exhibit(self, exhibit_id: str) -> ExhibitResponse | None:
         if exhibit_id in self._deleted_ids:
@@ -721,6 +723,44 @@ class ExhibitRepository:
         if resource_id:
             logs = [entry for entry in logs if entry.resource_id == resource_id]
         return list(reversed(logs[-limit:]))
+
+    def upsert_document_extraction_suggestion(
+        self,
+        *,
+        exhibit: ExhibitResponse,
+        document: DocumentAsset,
+        suggestion: Any,
+    ) -> DocumentExtractionSuggestionRecord:
+        now = datetime.now(timezone.utc).isoformat()
+        existing = self._document_extraction_suggestions.get(document.id)
+        record = DocumentExtractionSuggestionRecord(
+            id=existing.id if existing else f"doc-suggestion-{document.id}",
+            exhibit_id=exhibit.id,
+            exhibit_name=exhibit.name,
+            document_id=document.id,
+            file_name=document.name,
+            status="pending",
+            suggestion=suggestion,
+            created_at=existing.created_at if existing else now,
+            updated_at=now,
+        )
+        self._document_extraction_suggestions[document.id] = record
+        return record
+
+    def list_document_extraction_suggestions(
+        self,
+        *,
+        status: str | None = None,
+        exhibit_id: str | None = None,
+        limit: int = 100,
+    ) -> list[DocumentExtractionSuggestionRecord]:
+        records = list(self._document_extraction_suggestions.values())
+        if status:
+            records = [item for item in records if item.status == status]
+        if exhibit_id:
+            records = [item for item in records if item.exhibit_id == exhibit_id]
+        records.sort(key=lambda item: item.updated_at, reverse=True)
+        return records[:limit]
 
     def list_exhibits(
         self,
@@ -995,6 +1035,24 @@ class PostgresExhibitRepository:
         CREATE INDEX IF NOT EXISTS idx_exhibit_relations_target ON exhibit_relations(target_exhibit_id);
         CREATE INDEX IF NOT EXISTS idx_document_chunks_document_id ON document_chunks(document_id);
         CREATE INDEX IF NOT EXISTS idx_document_chunks_exhibit_id ON document_chunks(exhibit_id);
+
+        CREATE TABLE IF NOT EXISTS document_extraction_suggestions (
+          id TEXT PRIMARY KEY,
+          exhibit_id TEXT NOT NULL,
+          exhibit_name TEXT NOT NULL,
+          document_id TEXT NOT NULL UNIQUE,
+          file_name TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pending',
+          suggestion JSONB NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_document_extraction_suggestions_status
+          ON document_extraction_suggestions (status, updated_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_document_extraction_suggestions_exhibit
+          ON document_extraction_suggestions (exhibit_id, updated_at DESC);
 
         CREATE TABLE IF NOT EXISTS search_embeddings (
           id TEXT PRIMARY KEY,
@@ -2027,6 +2085,131 @@ class PostgresExhibitRepository:
         if value is None:
             return []
         return list(value)
+
+    def upsert_document_extraction_suggestion(
+        self,
+        *,
+        exhibit: ExhibitResponse,
+        document: DocumentAsset,
+        suggestion: Any,
+    ) -> DocumentExtractionSuggestionRecord:
+        record_id = f"doc-suggestion-{document.id}"
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO document_extraction_suggestions
+                      (id, exhibit_id, exhibit_name, document_id, file_name, status, suggestion)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb)
+                    ON CONFLICT (document_id) DO UPDATE
+                    SET exhibit_id = EXCLUDED.exhibit_id,
+                        exhibit_name = EXCLUDED.exhibit_name,
+                        file_name = EXCLUDED.file_name,
+                        status = 'pending',
+                        suggestion = EXCLUDED.suggestion,
+                        updated_at = now()
+                    RETURNING
+                      id,
+                      exhibit_id,
+                      exhibit_name,
+                      document_id,
+                      file_name,
+                      status,
+                      suggestion,
+                      created_at,
+                      updated_at
+                    """,
+                    (
+                        record_id,
+                        exhibit.id,
+                        exhibit.name,
+                        document.id,
+                        document.name,
+                        "pending",
+                        suggestion.model_dump_json(),
+                    ),
+                )
+                row = cursor.fetchone()
+        return self.document_extraction_suggestion_from_row(row)
+
+    def list_document_extraction_suggestions(
+        self,
+        *,
+        status: str | None = None,
+        exhibit_id: str | None = None,
+        limit: int = 100,
+    ) -> list[DocumentExtractionSuggestionRecord]:
+        conditions: list[str] = []
+        params: list[Any] = []
+        if status:
+            conditions.append("status = %s")
+            params.append(status)
+        if exhibit_id:
+            conditions.append("exhibit_id = %s")
+            params.append(exhibit_id)
+        where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"""
+                    SELECT
+                      id,
+                      exhibit_id,
+                      exhibit_name,
+                      document_id,
+                      file_name,
+                      status,
+                      suggestion,
+                      created_at,
+                      updated_at
+                    FROM document_extraction_suggestions
+                    {where_clause}
+                    ORDER BY updated_at DESC
+                    LIMIT %s
+                    """,
+                    (*params, limit),
+                )
+                rows = cursor.fetchall()
+        return [self.document_extraction_suggestion_from_row(row) for row in rows]
+
+    @staticmethod
+    def document_extraction_suggestion_from_row(
+        row: Mapping[str, Any] | tuple[Any, ...],
+    ) -> DocumentExtractionSuggestionRecord:
+        if isinstance(row, Mapping):
+            suggestion = row["suggestion"]
+            if isinstance(suggestion, str):
+                suggestion = json.loads(suggestion)
+            created_at = row["created_at"]
+            updated_at = row["updated_at"]
+            return DocumentExtractionSuggestionRecord(
+                id=row["id"],
+                exhibit_id=row["exhibit_id"],
+                exhibit_name=row["exhibit_name"],
+                document_id=row["document_id"],
+                file_name=row["file_name"],
+                status=row["status"],
+                suggestion=suggestion,
+                created_at=created_at.isoformat() if hasattr(created_at, "isoformat") else str(created_at),
+                updated_at=updated_at.isoformat() if hasattr(updated_at, "isoformat") else str(updated_at),
+            )
+
+        suggestion = row[6]
+        if isinstance(suggestion, str):
+            suggestion = json.loads(suggestion)
+        created_at = row[7]
+        updated_at = row[8]
+        return DocumentExtractionSuggestionRecord(
+            id=row[0],
+            exhibit_id=row[1],
+            exhibit_name=row[2],
+            document_id=row[3],
+            file_name=row[4],
+            status=row[5],
+            suggestion=suggestion,
+            created_at=created_at.isoformat() if hasattr(created_at, "isoformat") else str(created_at),
+            updated_at=updated_at.isoformat() if hasattr(updated_at, "isoformat") else str(updated_at),
+        )
 
     def add_audit_log(
         self,
