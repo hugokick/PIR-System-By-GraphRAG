@@ -278,6 +278,9 @@ def test_postgres_repository_upsert_refreshes_domain_entity_projection_tables():
     relation_inserts = [call for call in cursor.calls if "INSERT INTO exhibit_relations" in call[0]]
 
     assert any("DELETE FROM exhibit_materials" in query for query, _ in cursor.calls)
+    assert any("DELETE FROM suppliers" in query for query, _ in cursor.calls)
+    assert any("DELETE FROM materials" in query for query, _ in cursor.calls)
+    assert any("DELETE FROM interactions" in query for query, _ in cursor.calls)
     assert any(params[0] == "qinghe-owner" and params[1] == "青禾儿童科技馆" for _, params in owner_inserts)
     assert any(params[0] == "lever-play" and params[3] == "mechanics" for _, params in exhibit_inserts)
     assert any(params == ("lever-play", "metal") for _, params in material_link_inserts)

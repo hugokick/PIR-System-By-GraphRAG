@@ -1250,6 +1250,12 @@ class PostgresExhibitRepository:
             "media_assets",
             "exhibits",
             "documents",
+            "projects",
+            "owners",
+            "suppliers",
+            "themes",
+            "materials",
+            "interactions",
         ]:
             cursor.execute(f"DELETE FROM {table_name}")
 
