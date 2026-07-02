@@ -410,6 +410,68 @@ def test_viewer_cannot_list_document_extraction_suggestions():
     assert response.status_code == 403
 
 
+def test_editor_can_ignore_pending_document_extraction_suggestion(monkeypatch, tmp_path):
+    monkeypatch.setenv("FILE_STORAGE_ROOT", str(tmp_path))
+
+    upload_response = client.post(
+        "/api/exhibits/lever-play/assets",
+        data={"asset_kind": "document", "note": "ignore suggestion smoke"},
+        files={
+            "file": (
+                "ignore-suggestion.txt",
+                "展项名称：可忽略风洞。围绕力学主题，预算 20 万至 30 万。".encode(),
+                "text/plain",
+            )
+        },
+        headers=EDITOR_HEADERS,
+    )
+    assert upload_response.status_code == 201
+    document = upload_response.json()["documents"][-1]
+
+    suggestion_response = client.get(
+        f"/api/exhibits/lever-play/documents/{document['id']}/extraction-suggestions",
+        headers=EDITOR_HEADERS,
+    )
+    assert suggestion_response.status_code == 200
+
+    record_id = f"doc-suggestion-{document['id']}"
+    response = client.patch(
+        f"/api/document-extraction-suggestions/{record_id}/status",
+        json={"status": "ignored"},
+        headers=EDITOR_HEADERS,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["id"] == record_id
+    assert payload["status"] == "ignored"
+    assert payload["suggestion"]["exhibit_name"] == "可忽略风洞"
+
+    pending_response = client.get(
+        "/api/document-extraction-suggestions",
+        params={"status": "pending"},
+        headers=EDITOR_HEADERS,
+    )
+    assert all(item["id"] != record_id for item in pending_response.json()["items"])
+
+    ignored_response = client.get(
+        "/api/document-extraction-suggestions",
+        params={"status": "ignored"},
+        headers=EDITOR_HEADERS,
+    )
+    assert any(item["id"] == record_id for item in ignored_response.json()["items"])
+
+
+def test_viewer_cannot_update_document_extraction_suggestion_status():
+    response = client.patch(
+        "/api/document-extraction-suggestions/doc-suggestion-missing/status",
+        json={"status": "ignored"},
+        headers={"X-User-Role": "viewer"},
+    )
+
+    assert response.status_code == 403
+
+
 def test_viewer_cannot_request_document_extraction_suggestions(monkeypatch, tmp_path):
     monkeypatch.setenv("FILE_STORAGE_ROOT", str(tmp_path))
 

@@ -2015,6 +2015,41 @@ describe('App exhibit management', () => {
         });
       }
       if (url.includes('/api/document-extraction-suggestions')) {
+        if (url.endsWith('/api/document-extraction-suggestions/doc-suggestion-field-note-doc/status')) {
+          expect(init?.method).toBe('PATCH');
+          expect(JSON.parse(String(init?.body))).toEqual({ status: 'ignored' });
+          return okJson({
+            id: 'doc-suggestion-field-note-doc',
+            exhibit_id: 'magnet-maze',
+            exhibit_name: '磁力迷宫',
+            document_id: 'field-note-doc',
+            file_name: 'field-note.txt',
+            status: 'ignored',
+            suggestion: {
+              document_id: 'field-note-doc',
+              file_name: 'field-note.txt',
+              file_type: 'txt',
+              source_note: '现场记录',
+              exhibit_name: '风洞实验台',
+              category: '基础科学',
+              theme: '力学',
+              venue_type: null,
+              budget_min: 200000,
+              budget_max: 350000,
+              materials: ['亚克力'],
+              interactions: ['按钮互动'],
+              supplier: '启思互动工坊',
+              owner: '青禾儿童科技馆',
+              project_year: 2024,
+              tags: ['低龄儿童'],
+              summary: '适合低龄儿童体验气流变化。',
+              confidence: 0.76,
+              field_sources: {}
+            },
+            created_at: '2026-07-03T00:00:00Z',
+            updated_at: '2026-07-03T00:00:02Z'
+          });
+        }
         expect(url).toContain('status=pending');
         expect(url).toContain('exhibit_id=magnet-maze');
         return okJson({
@@ -2072,6 +2107,10 @@ describe('App exhibit management', () => {
     expect(within(pendingPanel).getByText('field-note.txt')).toBeTruthy();
     expect(within(pendingPanel).getByText('风洞实验台')).toBeTruthy();
     expect(within(pendingPanel).getByText('待确认')).toBeTruthy();
+    fireEvent.click(within(pendingPanel).getByRole('button', { name: '忽略字段建议 field-note.txt' }));
+    await waitFor(() => {
+      expect(screen.queryByLabelText('待确认字段建议')).toBeNull();
+    });
     expect(screen.getByRole('heading', { name: '磁力迷宫' })).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledWith(
       'http://127.0.0.1:8000/api/exhibits/magnet-maze/documents/field-note-doc/extraction-suggestions',

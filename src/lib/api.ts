@@ -969,6 +969,20 @@ export async function fetchDocumentExtractionSuggestionQueue(
   return payload.items.map(mapApiDocumentExtractionSuggestionRecord);
 }
 
+export async function updateDocumentExtractionSuggestionStatus(
+  recordId: string,
+  status: DocumentExtractionSuggestionRecord['status']
+): Promise<DocumentExtractionSuggestionRecord> {
+  const payload = await sendJson<ApiDocumentExtractionSuggestionRecord>(
+    `/api/document-extraction-suggestions/${encodeURIComponent(recordId)}/status`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ status })
+    }
+  );
+  return mapApiDocumentExtractionSuggestionRecord(payload);
+}
+
 export async function askGraphRag(query: string, topK = 3, filters: ExhibitFilters = {}): Promise<GraphRagAnswer> {
   const graphRagFilters = mapGraphRagFilters(filters);
   const requestBody: Record<string, unknown> = { query, top_k: topK };

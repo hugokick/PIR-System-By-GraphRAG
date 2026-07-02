@@ -274,6 +274,10 @@ class DocumentExtractionSuggestionListResponse(BaseModel):
     items: list[DocumentExtractionSuggestionRecord]
 
 
+class DocumentExtractionSuggestionStatusUpdateRequest(BaseModel):
+    status: DocumentExtractionSuggestionStatus
+
+
 class AuthLoginRequest(BaseModel):
     username: str = Field(min_length=1)
     password: str = Field(min_length=1)

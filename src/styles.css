@@ -1848,6 +1848,25 @@ textarea:focus {
   font-style: normal;
 }
 
+.document-extraction-queue-item button {
+  align-items: center;
+  border: 1px solid #efc7bd;
+  border-radius: 6px;
+  background: #fff7f4;
+  color: #9a3412;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 5px;
+  justify-self: start;
+  padding: 5px 7px;
+}
+
+.document-extraction-queue-item button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .document-extraction-title {
   display: flex;
   align-items: center;

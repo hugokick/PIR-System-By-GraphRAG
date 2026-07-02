@@ -762,6 +762,23 @@ class ExhibitRepository:
         records.sort(key=lambda item: item.updated_at, reverse=True)
         return records[:limit]
 
+    def update_document_extraction_suggestion_status(
+        self,
+        record_id: str,
+        status: str,
+    ) -> DocumentExtractionSuggestionRecord | None:
+        for document_id, current in self._document_extraction_suggestions.items():
+            if current.id == record_id:
+                updated = current.model_copy(
+                    update={
+                        "status": status,
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
+                self._document_extraction_suggestions[document_id] = updated
+                return updated
+        return None
+
     def list_exhibits(
         self,
         keyword: str | None = None,
@@ -2171,6 +2188,35 @@ class PostgresExhibitRepository:
                 )
                 rows = cursor.fetchall()
         return [self.document_extraction_suggestion_from_row(row) for row in rows]
+
+    def update_document_extraction_suggestion_status(
+        self,
+        record_id: str,
+        status: str,
+    ) -> DocumentExtractionSuggestionRecord | None:
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    UPDATE document_extraction_suggestions
+                    SET status = %s,
+                        updated_at = now()
+                    WHERE id = %s
+                    RETURNING
+                      id,
+                      exhibit_id,
+                      exhibit_name,
+                      document_id,
+                      file_name,
+                      status,
+                      suggestion,
+                      created_at,
+                      updated_at
+                    """,
+                    (status, record_id),
+                )
+                row = cursor.fetchone()
+        return self.document_extraction_suggestion_from_row(row) if row else None
 
     @staticmethod
     def document_extraction_suggestion_from_row(

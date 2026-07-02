@@ -43,6 +43,7 @@ import {
   updateExhibit,
   updateExhibitRelatedExhibits,
   updateExhibitReviewStatus,
+  updateDocumentExtractionSuggestionStatus,
   uploadExhibitAsset,
   validateSession,
   type ExhibitImportResult,
@@ -464,6 +465,9 @@ export function App() {
   const [pendingDocumentExtractionSuggestions, setPendingDocumentExtractionSuggestions] = useState<
     DocumentExtractionSuggestionRecord[]
   >([]);
+  const [ignoringDocumentExtractionSuggestionId, setIgnoringDocumentExtractionSuggestionId] = useState<string | null>(
+    null
+  );
   const [formDraft, setFormDraft] = useState<{
     exhibitId: string | null;
     version: number;
@@ -1253,6 +1257,17 @@ export function App() {
     }));
     setShowForm(true);
     setLoadError(null);
+  };
+
+  const ignoreDocumentExtractionSuggestion = async (record: DocumentExtractionSuggestionRecord) => {
+    if (!canWrite || ignoringDocumentExtractionSuggestionId) return;
+    setIgnoringDocumentExtractionSuggestionId(record.id);
+    try {
+      await updateDocumentExtractionSuggestionStatus(record.id, 'ignored');
+      setPendingDocumentExtractionSuggestions((current) => current.filter((item) => item.id !== record.id));
+    } finally {
+      setIgnoringDocumentExtractionSuggestionId(null);
+    }
   };
 
   const submitGraphRagQuestion = async (event: FormEvent<HTMLFormElement>) => {
@@ -2127,6 +2142,15 @@ export function App() {
                               <span>{documentExtractionSuggestionStatusLabel(record.status)}</span>
                               <strong>{record.fileName}</strong>
                               <em>{record.suggestion.exhibitName ?? record.suggestion.theme ?? '待人工核验'}</em>
+                              <button
+                                type="button"
+                                onClick={() => ignoreDocumentExtractionSuggestion(record)}
+                                disabled={ignoringDocumentExtractionSuggestionId !== null}
+                                aria-label={`忽略字段建议 ${record.fileName}`}
+                              >
+                                <Trash2 size={13} />
+                                忽略建议
+                              </button>
                             </div>
                           ))}
                         </div>

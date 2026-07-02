@@ -29,6 +29,8 @@ from .schemas import (
     DashboardSummaryResponse,
     DocumentAsset,
     DocumentExtractionSuggestionListResponse,
+    DocumentExtractionSuggestionRecord,
+    DocumentExtractionSuggestionStatusUpdateRequest,
     ExhibitImportResponse,
     ExhibitListResponse,
     ExhibitResponse,
@@ -868,6 +870,21 @@ def list_document_extraction_suggestions(
         limit=limit,
     )
     return DocumentExtractionSuggestionListResponse(total=len(items), items=items)
+
+
+@app.patch(
+    "/api/document-extraction-suggestions/{record_id}/status",
+    response_model=DocumentExtractionSuggestionRecord,
+)
+def update_document_extraction_suggestion_status(
+    record_id: str,
+    payload: DocumentExtractionSuggestionStatusUpdateRequest,
+    role: str = Depends(require_roles("admin", "editor")),
+) -> DocumentExtractionSuggestionRecord:
+    record = repository.update_document_extraction_suggestion_status(record_id, payload.status)
+    if record is None:
+        raise not_found(record_id)
+    return record
 
 
 @app.get(
