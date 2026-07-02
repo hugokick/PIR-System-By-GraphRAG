@@ -6,6 +6,7 @@ from app.ai.rag_answerer import (
     RagMatchedExhibit,
     answer_rag,
 )
+from app.ai.llm_rag_provider import rag_answer_provider_from_env
 from app.graphrag.contract import (
     GraphRAGContractFilters,
     GraphRAGContractQueryInput,
@@ -93,7 +94,10 @@ def answer_from_graphrag_context(
         )
 
     grounded_items = [item for item in search_response.items if item.citations]
-    answer_result = answer_rag(_to_rag_answer_inputs(query, grounded_items, citations))
+    answer_result = answer_rag(
+        _to_rag_answer_inputs(query, grounded_items, citations),
+        provider=rag_answer_provider_from_env(),
+    )
     response_citations = _filter_used_citations(citations, answer_result.used_citation_keys)
     return GraphRagAnswerResponse(
         query=query,

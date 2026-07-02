@@ -94,5 +94,19 @@ GET /api/admin/audit-logs
 ## 下一步
 
 - 继续让标准实体/关系表从当前重建投影逐步演进为增量同步，并评估列表/筛选查询读取实体表的时机
-- 接入真实 embedding 模型和 LLM 答案生成，同时保持现有 GraphRAG API 契约
+- 接入真实 embedding 模型；GraphRAG 答案已支持可选 OpenAI-compatible LLM provider，同时保持现有 GraphRAG API 契约
 - 将本地文件存储替换或扩展为 MinIO / 云对象存储
+
+## 可选 GraphRAG LLM Provider
+
+默认不配置外部 LLM，`/api/graphrag/answer` 会使用 deterministic fallback。若需要接入兼容 chat-completions 的 LLM 服务，可配置：
+
+```text
+RAG_LLM_PROVIDER=openai-compatible
+RAG_LLM_BASE_URL=https://your-llm-endpoint/v1
+RAG_LLM_API_KEY=your-api-key
+RAG_LLM_MODEL=your-chat-model
+RAG_LLM_TIMEOUT_SECONDS=20
+```
+
+配置缺失、provider 返回空结果或调用失败时，接口自动回退到本地答案组织器；请求和响应结构不变。

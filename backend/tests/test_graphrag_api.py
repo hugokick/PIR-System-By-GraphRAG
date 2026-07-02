@@ -508,8 +508,9 @@ def test_graphrag_answer_uses_rag_answerer_for_grounded_composition(monkeypatch)
             ],
         )
 
-    def recording_answer_rag(inputs):
+    def recording_answer_rag(inputs, *, provider=None):
         seen["inputs"] = inputs
+        seen["provider"] = provider
         return RagAnswerResult(
             answer="answerer composed text",
             used_citation_keys=[("exhibit", cited_exhibit.id)],
@@ -520,6 +521,7 @@ def test_graphrag_answer_uses_rag_answerer_for_grounded_composition(monkeypatch)
 
     monkeypatch.setattr(graphrag_service, "search_graphrag_context", search_with_mixed_citations)
     monkeypatch.setattr(graphrag_service, "answer_rag", recording_answer_rag)
+    monkeypatch.setattr(graphrag_service, "rag_answer_provider_from_env", lambda: "configured-provider")
 
     result = graphrag_service.answer_from_graphrag_context(
         "grounded query",
@@ -531,6 +533,7 @@ def test_graphrag_answer_uses_rag_answerer_for_grounded_composition(monkeypatch)
     assert result.citations == [citation]
     assert result.confidence == 0.8
     assert result.warnings == ["来源片段较少，请人工核验"]
+    assert seen["provider"] == "configured-provider"
     assert [item.exhibit.id for item in result.items] == [cited_exhibit.id, uncited_exhibit.id]
     assert [item.exhibit_id for item in seen["inputs"].matched_exhibits] == [cited_exhibit.id]
     assert seen["inputs"].matched_exhibits[0].reasons == ["grounded reason"]
@@ -571,7 +574,7 @@ def test_graphrag_answer_returns_only_citations_used_by_answerer(monkeypatch):
             ],
         )
 
-    def answer_using_one_citation(inputs):
+    def answer_using_one_citation(inputs, *, provider=None):
         return RagAnswerResult(
             answer="只采用一个来源 [1]",
             used_citation_keys=[("document", "used-doc")],

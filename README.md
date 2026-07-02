@@ -143,7 +143,21 @@ npm run build
 
 ## 后续建议
 
-- 接入真实 embedding 模型和真实 LLM 答案生成，保留现有 GraphRAG API 契约
+- 接入真实 embedding 模型；GraphRAG 答案已预留 OpenAI-compatible LLM provider，保留现有 GraphRAG API 契约
 - 将本地文件存储平滑替换为 MinIO 或云对象存储
 - 将文档切片从当前内嵌字段升级为独立持久化资源
 - 完善生产级认证、备份、监控和审计策略
+
+## 可选 LLM Provider
+
+默认不配置外部 LLM，GraphRAG 回答使用可测试的本地 deterministic fallback。需要接入兼容 chat-completions 的 LLM 服务时，可在后端环境中配置：
+
+```text
+RAG_LLM_PROVIDER=openai-compatible
+RAG_LLM_BASE_URL=https://your-llm-endpoint/v1
+RAG_LLM_API_KEY=your-api-key
+RAG_LLM_MODEL=your-chat-model
+RAG_LLM_TIMEOUT_SECONDS=20
+```
+
+provider 返回空结果、异常或配置缺失时会自动回退到本地答案组织器，不改变 `/api/graphrag/answer` 请求 / 响应结构。
