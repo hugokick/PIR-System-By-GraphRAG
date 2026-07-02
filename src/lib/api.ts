@@ -725,6 +725,18 @@ export async function fetchDashboardSummary(filters: ExhibitFilters = {}): Promi
   return mapApiDashboardSummary(payload);
 }
 
+export async function exportExhibitsCsv(filters: ExhibitFilters = {}): Promise<Blob> {
+  const query = buildExhibitQuery(filters);
+  const suffix = query.size > 0 ? `?${query.toString()}` : '';
+  const response = await fetch(`${apiBaseUrl}/api/exhibits/export${suffix}`, {
+    headers: authHeaders()
+  });
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+  }
+  return response.blob();
+}
+
 export async function createExhibit(item: Exhibit): Promise<Exhibit> {
   const payload = await sendJson<ApiExhibit>('/api/exhibits', {
     method: 'POST',

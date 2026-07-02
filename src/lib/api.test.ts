@@ -5,6 +5,7 @@ import {
   createExhibit,
   deleteExhibit,
   deleteExhibitAsset,
+  exportExhibitsCsv,
   exportAuditLogsCsv,
   fetchAuditLogs,
   fetchDashboardSummary,
@@ -602,6 +603,29 @@ describe('exportAuditLogsCsv', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       'http://127.0.0.1:8000/api/admin/audit-logs/export?limit=500&action=delete_exhibit&resource_id=magnet-maze',
+      {
+        headers: { 'X-User-Role': 'admin' }
+      }
+    );
+    expect(result).toBe(blob);
+  });
+});
+
+describe('exportExhibitsCsv', () => {
+  it('downloads filtered exhibit rows with active filters and the role header', async () => {
+    const blob = new Blob(['展项编号,展项名称\nwater-cycle,城市水循环沙盘'], { type: 'text/csv;charset=utf-8' });
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      blob: async () => blob
+    } as Response);
+
+    const result = await exportExhibitsCsv({
+      projectId: 'jiangbei-2022',
+      reviewStatus: '已审核'
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/exhibits/export?project_id=jiangbei-2022&review_status=%E5%B7%B2%E5%AE%A1%E6%A0%B8',
       {
         headers: { 'X-User-Role': 'admin' }
       }

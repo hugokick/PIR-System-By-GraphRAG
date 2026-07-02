@@ -1336,6 +1336,51 @@ describe('App exhibit management', () => {
     expect(revokeObjectUrl).toHaveBeenCalledWith('blob:audit-logs');
   });
 
+  it('lets editors export the currently filtered exhibit list as CSV', async () => {
+    const blob = new Blob(['展项编号,展项名称\nwater-cycle,城市水循环沙盘'], { type: 'text/csv;charset=utf-8' });
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/api/exhibits/export?')) {
+        return {
+          ok: true,
+          blob: async () => blob
+        } as Response;
+      }
+      if (url.endsWith('/api/admin/audit-logs?limit=8')) {
+        return okJson({ total: 0, items: [] });
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+    const createObjectUrl = vi.fn(() => 'blob:exhibits');
+    const revokeObjectUrl = vi.fn();
+    Object.defineProperty(globalThis.URL, 'createObjectURL', {
+      configurable: true,
+      value: createObjectUrl
+    });
+    Object.defineProperty(globalThis.URL, 'revokeObjectURL', {
+      configurable: true,
+      value: revokeObjectUrl
+    });
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+
+    render(<App />);
+
+    fireEvent.change(await screen.findByLabelText('关键词'), { target: { value: '水循环' } });
+    fireEvent.click(await screen.findByRole('button', { name: '导出档案' }));
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([input]) => {
+          const url = String(input);
+          return url.includes('/api/exhibits/export?') && url.includes('keyword=%E6%B0%B4%E5%BE%AA%E7%8E%AF');
+        })
+      ).toBe(true);
+    });
+    expect(createObjectUrl).toHaveBeenCalledWith(blob);
+    expect(clickSpy).toHaveBeenCalled();
+    expect(revokeObjectUrl).toHaveBeenCalledWith('blob:exhibits');
+  });
+
   it('refreshes audit log entries after admin mutations', async () => {
     let auditCalls = 0;
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {

@@ -95,6 +95,24 @@ def test_list_exhibits_supports_owner_and_supplier_filters():
     assert "water-cycle" in {item["id"] for item in supplier_payload["items"]}
     assert all(item["supplier"]["name"] == "澄境模型" for item in supplier_payload["items"])
 
+
+def test_export_exhibits_csv_uses_structured_filters():
+    response = client.get(
+        "/api/exhibits/export",
+        params={"project_id": "jiangbei-2022"},
+        headers=ADMIN_HEADERS,
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/csv")
+    assert "exhibits.csv" in response.headers["content-disposition"]
+    csv_text = response.content.decode("utf-8-sig")
+
+    assert "展项编号,展项名称,类别,主题,适用场馆,造价下限,造价上限" in csv_text
+    assert "water-cycle,城市水循环沙盘" in csv_text
+    assert "lever-play,杠杆乐园" not in csv_text
+
+
 def test_get_exhibit_detail_includes_documents_and_media():
     response = client.get("/api/exhibits/lever-play")
 

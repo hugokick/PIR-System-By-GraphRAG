@@ -23,6 +23,7 @@ import {
   createExhibit,
   deleteExhibit,
   deleteExhibitAsset,
+  exportExhibitsCsv,
   exportAuditLogsCsv,
   fetchAuditLogs,
   fetchDashboardSummary,
@@ -425,8 +426,10 @@ export function App() {
   const [showForm, setShowForm] = useState(false);
   const [dataSource, setDataSource] = useState<'loading' | 'api' | 'local'>('loading');
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isExportingExhibits, setIsExportingExhibits] = useState(false);
   const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null);
   const [previewAsset, setPreviewAsset] = useState<PreviewAsset | null>(null);
   const [isReviewing, setIsReviewing] = useState(false);
@@ -747,6 +750,28 @@ export function App() {
       setAuditError('操作日志导出暂不可用');
     } finally {
       setIsAuditExporting(false);
+    }
+  };
+
+  const handleExportExhibits = async () => {
+    if (!canWrite) return;
+
+    setIsExportingExhibits(true);
+    try {
+      const blob = await exportExhibitsCsv(filters);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'exhibits.csv';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setExportError(null);
+    } catch {
+      setExportError('档案导出暂不可用');
+    } finally {
+      setIsExportingExhibits(false);
     }
   };
 
@@ -1519,6 +1544,7 @@ export function App() {
               </span>
             </p>
             {loadError && <p className="load-note">{loadError}</p>}
+            {exportError && <p className="load-note">{exportError}</p>}
           </div>
           <div className="top-actions">
             {session ? (
@@ -1560,6 +1586,10 @@ export function App() {
             <button type="button" onClick={restoreSeed}>
               <RotateCcw size={18} />
               恢复样例
+            </button>
+            <button type="button" onClick={() => void handleExportExhibits()} disabled={!canWrite || isExportingExhibits}>
+              <Download size={18} />
+              {isExportingExhibits ? '导出中' : '导出档案'}
             </button>
             <label className="import-upload">
               <Upload size={18} />

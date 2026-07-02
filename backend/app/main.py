@@ -465,6 +465,95 @@ def dashboard_summary(
     return summarize_dashboard(items)
 
 
+@app.get("/api/exhibits/export")
+def export_exhibits_csv(
+    keyword: str | None = None,
+    venue_type: str | None = None,
+    category: str | None = None,
+    theme: str | None = None,
+    project_id: str | None = None,
+    owner: str | None = None,
+    supplier: str | None = None,
+    tag: str | None = None,
+    material: str | None = None,
+    interaction: str | None = None,
+    status: str | None = None,
+    review_status: str | None = None,
+    budget_min: int | None = Query(default=None, ge=0),
+    budget_max: int | None = Query(default=None, ge=0),
+    role: str = Depends(require_roles("admin", "editor")),
+) -> Response:
+    items = repository.list_exhibits(
+        keyword=keyword,
+        venue_type=venue_type,
+        category=category,
+        theme=theme,
+        project_id=project_id,
+        owner=owner,
+        supplier=supplier,
+        tag=tag,
+        material=material,
+        interaction=interaction,
+        status=status,
+        review_status=review_status,
+        budget_min=budget_min,
+        budget_max=budget_max,
+    )
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(
+        [
+            "展项编号",
+            "展项名称",
+            "类别",
+            "主题",
+            "适用场馆",
+            "造价下限",
+            "造价上限",
+            "材料",
+            "交互方式",
+            "供应商",
+            "项目编号",
+            "项目名称",
+            "业主",
+            "项目年份",
+            "状态",
+            "审核状态",
+            "标签",
+            "说明",
+        ]
+    )
+    for item in items:
+        writer.writerow(
+            [
+                item.id,
+                item.name,
+                item.category,
+                item.theme.name,
+                item.venue_type,
+                item.budget_min,
+                item.budget_max,
+                "；".join(material.name for material in item.materials),
+                "；".join(interaction.name for interaction in item.interactions),
+                item.supplier.name,
+                item.project.id,
+                item.project.name,
+                item.owner.name,
+                item.project_year,
+                item.status,
+                item.review_status,
+                "；".join(item.tags),
+                item.description,
+            ]
+        )
+    headers = {"Content-Disposition": 'attachment; filename="exhibits.csv"'}
+    return Response(
+        content=f"\ufeff{output.getvalue()}",
+        media_type="text/csv; charset=utf-8",
+        headers=headers,
+    )
+
+
 @app.post("/api/exhibits/import", response_model=ExhibitImportResponse)
 def import_exhibits(
     commit: bool = Form(default=False),
