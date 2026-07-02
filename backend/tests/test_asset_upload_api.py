@@ -524,6 +524,46 @@ def test_uploaded_docx_document_is_chunked_and_available_to_graphrag(monkeypatch
     )
 
 
+def test_uploaded_legacy_doc_document_is_chunked_and_available_to_graphrag(monkeypatch, tmp_path):
+    monkeypatch.setenv("FILE_STORAGE_ROOT", str(tmp_path))
+    legacy_token = "legacy-doc-smoke-token-6e47"
+    legacy_text = f"旧版 Word 方案资料包含 {legacy_token} 以及儿童力学互动依据"
+
+    upload_response = client.post(
+        "/api/exhibits/lever-play/assets",
+        data={"asset_kind": "document", "note": "旧版 Word 历史资料"},
+        files={
+            "file": (
+                "legacy-scheme.doc",
+                b"\xd0\xcf\x11\xe0" + legacy_text.encode("utf-16le"),
+                "application/msword",
+            )
+        },
+        headers=EDITOR_HEADERS,
+    )
+
+    assert upload_response.status_code == 201
+    document = upload_response.json()["documents"][-1]
+    assert document["file_type"] == "doc"
+    assert document["chunks"]
+    assert legacy_token in document["chunks"][0]["text"]
+
+    search_response = client.post(
+        "/api/graphrag/search",
+        json={"query": legacy_token, "top_k": 1},
+    )
+
+    assert search_response.status_code == 200
+    hit = search_response.json()["items"][0]
+    assert hit["exhibit"]["id"] == "lever-play"
+    assert any(
+        citation["source_id"] == document["id"]
+        and citation["source_type"] == "document"
+        and legacy_token in citation["snippet"]
+        for citation in hit["citations"]
+    )
+
+
 def test_uploaded_pptx_document_is_chunked_and_available_to_graphrag(monkeypatch, tmp_path):
     monkeypatch.setenv("FILE_STORAGE_ROOT", str(tmp_path))
     pptx_token = "pptx-smoke-token-91ec02"

@@ -16,6 +16,7 @@ PDF_FILE_TYPES = {"pdf"}
 XLSX_FILE_TYPES = {"xlsx"}
 DOCX_FILE_TYPES = {"docx"}
 PPTX_FILE_TYPES = {"pptx"}
+LEGACY_OFFICE_FILE_TYPES = {"doc", "xls", "ppt"}
 MAX_TEXT_CHARS = 20000
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 80
@@ -87,6 +88,8 @@ def extract_document_text(path: Path, file_type: str) -> str:
         return extract_docx_text(path)
     if normalized_type in PPTX_FILE_TYPES:
         return extract_pptx_text(path)
+    if normalized_type in LEGACY_OFFICE_FILE_TYPES:
+        return extract_legacy_office_text(path)
     if normalized_type not in TEXT_FILE_TYPES:
         return ""
     raw = path.read_bytes()[:MAX_TEXT_CHARS]
@@ -172,6 +175,24 @@ def extract_pptx_text(path: Path) -> str:
     return normalize_text(" ".join(parts))[:MAX_TEXT_CHARS]
 
 
+def extract_legacy_office_text(path: Path) -> str:
+    try:
+        raw = path.read_bytes()[: MAX_TEXT_CHARS * 4]
+    except Exception:
+        return ""
+
+    candidates = []
+    for encoding in ("utf-16le", "gb18030", "utf-8", "latin-1"):
+        try:
+            decoded = raw.decode(encoding, errors="ignore")
+        except Exception:
+            continue
+        candidates.append(_printable_text(decoded))
+
+    best = max(candidates, key=_text_quality, default="")
+    return normalize_text(best)[:MAX_TEXT_CHARS]
+
+
 def read_xlsx_shared_strings(archive: ZipFile) -> list[str]:
     if "xl/sharedStrings.xml" not in archive.namelist():
         return []
@@ -217,3 +238,24 @@ def split_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVE
 
 def normalize_text(text: str) -> str:
     return " ".join(text.replace("\x00", " ").split())
+
+
+def _printable_text(text: str) -> str:
+    return "".join(
+        character if character.isprintable() or character.isspace() else " "
+        for character in text
+    )
+
+
+def _text_quality(text: str) -> int:
+    cjk_count = sum(1 for character in text if "\u4e00" <= character <= "\u9fff")
+    ascii_alnum_count = sum(1 for character in text if character.isascii() and character.isalnum())
+    other_alnum_count = sum(
+        1
+        for character in text
+        if not character.isascii()
+        and character.isalnum()
+        and not ("\u4e00" <= character <= "\u9fff")
+    )
+    whitespace_count = sum(1 for character in text if character.isspace())
+    return cjk_count * 4 + ascii_alnum_count * 2 + other_alnum_count - whitespace_count
