@@ -714,6 +714,9 @@ describe('App exhibit management', () => {
 
     await screen.findByRole('heading', { name: '磁力迷宫' });
     const recommendationPanel = await screen.findByLabelText('KG 关系推荐');
+    const relationPanel = screen.getByLabelText('相似展项关系');
+    expect(relationPanel.querySelector('.similar-relations-body')).toBeTruthy();
+    expect(relationPanel.querySelector('.similar-relations-main')).toBeTruthy();
     expect(within(recommendationPanel).getByText('杠杆乐园')).toBeTruthy();
     expect(within(recommendationPanel).getByText('置信度 72%')).toBeTruthy();
     expect(within(recommendationPanel).getByText(/共同主题/)).toBeTruthy();

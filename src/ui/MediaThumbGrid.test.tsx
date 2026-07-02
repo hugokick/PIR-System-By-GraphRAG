@@ -89,6 +89,30 @@ describe('MediaThumbGrid', () => {
     expect(onPreviewDocument).toHaveBeenCalledWith(documents[0]);
   });
 
+  it('renders document details outside thumbnail cards so cards stay compact', () => {
+    render(
+      <MediaThumbGrid
+        assets={[]}
+        documents={documents}
+        onPreview={() => undefined}
+        onRemove={() => undefined}
+        downloadUrl={(url) => `${url}?download=1`}
+        renderDocumentDetails={(document) => (
+          <div className="document-chunks" data-testid={`details-${document.id}`}>
+            引用片段
+          </div>
+        )}
+      />
+    );
+
+    const card = screen.getByText('quote.pdf').closest('.media-card') as HTMLElement;
+    const details = screen.getByTestId('details-quote-pdf');
+
+    expect(details.closest('.media-card')).toBeNull();
+    expect(card.nextElementSibling).toBe(details);
+    expect(details.classList.contains('media-document-details')).toBe(true);
+  });
+
   it('shows an empty media state', () => {
     render(
       <MediaThumbGrid

@@ -1694,86 +1694,90 @@ export function App() {
                   <GitBranch size={18} />
                   <span>相似展项关系</span>
                 </div>
-                <div className="similar-relation-list">
-                  {relatedExhibits.length > 0 ? (
-                    relatedExhibits.map((item) => (
-                      <div key={item.id} className="similar-relation-item">
-                        <span>{item.name}</span>
-                        <small>{item.category} / {item.theme}</small>
-                        <button
-                          type="button"
-                          onClick={() => removeRelatedExhibit(item.id)}
-                          disabled={!canWrite || isUpdatingRelations}
-                          aria-label={`移除${item.name}`}
-                        >
-                          移除
-                        </button>
-                      </div>
-                    ))
-                  ) : (
-                    <span className="empty-relations">暂无相似展项</span>
-                  )}
-                </div>
-                <div className="similar-relation-editor">
-                  <label>
-                    添加相似展项
-                    <select
-                      value={selectedRelatedId}
-                      onChange={(event) => setSelectedRelatedId(event.target.value)}
-                      disabled={!canWrite || isUpdatingRelations || relationCandidates.length === 0}
-                    >
-                      <option value="">选择展项</option>
-                      {relationCandidates.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={addRelatedExhibit}
-                    disabled={!canWrite || isUpdatingRelations || !selectedRelatedId}
-                  >
-                    添加关系
-                  </button>
-                </div>
-                {canWrite && (
-                  <div className="relation-recommendations" aria-label="KG 关系推荐">
-                    <div className="relation-recommendations-title">
-                      <Sparkles size={16} />
-                      <span>KG 关系推荐</span>
-                      {isLoadingRelationRecommendations && <small>加载中</small>}
-                    </div>
-                    {relationRecommendationError ? (
-                      <span className="empty-relations">{relationRecommendationError}</span>
-                    ) : recommendedSimilarRelations.length > 0 ? (
-                      <div className="relation-recommendation-list">
-                        {recommendedSimilarRelations.map((item) => (
-                          <div key={`${item.relationType}:${item.targetId}`} className="relation-recommendation-item">
-                            <div>
-                              <strong>{item.targetLabel}</strong>
-                              <small>置信度 {Math.round(item.confidence * 100)}%</small>
-                            </div>
-                            {item.reasons.length > 0 && <p>{item.reasons.slice(0, 2).join('；')}</p>}
+                <div className="similar-relations-body">
+                  <div className="similar-relations-main">
+                    <div className="similar-relation-list">
+                      {relatedExhibits.length > 0 ? (
+                        relatedExhibits.map((item) => (
+                          <div key={item.id} className="similar-relation-item">
+                            <span>{item.name}</span>
+                            <small>{item.category} / {item.theme}</small>
                             <button
                               type="button"
-                              onClick={() => acceptRecommendedRelation(item.targetId)}
-                              disabled={isUpdatingRelations}
-                              aria-label={`采纳${item.targetLabel}为相似展项`}
+                              onClick={() => removeRelatedExhibit(item.id)}
+                              disabled={!canWrite || isUpdatingRelations}
+                              aria-label={`移除${item.name}`}
                             >
-                              采纳
+                              移除
                             </button>
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="empty-relations">
-                        {isLoadingRelationRecommendations ? '正在分析可采纳关系' : '暂无可采纳推荐'}
-                      </span>
-                    )}
+                        ))
+                      ) : (
+                        <span className="empty-relations">暂无相似展项</span>
+                      )}
+                    </div>
+                    <div className="similar-relation-editor">
+                      <label>
+                        添加相似展项
+                        <select
+                          value={selectedRelatedId}
+                          onChange={(event) => setSelectedRelatedId(event.target.value)}
+                          disabled={!canWrite || isUpdatingRelations || relationCandidates.length === 0}
+                        >
+                          <option value="">选择展项</option>
+                          {relationCandidates.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={addRelatedExhibit}
+                        disabled={!canWrite || isUpdatingRelations || !selectedRelatedId}
+                      >
+                        添加关系
+                      </button>
+                    </div>
                   </div>
-                )}
+                  {canWrite && (
+                    <div className="relation-recommendations" aria-label="KG 关系推荐">
+                      <div className="relation-recommendations-title">
+                        <Sparkles size={16} />
+                        <span>KG 关系推荐</span>
+                        {isLoadingRelationRecommendations && <small>加载中</small>}
+                      </div>
+                      {relationRecommendationError ? (
+                        <span className="empty-relations">{relationRecommendationError}</span>
+                      ) : recommendedSimilarRelations.length > 0 ? (
+                        <div className="relation-recommendation-list">
+                          {recommendedSimilarRelations.map((item) => (
+                            <div key={`${item.relationType}:${item.targetId}`} className="relation-recommendation-item">
+                              <div>
+                                <strong>{item.targetLabel}</strong>
+                                <small>置信度 {Math.round(item.confidence * 100)}%</small>
+                              </div>
+                              {item.reasons.length > 0 && <p>{item.reasons.slice(0, 2).join('；')}</p>}
+                              <button
+                                type="button"
+                                onClick={() => acceptRecommendedRelation(item.targetId)}
+                                disabled={isUpdatingRelations}
+                                aria-label={`采纳${item.targetLabel}为相似展项`}
+                              >
+                                采纳
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="empty-relations">
+                          {isLoadingRelationRecommendations ? '正在分析可采纳关系' : '暂无可采纳推荐'}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
               </section>
 
               <div className="media-row">

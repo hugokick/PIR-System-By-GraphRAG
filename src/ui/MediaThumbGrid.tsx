@@ -1,5 +1,6 @@
 import { FileText, Trash2 } from 'lucide-react';
-import type { ReactNode, SyntheticEvent } from 'react';
+import { Fragment, cloneElement, isValidElement } from 'react';
+import type { ReactElement, ReactNode, SyntheticEvent } from 'react';
 import type { DocumentAsset, MediaAsset } from '../types';
 
 type MediaThumbGridProps = {
@@ -30,6 +31,16 @@ function isPdfDocument(document: DocumentAsset) {
 function documentStatusLabel(document: DocumentAsset) {
   const chunkCount = document.chunks?.length ?? 0;
   return chunkCount > 0 ? `已生成 ${chunkCount} 个引用片段` : '未生成引用片段';
+}
+
+function detachedDocumentDetails(content: ReactNode) {
+  if (!content) return null;
+  if (isValidElement(content)) {
+    const element = content as ReactElement<{ className?: string }>;
+    const className = ['media-document-details', element.props.className].filter(Boolean).join(' ');
+    return cloneElement(element, { className });
+  }
+  return <div className="media-document-details">{content}</div>;
 }
 
 export function MediaThumbGrid({
@@ -116,75 +127,77 @@ export function MediaThumbGrid({
       {documents.map((document) => {
         const canPreviewDocument = Boolean(onPreviewDocument && isPdfDocument(document));
         const fileType = document.fileType.toUpperCase();
+        const documentDetails = detachedDocumentDetails(renderDocumentDetails?.(document));
 
         return (
-          <article
-            key={document.id}
-            className={canPreviewDocument ? 'media-card document-thumb-card previewable' : 'media-card document-thumb-card'}
-          >
-            {canPreviewDocument ? (
-              <button
-                type="button"
-                className="media-thumbnail document-thumbnail"
-                onClick={() => onPreviewDocument?.(document)}
-                aria-label={`预览资料 ${document.name}`}
-              >
-                <FileText size={26} />
-                <strong>{fileType}</strong>
-              </button>
-            ) : (
-              <a className="media-file-link document-thumbnail" href={downloadUrl(document.url)} download={document.name}>
-                <FileText size={26} />
-                <strong>{fileType}</strong>
-              </a>
-            )}
-            <div>
+          <Fragment key={document.id}>
+            <article
+              className={canPreviewDocument ? 'media-card document-thumb-card previewable' : 'media-card document-thumb-card'}
+            >
               {canPreviewDocument ? (
-                <button type="button" className="media-title-link" onClick={() => onPreviewDocument?.(document)}>
-                  {document.name}
+                <button
+                  type="button"
+                  className="media-thumbnail document-thumbnail"
+                  onClick={() => onPreviewDocument?.(document)}
+                  aria-label={`预览资料 ${document.name}`}
+                >
+                  <FileText size={26} />
+                  <strong>{fileType}</strong>
                 </button>
               ) : (
-                <a className="media-title-link" href={downloadUrl(document.url)} download={document.name}>
-                  {document.name}
+                <a className="media-file-link document-thumbnail" href={downloadUrl(document.url)} download={document.name}>
+                  <FileText size={26} />
+                  <strong>{fileType}</strong>
                 </a>
               )}
-              <span>{fileType}</span>
-              {document.sourceNote && <small>{document.sourceNote}</small>}
-              <small
-                className={
-                  document.chunks && document.chunks.length > 0
-                    ? 'document-rag-status indexed'
-                    : 'document-rag-status empty'
-                }
-              >
-                {documentStatusLabel(document)}
-              </small>
-              {canDelete && (
-                <button
-                  type="button"
-                  className="asset-delete-action"
-                  onClick={() => onRemove(document.id)}
-                  disabled={deletingAssetId === document.id || isDeleteProtected}
-                  aria-label={`删除资料 ${document.name}`}
+              <div>
+                {canPreviewDocument ? (
+                  <button type="button" className="media-title-link" onClick={() => onPreviewDocument?.(document)}>
+                    {document.name}
+                  </button>
+                ) : (
+                  <a className="media-title-link" href={downloadUrl(document.url)} download={document.name}>
+                    {document.name}
+                  </a>
+                )}
+                <span>{fileType}</span>
+                {document.sourceNote && <small>{document.sourceNote}</small>}
+                <small
+                  className={
+                    document.chunks && document.chunks.length > 0
+                      ? 'document-rag-status indexed'
+                      : 'document-rag-status empty'
+                  }
                 >
-                  <Trash2 size={14} />
-                  删除
-                </button>
-              )}
-              {canWrite && onRequestDocumentExtraction && (
-                <button
-                  type="button"
-                  className="document-suggestion-action"
-                  onClick={() => onRequestDocumentExtraction(document)}
-                  disabled={loadingDocumentExtractionId !== null}
-                  aria-label={`抽取字段建议 ${document.name}`}
-                >
-                  {loadingDocumentExtractionId === document.id ? '分析中' : '字段建议'}
-                </button>
-              )}
-            </div>
-            {renderDocumentDetails?.(document)}
-          </article>
+                  {documentStatusLabel(document)}
+                </small>
+                {canDelete && (
+                  <button
+                    type="button"
+                    className="asset-delete-action"
+                    onClick={() => onRemove(document.id)}
+                    disabled={deletingAssetId === document.id || isDeleteProtected}
+                    aria-label={`删除资料 ${document.name}`}
+                  >
+                    <Trash2 size={14} />
+                    删除
+                  </button>
+                )}
+                {canWrite && onRequestDocumentExtraction && (
+                  <button
+                    type="button"
+                    className="document-suggestion-action"
+                    onClick={() => onRequestDocumentExtraction(document)}
+                    disabled={loadingDocumentExtractionId !== null}
+                    aria-label={`抽取字段建议 ${document.name}`}
+                  >
+                    {loadingDocumentExtractionId === document.id ? '分析中' : '字段建议'}
+                  </button>
+                )}
+              </div>
+            </article>
+            {documentDetails}
+          </Fragment>
         );
       })}
     </div>
