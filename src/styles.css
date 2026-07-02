@@ -444,10 +444,10 @@ textarea:focus {
 }
 
 .content {
-  padding: 24px;
+  padding: 22px;
   display: grid;
-  grid-template-rows: auto auto 1fr;
-  gap: 18px;
+  grid-template-rows: auto;
+  gap: 16px;
 }
 
 .topbar {
@@ -536,7 +536,7 @@ textarea:focus {
   background: #fff;
   border: 1px solid #d9e1dc;
   border-radius: 8px;
-  padding: 14px;
+  padding: 12px 14px;
 }
 
 .semantic-input {
@@ -807,8 +807,8 @@ textarea:focus {
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(300px, 390px) 1fr;
-  gap: 18px;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: 16px;
   min-height: 0;
 }
 
@@ -864,9 +864,9 @@ textarea:focus {
   background: #fff;
   border: 1px solid #d9e1dc;
   border-radius: 8px;
-  padding: 16px;
+  padding: 14px;
   display: grid;
-  gap: 16px;
+  gap: 14px;
 }
 
 .detail-hero {
@@ -1210,7 +1210,7 @@ textarea:focus {
 .media-gallery {
   border: 1px solid #dce6e1;
   border-radius: 8px;
-  padding: 12px;
+  padding: 10px;
   background: #fbfcfa;
 }
 
@@ -1259,18 +1259,18 @@ textarea:focus {
 }
 
 .media-gallery-grid.thumbnail-grid {
-  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 8px;
 }
 
 .media-card {
   min-width: 0;
   display: grid;
-  gap: 7px;
+  gap: 6px;
   border: 1px solid #e0e8e4;
   border-radius: 8px;
   background: #ffffff;
-  padding: 8px;
+  padding: 7px;
 }
 
 .media-thumbnail,
@@ -1355,7 +1355,7 @@ textarea:focus {
 .media-card span,
 .media-card small {
   color: #60766f;
-  font-size: 0.86rem;
+  font-size: 0.78rem;
 }
 
 .media-preview-backdrop {
@@ -1793,7 +1793,7 @@ textarea:focus {
   border: 1px solid #d9e1dc;
   border-radius: 8px;
   background: #fff;
-  padding: 16px;
+  padding: 14px;
 }
 
 .graph-mode-switch,
@@ -1861,8 +1861,8 @@ textarea:focus {
 
 .graph-enhanced {
   display: grid;
-  grid-template-columns: minmax(460px, 1fr) minmax(250px, 330px);
-  gap: 14px;
+  grid-template-columns: minmax(560px, 1fr) minmax(230px, 300px);
+  gap: 12px;
   align-items: start;
 }
 
@@ -1956,7 +1956,7 @@ textarea:focus {
 .graph-inspector {
   display: grid;
   align-content: start;
-  gap: 10px;
+  gap: 9px;
   max-height: var(--graph-viewport-height);
   min-width: 0;
   overflow: auto;
@@ -2007,9 +2007,12 @@ textarea:focus {
 
 .graph-legend,
 .graph-node-list {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   gap: 8px;
+}
+
+.graph-legend {
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
 }
 
 .graph-legend span {
@@ -2032,7 +2035,8 @@ textarea:focus {
 }
 
 .graph-node-list {
-  max-height: 164px;
+  grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
+  max-height: 190px;
   overflow: auto;
 }
 

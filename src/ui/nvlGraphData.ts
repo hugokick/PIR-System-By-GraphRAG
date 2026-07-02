@@ -49,6 +49,18 @@ const relationshipCaptions: Record<string, string> = {
   uses_material: '使用材料'
 };
 
+const nodeKindCaptions: Record<string, string> = {
+  exhibit: '展项',
+  project: '项目',
+  owner: '业主',
+  supplier: '供应商',
+  theme: '主题',
+  material: '材料',
+  interaction: '交互',
+  document: '资料',
+  media_asset: '媒体'
+};
+
 function buildSvgIcon(path: string) {
   return `data:image/svg+xml;utf8,${encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">${path}</svg>`
@@ -69,6 +81,25 @@ function graphNodeSize(kind: string, selected: boolean) {
 function relationshipCaption(value: string) {
   const key = value.trim().toLowerCase();
   return relationshipCaptions[key] ?? value;
+}
+
+function nodeKindCaption(kind: string) {
+  return nodeKindCaptions[kind] ?? kind;
+}
+
+function duplicateNodeLabels(nodes: GraphNode[]) {
+  const counts = new Map<string, number>();
+  nodes.forEach((node) => {
+    const key = node.label.trim();
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  });
+  return counts;
+}
+
+function readableNodeCaption(node: GraphNode, labelCounts: Map<string, number>) {
+  const label = node.label.trim() || node.id;
+  if ((labelCounts.get(label) ?? 0) <= 1) return label;
+  return `${label} · ${nodeKindCaption(node.kind)}`;
 }
 
 function initialNodePosition(index: number, total: number) {
@@ -131,14 +162,16 @@ export function buildNvlGraphData(
   const selectedIds = new Set(normalizeSelectedNodeIds(selectedNodeIds));
   const neighborIds = collectGraphNeighborIds(graph, [...selectedIds], highlightDepth);
   const hasSelection = selectedIds.size > 0;
+  const labelCounts = duplicateNodeLabels(graph.nodes);
   const nodes: NvlNode[] = graph.nodes.map((node, index) => {
     const position = initialNodePosition(index, graph.nodes.length);
     const selected = selectedIds.has(node.id);
     const disabled = hasSelection && !neighborIds.has(node.id);
+    const displayCaption = readableNodeCaption(node, labelCounts);
 
     return {
       id: node.id,
-      caption: node.label,
+      caption: displayCaption,
       color: nodeColors[node.kind] ?? defaultNodeColor,
       size: graphNodeSize(node.kind, selected),
       pinned: true,
@@ -151,11 +184,11 @@ export function buildNvlGraphData(
       icon: nodeIconPaths[node.kind] ? buildSvgIcon(nodeIconPaths[node.kind]) : undefined,
       captions: [
         {
-          value: node.label,
+          value: displayCaption,
           styles: ['bold']
         },
         {
-          value: node.kind
+          value: nodeKindCaption(node.kind)
         }
       ]
     };

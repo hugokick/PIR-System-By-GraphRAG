@@ -130,7 +130,7 @@ describe('NvlGraphView graph mapping', () => {
     });
     expect(nodes.find((node) => node.id === 'material:acrylic')?.captions?.map((caption) => caption.value)).toEqual([
       'Acrylic',
-      'material'
+      '材料'
     ]);
     expect(nodes.find((node) => node.id === 'supplier:qisi')).toMatchObject({
       disabled: true
@@ -160,6 +160,42 @@ describe('NvlGraphView graph mapping', () => {
     const { rels } = buildNvlGraphData(lowercaseRelationGraph, ['exhibit:water-cycle'], 1, nodeColors);
 
     expect(rels.map((rel) => rel.caption)).toEqual(['交互方式', '使用材料']);
+  });
+
+  it('disambiguates same-name graph nodes with their entity type', () => {
+    const duplicateLabelGraph = {
+      nodes: [
+        { id: 'project:qinghe-2024', label: '青禾儿童科技馆', kind: 'project' },
+        { id: 'owner:qinghe-owner', label: '青禾儿童科技馆', kind: 'owner' },
+        { id: 'exhibit:pulley-wall', label: '滑轮挑战墙', kind: 'exhibit' }
+      ],
+      edges: [
+        {
+          source: 'exhibit:pulley-wall',
+          target: 'project:qinghe-2024',
+          label: 'belongs_to_project',
+          type: 'belongs_to_project'
+        },
+        {
+          source: 'exhibit:pulley-wall',
+          target: 'owner:qinghe-owner',
+          label: 'owned_by',
+          type: 'owned_by'
+        }
+      ]
+    };
+
+    const { nodes } = buildNvlGraphData(duplicateLabelGraph, [], 1, nodeColors);
+
+    expect(nodes.find((node) => node.id === 'project:qinghe-2024')).toMatchObject({
+      caption: '青禾儿童科技馆 · 项目'
+    });
+    expect(nodes.find((node) => node.id === 'owner:qinghe-owner')).toMatchObject({
+      caption: '青禾儿童科技馆 · 业主'
+    });
+    expect(nodes.find((node) => node.id === 'exhibit:pulley-wall')).toMatchObject({
+      caption: '滑轮挑战墙'
+    });
   });
 
   it('uses stable Neo4j canvas styling options', () => {
