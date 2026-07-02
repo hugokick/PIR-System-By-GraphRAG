@@ -122,6 +122,18 @@ http://<服务器公网 IP>/pir-system/
 - `frontend`：Nginx 托管前端静态文件
 - `file_storage`：上传资料本地对象存储卷
 
+云端测试环境可用脚本备份 PostgreSQL、上传资料卷和 Neo4j 演示图谱卷：
+
+```bash
+./deploy/backup-cloud.sh
+```
+
+恢复需要显式确认，避免误覆盖测试库：
+
+```bash
+CONFIRM_RESTORE=YES ./deploy/restore-cloud.sh ./backups/pir-system-YYYYMMDDTHHMMSSZ
+```
+
 ## 验证
 
 ```bash
@@ -144,7 +156,7 @@ npm run build
 ## 后续建议
 
 - 继续接入生产级 embedding / LLM 服务与检索评测；当前已预留 OpenAI-compatible embedding 和 LLM provider，保留现有 GraphRAG API 契约
-- 为生产环境配置 MinIO / 云对象存储、备份和生命周期策略
+- 为生产环境配置 MinIO / 云对象存储和更完善的备份生命周期策略；当前云端 Compose 已提供基础备份/恢复脚本
 - 完善生产级认证、备份、监控和审计策略
 
 ## 认证配置

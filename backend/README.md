@@ -95,7 +95,28 @@ GET /api/admin/audit-logs
 
 - 继续让标准实体/关系表从当前重建投影逐步演进为增量同步，并评估列表/筛选查询读取实体表的时机
 - 继续接入生产级 embedding / LLM 服务与检索评测；当前已支持可选 OpenAI-compatible embedding 和 LLM provider，同时保持现有 GraphRAG API 契约
-- 为生产环境配置 MinIO / 云对象存储、备份和生命周期策略
+- 为生产环境配置 MinIO / 云对象存储和更完善的备份生命周期策略；当前云端 Compose 已提供基础备份/恢复脚本
+
+## 云端备份与恢复
+
+在云端测试目录执行：
+
+```bash
+./deploy/backup-cloud.sh
+```
+
+脚本会生成 `./backups/pir-system-YYYYMMDDTHHMMSSZ/`，其中包含：
+
+- `postgres.dump`：PostgreSQL custom dump
+- `file_storage.tar.gz`：上传资料卷归档
+- `neo4j_data.tar.gz`：Neo4j 演示图谱卷归档
+- `manifest.json` 与 `checksums.sha256`
+
+恢复会覆盖当前测试数据，必须显式确认：
+
+```bash
+CONFIRM_RESTORE=YES ./deploy/restore-cloud.sh ./backups/pir-system-YYYYMMDDTHHMMSSZ
+```
 
 ## 认证环境变量
 
