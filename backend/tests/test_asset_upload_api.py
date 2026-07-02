@@ -347,7 +347,12 @@ def test_editor_can_request_document_extraction_suggestions(monkeypatch, tmp_pat
         files={
             "file": (
                 "suggested-exhibit.txt",
-                b"plain field note for extraction suggestions",
+                (
+                    "展项名称：儿童风洞实验台。"
+                    "适用场馆：儿童科技馆。"
+                    "标签：低龄儿童、亲子互动。"
+                    "围绕力学主题，预算 20 万至 30 万。"
+                ).encode(),
                 "text/plain",
             )
         },
@@ -367,8 +372,13 @@ def test_editor_can_request_document_extraction_suggestions(monkeypatch, tmp_pat
     assert payload["file_name"] == "suggested-exhibit.txt"
     assert payload["file_type"] == "txt"
     assert payload["source_note"] == "field suggestion smoke"
-    assert payload["exhibit_name"] == "suggested-exhibit"
+    assert payload["exhibit_name"] == "儿童风洞实验台"
+    assert payload["theme"] == "力学"
+    assert payload["venue_type"] == "儿童科技馆"
+    assert payload["tags"] == ["低龄儿童", "亲子互动"]
     assert payload["field_sources"]["exhibit_name"][0]["chunk_id"] == document["chunks"][0]["id"]
+    assert payload["field_sources"]["venue_type"][0]["chunk_id"] == document["chunks"][0]["id"]
+    assert payload["field_sources"]["tags"][0]["chunk_id"] == document["chunks"][0]["id"]
 
 
 def test_viewer_cannot_request_document_extraction_suggestions(monkeypatch, tmp_path):

@@ -76,6 +76,29 @@ def test_extract_materials_interactions_summary_and_name():
     assert "interactions" in result.field_sources
 
 
+def test_extract_venue_type_and_tags_from_labeled_text():
+    result = extract_document_suggestions(
+        DocumentExtractionInput(
+            document_id="doc-tags",
+            file_name="儿童馆力学方案.txt",
+            file_type="txt",
+            source_note=None,
+            text=(
+                "展项名称：风洞实验台。"
+                "适用场馆：儿童科技馆。"
+                "标签：低龄儿童、亲子互动、高互动。"
+                "本方案围绕力学主题，采用按钮互动。"
+            ),
+            chunks=[],
+        )
+    )
+
+    assert result.venue_type == "儿童科技馆"
+    assert result.tags == ["低龄儿童", "亲子互动", "高互动"]
+    assert result.field_sources["venue_type"][0].snippet.startswith("展项名称：风洞实验台")
+    assert result.field_sources["tags"][0].reason == "matched tag: 低龄儿童"
+
+
 def test_field_sources_keep_chunk_locations():
     result = extract_document_suggestions(
         DocumentExtractionInput(

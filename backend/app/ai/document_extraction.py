@@ -19,9 +19,32 @@ BUDGET_RANGE_PATTERNS = [
 ]
 MATERIAL_KEYWORDS = ["钢结构", "亚克力", "木饰面", "铝板", "透明管道"]
 INTERACTION_KEYWORDS = ["机械互动", "按钮互动", "触摸互动", "沉浸影像"]
+VENUE_TYPE_KEYWORDS = [
+    "儿童科技馆",
+    "自然博物馆",
+    "科技馆",
+    "博物馆",
+    "规划馆",
+    "企业展厅",
+    "科普馆",
+    "校园科技馆",
+]
+TAG_KEYWORDS = [
+    "低龄儿童",
+    "亲子互动",
+    "多人协作",
+    "高互动",
+    "低预算",
+    "沉浸式",
+    "安全维护",
+    "科普教育",
+]
 NAME_PATTERNS = [
     re.compile(r"(?:展项名称|项目名称|方案名称)[:：]\s*(?P<name>[^。；\n]+)"),
 ]
+VENUE_TYPE_PATTERN = re.compile(r"(?:适用场馆|适用展馆|场馆类型|展馆类型)[:：]\s*(?P<value>[^。；\n,，]+)")
+TAG_PATTERN = re.compile(r"(?:标签|关键词)[:：]\s*(?P<value>[^。\n]+)")
+TAG_SPLIT_PATTERN = re.compile(r"[、,，；;\s]+")
 ORG_PATTERNS = {
     "supplier": re.compile(r"(?:供应商|承建单位|实施单位)[:：]\s*(?P<value>[^。；\n,，]+)"),
     "owner": re.compile(r"(?:业主|甲方|建设单位)[:：]\s*(?P<value>[^。；\n,，]+)"),
@@ -119,6 +142,45 @@ def collect_keywords(text: str, keywords: list[str]) -> list[str]:
     return [keyword for keyword in keywords if keyword in text]
 
 
+def unique_in_order(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        normalized = value.strip()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        result.append(normalized)
+    return result
+
+
+def extract_venue_type(segments: list[DocumentTextInput], text: str) -> tuple[str | None, DocumentTextInput | None]:
+    for segment in segments:
+        match = VENUE_TYPE_PATTERN.search(normalize_text(segment.text))
+        if match:
+            return match.group("value").strip(), segment
+    for keyword in VENUE_TYPE_KEYWORDS:
+        segment = find_segment_for_keyword(segments, keyword)
+        if segment is not None:
+            return keyword, segment
+    return None, None
+
+
+def extract_tags(segments: list[DocumentTextInput], text: str) -> list[str]:
+    tags: list[str] = []
+    for segment in segments:
+        match = TAG_PATTERN.search(normalize_text(segment.text))
+        if not match:
+            continue
+        tags.extend(
+            value.strip()
+            for value in TAG_SPLIT_PATTERN.split(match.group("value"))
+            if value.strip()
+        )
+    tags.extend(collect_keywords(text, TAG_KEYWORDS))
+    return unique_in_order(tags)[:8]
+
+
 def build_summary(text: str, name: str | None, theme: str | None) -> str:
     sentences = [item.strip() for item in re.split(r"[。！？!?\n]", text) if item.strip()]
     if not sentences:
@@ -204,6 +266,8 @@ def build_field_sources(
     budget_max: int | None,
     materials: list[str],
     interactions: list[str],
+    venue_type: str | None,
+    tags: list[str],
     supplier: str | None,
     owner: str | None,
     project_year: int | None,
@@ -278,6 +342,29 @@ def build_field_sources(
                     f"matched interaction keyword: {interaction}",
                     payload.document_id,
                 )
+    if venue_type is not None:
+        segment = find_segment_for_keyword(segments, venue_type)
+        if segment is not None:
+            add_source(
+                field_sources,
+                "venue_type",
+                segment,
+                normalize_text(segment.text)[:200],
+                f"matched venue type: {venue_type}",
+                payload.document_id,
+            )
+    if tags:
+        for tag in tags:
+            segment = find_segment_for_keyword(segments, tag)
+            if segment is not None:
+                add_source(
+                    field_sources,
+                    "tags",
+                    segment,
+                    normalize_text(segment.text)[:200],
+                    f"matched tag: {tag}",
+                    payload.document_id,
+                )
     if supplier is not None:
         segment = find_segment_for_keyword(segments, supplier)
         if segment is not None:
@@ -322,6 +409,8 @@ def extract_by_rules(payload: DocumentExtractionInput) -> DocumentExtractionResu
     budget_min, budget_max = extract_budget_range(normalized_text)
     materials = collect_keywords(normalized_text, MATERIAL_KEYWORDS)
     interactions = collect_keywords(normalized_text, INTERACTION_KEYWORDS)
+    venue_type, _ = extract_venue_type(segments, normalized_text)
+    tags = extract_tags(segments, normalized_text)
     supplier, _ = extract_labeled_value(segments, "supplier")
     owner, _ = extract_labeled_value(segments, "owner")
     project_year, _ = extract_project_year(segments)
@@ -334,10 +423,12 @@ def extract_by_rules(payload: DocumentExtractionInput) -> DocumentExtractionResu
         exhibit_name=exhibit_name,
         category=category,
         theme=theme,
+        venue_type=venue_type,
         budget_min=budget_min,
         budget_max=budget_max,
         materials=materials,
         interactions=interactions,
+        tags=tags,
         supplier=supplier,
         owner=owner,
         project_year=project_year,
@@ -352,11 +443,13 @@ def extract_by_rules(payload: DocumentExtractionInput) -> DocumentExtractionResu
             budget_max,
             materials,
             interactions,
+            venue_type,
+            tags,
             supplier,
             owner,
             project_year,
         ),
-        confidence=0.7 if any([exhibit_name, theme, budget_min is not None, budget_max is not None, materials, interactions, supplier, owner, project_year]) else 0.0,
+        confidence=0.7 if any([exhibit_name, theme, budget_min is not None, budget_max is not None, materials, interactions, venue_type, tags, supplier, owner, project_year]) else 0.0,
     )
 
 
