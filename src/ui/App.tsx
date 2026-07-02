@@ -15,8 +15,7 @@ import {
   Search,
   Sparkles,
   Trash2,
-  Upload,
-  X
+  Upload
 } from 'lucide-react';
 import { buildGraph, graphStats } from '../lib/graph';
 import {
@@ -67,6 +66,9 @@ import type {
   SearchResults,
   UserSession
 } from '../types';
+import { AssetPreviewModal, type PreviewAsset } from './AssetPreviewModal';
+import { CitationList } from './CitationList';
+import { MediaThumbGrid } from './MediaThumbGrid';
 
 const statuses: ExhibitStatus[] = ['概念方案', '深化设计', '制作中', '已落地', '维护中'];
 const reviewStatuses: ReviewStatus[] = ['草稿', '待审核', '已审核', '已退回'];
@@ -268,10 +270,6 @@ function isPdfDocument(document: DocumentAsset) {
   return document.fileType.toLowerCase() === 'pdf';
 }
 
-function canPreviewMedia(asset: MediaAsset) {
-  return asset.type === 'image' || asset.type === 'video';
-}
-
 function downloadUrl(url: string) {
   if (!url.includes('/api/files/')) return url;
   const nextUrl = new URL(url, globalThis.location?.origin ?? 'http://localhost');
@@ -304,25 +302,6 @@ function documentSuggestionFields(suggestion: DocumentExtractionSuggestion) {
 
 function flattenSuggestionSources(suggestion: DocumentExtractionSuggestion): SuggestedFieldSource[] {
   return Object.values(suggestion.fieldSources).flat().slice(0, 3);
-}
-
-function findGraphRagCitationDocument(answer: GraphRagAnswer | null, citation: GraphRagCitation) {
-  if (!answer || citation.sourceType !== 'document') return null;
-
-  for (const hit of answer.items) {
-    const ownsCitation = hit.citations.some(
-      (itemCitation) =>
-        itemCitation.sourceType === citation.sourceType && itemCitation.sourceId === citation.sourceId
-    );
-    if (!ownsCitation) continue;
-
-    const document = hit.exhibit.documents.find((item) => item.id === citation.sourceId);
-    if (document) {
-      return document;
-    }
-  }
-
-  return null;
 }
 
 function mergeImportedExhibits(currentItems: Exhibit[], importedItems: Exhibit[]) {
@@ -418,7 +397,7 @@ export function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null);
-  const [previewAsset, setPreviewAsset] = useState<MediaAsset | null>(null);
+  const [previewAsset, setPreviewAsset] = useState<PreviewAsset | null>(null);
   const [isReviewing, setIsReviewing] = useState(false);
   const [isUpdatingRelations, setIsUpdatingRelations] = useState(false);
   const [selectedRelatedId, setSelectedRelatedId] = useState('');
@@ -1635,36 +1614,12 @@ export function App() {
                 </div>
               )}
               {graphRagAnswer.citations.length > 0 && (
-                <div className="graphrag-citations">
-                  {graphRagAnswer.citations.map((citation, index) => {
-                    const citedDocument = findGraphRagCitationDocument(graphRagAnswer, citation);
-                    return (
-                      <article className="graphrag-citation-card" key={`${citation.sourceType}-${citation.sourceId}`}>
-                        <button
-                          type="button"
-                          className="graphrag-citation-main"
-                          aria-label={`引用来源 [${index + 1}]`}
-                          onClick={() => selectGraphRagCitation(citation)}
-                        >
-                          <em>[{index + 1}]</em>
-                          <small>{citation.sourceType}</small>
-                          <strong>{citation.title}</strong>
-                          <span>{citation.snippet}</span>
-                        </button>
-                        {citedDocument && (
-                          <div className="graphrag-citation-actions">
-                            <a href={citedDocument.url} target="_blank" rel="noreferrer">
-                              打开资料
-                            </a>
-                            <a href={downloadUrl(citedDocument.url)} download={citedDocument.name}>
-                              下载资料
-                            </a>
-                          </div>
-                        )}
-                      </article>
-                    );
-                  })}
-                </div>
+                <CitationList
+                  answer={graphRagAnswer}
+                  citations={graphRagAnswer.citations}
+                  onSelectCitation={selectGraphRagCitation}
+                  downloadUrl={downloadUrl}
+                />
               )}
             </div>
           )}
@@ -1849,6 +1804,22 @@ export function App() {
                 </label>
               </div>
 
+              {selected.media.length === 0 && selected.documents.length === 0 && (
+                <section className="asset-empty-panel" aria-label="资料状态">
+                  <FileText size={18} />
+                  <span>暂无媒体或资料</span>
+                </section>
+              )}
+
+              {previewAsset && (
+                <AssetPreviewModal
+                  asset={previewAsset}
+                  onClose={() => setPreviewAsset(null)}
+                  downloadUrl={downloadUrl}
+                  imageFallback={imageFallback}
+                />
+              )}
+
               {selected.media.length > 0 && (
                 <section className="media-gallery" aria-label="媒体档案">
                   <div className="panel-title">
@@ -1856,100 +1827,17 @@ export function App() {
                     <span>媒体档案</span>
                   </div>
                   {isDeleteProtected && <span className="asset-protection-note">已审核/已落地档案资料受保护，请先退回审核或变更状态后再删除</span>}
-                  <div className="media-gallery-grid thumbnail-grid">
-                    {selected.media.map((asset) => (
-                      <article key={asset.id} className={canPreviewMedia(asset) ? 'media-card previewable' : 'media-card'}>
-                        {asset.type === 'image' && (
-                          <button
-                            type="button"
-                            className="media-thumbnail"
-                            onClick={() => setPreviewAsset(asset)}
-                            aria-label={`预览媒体 ${asset.name}`}
-                          >
-                            <img src={asset.url} alt={asset.name} onError={imageFallback} />
-                          </button>
-                        )}
-                        {asset.type === 'video' && (
-                          <button
-                            type="button"
-                            className="media-thumbnail"
-                            onClick={() => setPreviewAsset(asset)}
-                            aria-label={`预览媒体 ${asset.name}`}
-                          >
-                            <video
-                              src={asset.url}
-                              muted
-                              playsInline
-                              preload="metadata"
-                              aria-label={`${asset.name} 视频预览`}
-                            />
-                          </button>
-                        )}
-                        {!canPreviewMedia(asset) && (
-                          <a className="media-file-link" href={downloadUrl(asset.url)} download={asset.name}>
-                            <FileText size={22} />
-                            <span>{asset.name}</span>
-                          </a>
-                        )}
-                        <div>
-                          {canPreviewMedia(asset) ? (
-                            <a className="media-title-link" href={asset.url} target="_blank" rel="noreferrer">
-                              {asset.name}
-                            </a>
-                          ) : (
-                            <strong>{asset.name}</strong>
-                          )}
-                          <span>{asset.type}</span>
-                          {asset.note && <small>{asset.note}</small>}
-                          {canDelete && (
-                            <button
-                              type="button"
-                              className="asset-delete-action"
-                              onClick={() => removeAsset(asset.id)}
-                              disabled={deletingAssetId === asset.id || isDeleteProtected}
-                              aria-label={`删除媒体 ${asset.name}`}
-                            >
-                              <Trash2 size={14} />
-                              删除
-                            </button>
-                          )}
-                        </div>
-                      </article>
-                    ))}
-                  </div>
+                  <MediaThumbGrid
+                    assets={selected.media}
+                    canDelete={canDelete}
+                    deletingAssetId={deletingAssetId}
+                    isDeleteProtected={isDeleteProtected}
+                    onPreview={(asset) => setPreviewAsset({ ...asset, kind: 'media' })}
+                    onRemove={removeAsset}
+                    downloadUrl={downloadUrl}
+                    imageFallback={imageFallback}
+                  />
                 </section>
-              )}
-
-              {previewAsset && (
-                <div className="media-preview-backdrop" onClick={() => setPreviewAsset(null)}>
-                  <section
-                    className="media-preview-dialog"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-label={previewAsset.name}
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    <header>
-                      <strong>{previewAsset.name}</strong>
-                      <button type="button" onClick={() => setPreviewAsset(null)} aria-label="关闭媒体预览">
-                        <X size={18} />
-                      </button>
-                    </header>
-                    <div className="media-preview-body">
-                      {previewAsset.type === 'image' ? (
-                        <img src={previewAsset.url} alt={previewAsset.name} onError={imageFallback} />
-                      ) : (
-                        <video
-                          src={previewAsset.url}
-                          controls
-                          playsInline
-                          aria-label={`${previewAsset.name} 播放器`}
-                        />
-                      )}
-                    </div>
-                    {previewAsset.note && <p>{previewAsset.note}</p>}
-                  </section>
-                </div>
               )}
 
               {selected.documents.length > 0 && (
@@ -1967,6 +1855,17 @@ export function App() {
                             <FileText size={16} />
                             <span>{document.name}</span>
                           </a>
+                          {isPdfDocument(document) && (
+                            <button
+                              type="button"
+                              className="document-preview-action"
+                              onClick={() => setPreviewAsset({ ...document, kind: 'document' })}
+                              aria-label={`预览资料 ${document.name}`}
+                            >
+                              <FileText size={14} />
+                              预览
+                            </button>
+                          )}
                           {canDelete && (
                             <button
                               type="button"
@@ -2004,13 +1903,6 @@ export function App() {
                               : '未生成引用片段，仅可下载/预览'}
                           </small>
                         </div>
-                        {isPdfDocument(document) && (
-                          <iframe
-                            className="document-preview"
-                            src={document.url}
-                            title={`${document.name} 预览`}
-                          />
-                        )}
                         {document.chunks && document.chunks.length > 0 && (
                           <div className="document-chunks">
                             <strong>引用片段</strong>

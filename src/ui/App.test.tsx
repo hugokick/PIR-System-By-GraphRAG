@@ -1334,9 +1334,11 @@ describe('App exhibit management', () => {
 
     expect(await screen.findByText('Based on exhibit records and graph context.')).toBeTruthy();
     expect(screen.getAllByText('磁力迷宫').length).toBeGreaterThan(0);
-    const citationCard = screen.getByLabelText('引用来源 [1]');
+    const citationButton = screen.getByRole('button', { name: '引用来源 [1] 磁力迷宫' });
+    const citationCard = citationButton.closest('.graphrag-citation-card') as HTMLElement;
     expect(within(citationCard).getByText('[1]')).toBeTruthy();
-    expect(within(citationCard).getByText('exhibit')).toBeTruthy();
+    expect(within(citationCard).getByText('source_type: exhibit')).toBeTruthy();
+    expect(within(citationCard).getByText('对应展项：磁力迷宫')).toBeTruthy();
     expect(screen.getByText(/matched identity/)).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledWith(
       'http://127.0.0.1:8000/api/graphrag/answer',
@@ -1403,7 +1405,7 @@ describe('App exhibit management', () => {
     fireEvent.change(screen.getByLabelText(/GraphRAG/), { target: { value: 'thermal' } });
     fireEvent.click(screen.getByRole('button', { name: '生成答案' }));
 
-    const citationCard = await screen.findByLabelText('引用来源 [1]');
+    const citationCard = await screen.findByRole('button', { name: '引用来源 [1] thermal-plan.pdf' });
     expect(within(document.querySelector('.detail') as HTMLElement).getByRole('heading', { name: frontendExhibit.name })).toBeTruthy();
     fireEvent.click(citationCard);
 
@@ -1470,7 +1472,7 @@ describe('App exhibit management', () => {
     fireEvent.change(screen.getByLabelText(/GraphRAG/), { target: { value: 'thermal' } });
     fireEvent.click(screen.getByRole('button', { name: '生成答案' }));
 
-    const citationButton = await screen.findByLabelText('引用来源 [1]');
+    const citationButton = await screen.findByRole('button', { name: '引用来源 [1] thermal-plan.pdf' });
     const citationCard = citationButton.closest('.graphrag-citation-card') as HTMLElement;
     const openLink = within(citationCard).getByRole('link', { name: '打开资料' });
     const downloadLink = within(citationCard).getByRole('link', { name: '下载资料' });
@@ -1595,7 +1597,15 @@ describe('App exhibit management', () => {
     expect(screen.getByText('报价资料')).toBeTruthy();
   });
 
-  it('renders PDF document previews with extracted citation chunks', async () => {
+  it('shows an empty asset state when an exhibit has no media or documents', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [apiExhibit()] }));
+
+    render(<App />);
+
+    expect(await screen.findByText('暂无媒体或资料')).toBeTruthy();
+  });
+
+  it('opens PDF document previews with extracted citation chunks', async () => {
     const withDocument = {
       ...apiExhibit(),
       documents: [
@@ -1619,7 +1629,9 @@ describe('App exhibit management', () => {
 
     render(<App />);
 
-    expect(await screen.findByTitle('气压演示说明.pdf 预览')).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button', { name: '预览资料 气压演示说明.pdf' }));
+    expect(screen.getByRole('dialog', { name: '气压演示说明.pdf' })).toBeTruthy();
+    expect(screen.getByTitle('气压演示说明.pdf 预览')).toBeTruthy();
     expect(screen.getByText('引用片段')).toBeTruthy();
     expect(screen.getByText(/伯努利气流环道/)).toBeTruthy();
   });
@@ -1790,7 +1802,7 @@ describe('App exhibit management', () => {
     expect(fetchMock.mock.calls.some(([input, init]) => String(input).endsWith('/api/exhibits/magnet-maze') && init?.method === 'PUT')).toBe(false);
   });
 
-  it('uses explicit download URLs while keeping PDF preview URLs inline', async () => {
+  it('uses explicit download URLs while keeping PDF preview URLs inline in the modal', async () => {
     const withDocument = {
       ...apiExhibit(),
       documents: [
@@ -1808,10 +1820,11 @@ describe('App exhibit management', () => {
     render(<App />);
 
     const link = await screen.findByRole('link', { name: 'quote.pdf' });
-    const preview = screen.getByTitle('quote.pdf 预览') as HTMLIFrameElement;
 
     expect(link.getAttribute('href')).toBe('http://127.0.0.1:8000/api/files/quote-download-doc?download=1');
     expect(link.getAttribute('download')).toBe('quote.pdf');
+    fireEvent.click(screen.getByRole('button', { name: '预览资料 quote.pdf' }));
+    const preview = screen.getByTitle('quote.pdf 预览') as HTMLIFrameElement;
     expect(preview.getAttribute('src')).toBe('http://127.0.0.1:8000/api/files/quote-download-doc');
   });
 
@@ -1886,7 +1899,7 @@ describe('App exhibit management', () => {
     const file = new File(['fake image bytes'], 'scene.png', { type: 'image/png' });
     fireEvent.change(input, { target: { files: [file] } });
 
-    expect(await screen.findByRole('link', { name: 'scene.png' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'scene.png' })).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledWith(
       'http://127.0.0.1:8000/api/exhibits/magnet-maze/assets',
       expect.objectContaining({ method: 'POST' })
@@ -1965,7 +1978,7 @@ describe('App exhibit management', () => {
     const imageDialog = screen.getByRole('dialog', { name: 'preview-image.png' });
     expect(within(imageDialog).getByAltText('preview-image.png')).toBeTruthy();
 
-    fireEvent.click(within(imageDialog).getByRole('button', { name: '关闭媒体预览' }));
+    fireEvent.click(within(imageDialog).getByRole('button', { name: '关闭预览' }));
     expect(screen.queryByRole('dialog', { name: 'preview-image.png' })).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: '预览媒体 preview-video.mp4' }));
