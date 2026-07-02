@@ -1284,6 +1284,49 @@ describe('App exhibit management', () => {
     ).toBe(true);
   });
 
+  it('lets admins jump from the selected exhibit to its audit log history', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/api/admin/audit-logs?') && url.includes('resource_id=magnet-maze')) {
+        return okJson({
+          total: 1,
+          items: [
+            {
+              id: 'audit-selected-exhibit',
+              actor_role: 'editor',
+              action: 'update_exhibit',
+              resource_type: 'exhibit',
+              resource_id: 'magnet-maze',
+              summary: '编辑档案 magnet-maze',
+              created_at: '2026-07-01T02:10:00+00:00'
+            }
+          ]
+        });
+      }
+      if (url.endsWith('/api/admin/audit-logs?limit=8')) {
+        return okJson({ total: 0, items: [] });
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    const maintenancePanel = await screen.findByLabelText('档案维护操作');
+    fireEvent.click(within(maintenancePanel).getByRole('button', { name: '查看此档案日志' }));
+
+    const auditPanel = (await screen.findByText('操作日志')).closest('section') as HTMLElement;
+    const auditList = auditPanel.querySelector('.audit-list') as HTMLElement;
+    expect((within(auditPanel).getByLabelText('资源编号') as HTMLInputElement).value).toBe('magnet-maze');
+    expect(await within(auditList).findByText('编辑档案')).toBeTruthy();
+    expect(within(auditList).getAllByText(/magnet-maze/).length).toBeGreaterThan(0);
+    expect(
+      fetchMock.mock.calls.some(([input]) => {
+        const url = String(input);
+        return url.includes('/api/admin/audit-logs?') && url.includes('resource_id=magnet-maze');
+      })
+    ).toBe(true);
+  });
+
   it('lets admins export filtered audit logs as CSV', async () => {
     const blob = new Blob(['日志编号,摘要\n1,删除档案'], { type: 'text/csv;charset=utf-8' });
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {

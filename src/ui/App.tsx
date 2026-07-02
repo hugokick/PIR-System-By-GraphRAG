@@ -702,7 +702,12 @@ export function App() {
     };
   }, [canWrite, dataSource, selected?.id]);
 
-  const refreshAuditLogs = async () => {
+  const refreshAuditLogs = async (
+    overrideFilters?: {
+      action?: string;
+      resourceId?: string;
+    }
+  ) => {
     if (role !== 'admin') {
       setAuditLogs([]);
       setAuditError(null);
@@ -710,11 +715,12 @@ export function App() {
       return;
     }
 
-    setIsAuditLoading(true);
-    await fetchAuditLogs(8, {
+    const nextFilters = overrideFilters ?? {
       action: auditActionFilter,
       resourceId: auditResourceIdFilter.trim()
-    })
+    };
+    setIsAuditLoading(true);
+    await fetchAuditLogs(8, nextFilters)
       .then((logs) => {
         setAuditLogs(logs);
         setAuditError(null);
@@ -726,6 +732,13 @@ export function App() {
       .finally(() => {
         setIsAuditLoading(false);
       });
+  };
+
+  const showSelectedAuditLogs = () => {
+    if (role !== 'admin' || !selected) return;
+    setAuditActionFilter('');
+    setAuditResourceIdFilter(selected.id);
+    void refreshAuditLogs({ resourceId: selected.id });
   };
 
   const handleExportAuditLogs = async () => {
@@ -1825,6 +1838,12 @@ export function App() {
                     <Pencil size={18} />
                     编辑档案
                   </button>
+                  {role === 'admin' && (
+                    <button type="button" className="secondary-action" onClick={showSelectedAuditLogs}>
+                      <FileText size={18} />
+                      查看此档案日志
+                    </button>
+                  )}
                   <div className="delete-action-wrap">
                     <button
                       type="button"
