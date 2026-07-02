@@ -548,13 +548,20 @@ def update_exhibit_related_exhibits(
     if invalid_ids:
         raise invalid_related_exhibits(exhibit_id, invalid_ids)
 
-    updated = exhibit.model_copy(update={"related_exhibit_ids": related_ids})
+    updated = normalize_write_review_status(
+        exhibit.model_copy(update={"related_exhibit_ids": related_ids}),
+        role,
+        exhibit,
+    )
     saved = repository.update_exhibit(exhibit_id, updated) or updated
+    summary = f"更新相似关系 {exhibit_id}: {', '.join(related_ids) if related_ids else '无'}"
+    if role != "admin" and exhibit.review_status in {"已审核", "已退回"}:
+        summary += "，审核状态已回到待审核"
     write_audit(
         role,
         "update_exhibit_relations",
         exhibit_id,
-        f"更新相似关系 {exhibit_id}: {', '.join(related_ids) if related_ids else '无'}",
+        summary,
     )
     return saved
 

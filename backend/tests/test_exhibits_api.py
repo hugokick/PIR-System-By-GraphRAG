@@ -515,6 +515,45 @@ def test_patch_related_exhibits_updates_curated_similarity_graph_edges():
         client.delete("/api/exhibits/relation-editor-demo", headers=ADMIN_HEADERS)
 
 
+def test_editor_patch_related_exhibits_moves_approved_exhibit_back_to_pending_review():
+    create_payload = client.get("/api/exhibits/pulley-wall").json()
+    create_payload["id"] = "relation-review-reset-demo"
+    create_payload["status"] = "制作中"
+    create_payload["review_status"] = "已审核"
+    create_payload["related_exhibit_ids"] = []
+    create_response = client.post("/api/exhibits", json=create_payload, headers=ADMIN_HEADERS)
+    assert create_response.status_code == 201
+    assert create_response.json()["review_status"] == "已审核"
+
+    try:
+        response = client.patch(
+            "/api/exhibits/relation-review-reset-demo/related-exhibits",
+            json={"related_exhibit_ids": ["water-cycle"]},
+            headers=EDITOR_HEADERS,
+        )
+
+        assert response.status_code == 200
+        assert response.json()["review_status"] == "待审核"
+        assert response.json()["related_exhibit_ids"] == ["water-cycle"]
+
+        audit_response = client.get("/api/admin/audit-logs", headers=ADMIN_HEADERS)
+        entries = audit_response.json()["items"]
+        assert any(
+            entry["actor_role"] == "editor"
+            and entry["action"] == "update_exhibit_relations"
+            and entry["resource_id"] == "relation-review-reset-demo"
+            and "更新相似关系 relation-review-reset-demo: water-cycle" in entry["summary"]
+            and "审核状态已回到待审核" in entry["summary"]
+            for entry in entries
+        )
+    finally:
+        cleanup_payload = client.get("/api/exhibits/relation-review-reset-demo").json()
+        cleanup_payload["status"] = "制作中"
+        cleanup_payload["review_status"] = "待审核"
+        client.put("/api/exhibits/relation-review-reset-demo", json=cleanup_payload, headers=ADMIN_HEADERS)
+        client.delete("/api/exhibits/relation-review-reset-demo", headers=ADMIN_HEADERS)
+
+
 def test_get_exhibit_graph_includes_incoming_similarity_edges():
     create_payload = client.get("/api/exhibits/pulley-wall").json()
     create_payload["id"] = "incoming-relation-demo"
