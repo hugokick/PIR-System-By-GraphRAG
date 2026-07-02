@@ -1,20 +1,68 @@
 # PIR-System-By-GraphRAG
 
-面向科技馆、博物馆等展陈场景，对展项进行数字化建档、分类检索、可视化展示、动态管理。核心是用结构化数据与多媒体形式沉淀展项全生命周期信息，供科展人员工作时快速查找公司负责过的展项展品，给业主提供造价、材质、造型、互动形式等参考数据。
+面向科技馆、博物馆等展陈场景的“展项图鉴查询 MVP 系统”。系统用于对展项进行数字化建档、分类检索、可视化展示和动态管理，帮助科展人员快速查找公司负责过的展项展品，并向业主提供造价、材质、造型、互动形式、项目案例和资料依据等参考信息。
 
-当前版本是“展项图鉴查询 MVP 系统”的全栈 MVP，使用 React/Vite + FastAPI，并可通过 PostgreSQL / pgvector、Neo4j 演示图谱和本地文件存储支撑可试用的业务验证环境。
+当前版本是可演示、可试用的全栈 MVP，使用 React/Vite + FastAPI + PostgreSQL/pgvector + Neo4j 演示图谱 + 本地文件存储。
 
-## 已实现
+## 公网测试
 
-- 展项档案列表、详情和新增录入
-- 场馆类型、类别、主题、材料、交互方式、状态等结构化筛选
-- PostgreSQL 持久化仓储、软删除、操作日志和 pgvector 检索向量
-- 混合检索与 GraphRAG 问答雏形，回答返回编号引用来源
-- 当前展项子图和全库 Neo4j 演示图谱展示
-- 图片、视频、PDF、Office、Excel/CSV、文本资料上传、预览或下载
-- CSV / XLSX 导入预览、错误行提示、提交写入和相似展项关系校验
-- 管理员、编辑、访客角色权限和演示登录
-- 基础数据看板
+当前云端测试入口：
+
+```text
+http://106.52.200.183/pir-system/
+```
+
+演示账号：
+
+| 角色 | 用户名 | 密码 | 主要权限 |
+| --- | --- | --- | --- |
+| 管理员 | `admin` | `admin123` | 审核、删除、操作日志、导出日志、全部维护操作 |
+| 编辑 | `editor` | `editor123` | 新增/编辑、上传资料、导入表格、维护相似展项 |
+| 访客 | `viewer` | `viewer123` | 只读浏览、检索、查看图谱与资料 |
+
+手动验收步骤见：[docs/manual-test-checklist.md](docs/manual-test-checklist.md)。
+
+## 已实现能力
+
+- 展项档案列表、详情、新增、编辑、软删除和审核状态管理
+- 场馆类型、类别、主题、项目、业主、供应商、标签、材料、交互方式、状态、预算区间等结构化筛选
+- PostgreSQL 持久化仓储、实体关系投影、操作日志、审计日志 CSV 导出和 pgvector 检索向量
+- 当前展项子图与全库 Neo4j 演示图谱展示，支持缩放、拖拽、重布局、节点选择和一跳高亮
+- 相似展项关系人工维护，以及只读 KG 推荐候选的人工采纳
+- 图片、视频、PDF、Office、Excel/CSV、文本资料上传、缩略图预览、PDF/图片/视频弹窗预览和原文件下载
+- 文本、PDF、DOCX、XLSX、PPTX 等资料的文本抽取、文档切片和 GraphRAG 引用来源链路
+- 上传资料字段抽取建议，可将建议字段套用到编辑表单，由人工确认后保存
+- CSV / XLSX 导入预览、中文/历史表头映射、GB18030 编码兼容、错误行提示、提交写入和同批相似展项引用校验
+- 混合检索：结构化过滤 + 关键词 + pgvector 语义分数 + 规则查询理解
+- GraphRAG 问答：基于展项档案和上传资料回答，返回编号引用、来源卡片、置信度和 warning
+- 管理员、编辑、访客角色权限；公网测试环境要求登录，后端关闭演示角色请求头认证
+- 删除保护：已审核或已落地档案及其资料不能被直接删除
+
+## 核心字段
+
+展项档案当前核心字段：
+
+- `id`：展项编号，建议使用英文、数字和短横线
+- `name`：展项名称
+- `category`：类别或学科领域
+- `theme`：主题
+- `venue_type`：适用场馆
+- `budget_min` / `budget_max`：造价区间，单位元
+- `materials`：材料列表
+- `dimensions`：尺寸说明
+- `interactions`：交互方式列表
+- `supplier`：供应商
+- `project`：项目编号与项目名称
+- `owner`：业主
+- `project_year`：项目年份
+- `status`：展项状态
+- `review_status`：审核状态
+- `description`：展项说明
+- `tags`：标签
+- `media_assets` / `documents`：媒体和资料档案
+- `related_exhibit_ids`：人工维护的相似展项编号
+
+导入模板支持中文表头和常见历史表头别名，例如“档案编号、展品名称、所属项目、建设单位、项目 ID、预算 下限”等。
 
 ## 本地运行
 
@@ -46,48 +94,56 @@ uvicorn app.main:app --app-dir backend --reload --host 127.0.0.1 --port 8000
 http://127.0.0.1:8000/docs
 ```
 
-## 验证
+## Docker Compose 测试环境
 
-```bash
-npm test
-python -m pytest backend/tests -q
-npm run build
-npm audit --audit-level=high
-```
-
-## 部署建议
-
-当前全栈 MVP 建议部署到云服务器 Docker Compose 测试环境。早期纯前端 Demo 的静态部署说明仍保留在：
-
-[docs/部署与测试环境建议.md](docs/部署与测试环境建议.md)
-
-云服务器测试环境：
+云端或本地容器化测试：
 
 ```bash
 docker compose -f docker-compose.cloud.yml up -d --build
 ```
 
-默认入口：
+默认容器端口：
 
 ```text
 http://<服务器公网 IP>:18080/
 ```
 
-若服务器仅开放 80 端口，可通过宿主机 Nginx 反代到：
+当前公网环境通过宿主机 Nginx 挂载到：
 
 ```text
 http://<服务器公网 IP>/pir-system/
 ```
 
+`docker-compose.cloud.yml` 内部包含：
+
+- `postgres`：PostgreSQL + pgvector，未暴露到公网
+- `neo4j`：Neo4j 5 演示图谱，未暴露到公网
+- `backend`：FastAPI API 服务
+- `frontend`：Nginx 托管前端静态文件
+- `file_storage`：上传资料本地对象存储卷
+
+## 验证
+
+```bash
+pytest backend/tests
+npm run test -- --run
+npm run build
+```
+
+生产构建目前会提示 NVL 图谱组件 chunk 较大，这是已知提醒，不影响构建结果。
+
+## 重要文档
+
+- 开发计划：[docs/展项图鉴查询MVP系统开发计划.md](docs/展项图鉴查询MVP系统开发计划.md)
+- 领域模型：[docs/domain-model.md](docs/domain-model.md)
+- GraphRAG 设计：[docs/graphrag-design.md](docs/graphrag-design.md)
+- KG / GraphRAG 契约：[docs/kg-graphrag-contract.md](docs/kg-graphrag-contract.md)
+- Neo4j 演示图谱接入：[docs/neo4j-demo-graph-integration.md](docs/neo4j-demo-graph-integration.md)
+- 部署建议：[docs/部署与测试环境建议.md](docs/部署与测试环境建议.md)
+
 ## 后续建议
 
-- 将当前 PostgreSQL JSONB 档案逐步拆分为更标准的实体表 / 关系表
-- 接入真实 embedding 模型和 LLM 答案生成，保留现有 GraphRAG API 契约
-- 将上传媒体切到 MinIO 或云对象存储
-- 完善生产级认证、权限和审计策略
-
-## Demo accounts
-
-- admin / admin123
-- editor / editor123
-- viewer / viewer123
+- 接入真实 embedding 模型和真实 LLM 答案生成，保留现有 GraphRAG API 契约
+- 将本地文件存储平滑替换为 MinIO 或云对象存储
+- 将文档切片从当前内嵌字段升级为独立持久化资源
+- 完善生产级认证、备份、监控和审计策略
