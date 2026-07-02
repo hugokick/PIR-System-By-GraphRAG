@@ -8,5 +8,20 @@
     "query": "样例文档 来源链路",
     "top_k": 1,
     "expected_top_ids": ["lever-play"]
+  },
+  {
+    "query": "找几个适合低龄儿童、预算不高、互动性强的力学展项",
+    "top_k": 2,
+    "expected_top_ids": ["pulley-wall", "lever-play"]
+  },
+  {
+    "query": "类似杠杆乐园但预算更低的力学展项",
+    "top_k": 1,
+    "expected_top_ids": ["pulley-wall"]
+  },
+  {
+    "query": "预算20-30万、儿童科技馆、机械互动的展项",
+    "top_k": 2,
+    "expected_top_ids": ["pulley-wall", "lever-play"]
   }
 ]

@@ -247,7 +247,7 @@ def _query_understanding_score(
         score += 1.5
         reasons.append("查询理解：预算倾向 lower_than_reference")
     if _should_score_budget_range(understanding, exhibit):
-        score += 2.0
+        score += 2.0 + _budget_range_fit_bonus(understanding, exhibit)
         reasons.append(f"查询理解：预算区间 {_format_query_budget_range(understanding)}")
     matched_tags = [tag for tag in exhibit.tags if tag in understanding.tags]
     if matched_tags:
@@ -322,10 +322,14 @@ def _exhibit_has_lower_budget_than_reference(
     exhibit: ExhibitResponse,
     reference_exhibit: ExhibitResponse | None,
 ) -> bool:
+    if understanding.budget_intent != BUDGET_LOWER_THAN_REFERENCE or reference_exhibit is None:
+        return False
+
+    exhibit_midpoint = (exhibit.budget_min + exhibit.budget_max) / 2
+    reference_midpoint = (reference_exhibit.budget_min + reference_exhibit.budget_max) / 2
     return bool(
-        understanding.budget_intent == BUDGET_LOWER_THAN_REFERENCE
-        and reference_exhibit is not None
-        and exhibit.budget_max < reference_exhibit.budget_min
+        exhibit.budget_max < reference_exhibit.budget_max
+        or exhibit_midpoint < reference_midpoint
     )
 
 
@@ -352,6 +356,18 @@ def _format_query_budget_range(understanding: QueryUnderstandingResult) -> str:
     if understanding.budget_min is not None:
         return f"{_format_budget(understanding.budget_min)}以上"
     return "未指定"
+
+
+def _budget_range_fit_bonus(
+    understanding: QueryUnderstandingResult,
+    exhibit: ExhibitResponse,
+) -> float:
+    bonus = 0.0
+    if understanding.budget_max is not None and exhibit.budget_max <= understanding.budget_max:
+        bonus += 1.5
+    if understanding.budget_min is not None and exhibit.budget_min >= understanding.budget_min:
+        bonus += 0.5
+    return bonus
 
 
 def _should_score_budget_range(

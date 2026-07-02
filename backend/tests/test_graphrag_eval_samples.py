@@ -17,4 +17,4 @@ def test_graphrag_eval_cases_remain_stable():
             top_k=case.get("top_k", 3),
         )
         returned_ids = [item.exhibit.id for item in response.items]
-        assert returned_ids[: len(case["expected_top_ids"])] == case["expected_top_ids"]
+        assert returned_ids[: len(case["expected_top_ids"])] == case["expected_top_ids"], case["query"]

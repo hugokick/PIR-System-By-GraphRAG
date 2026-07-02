@@ -106,6 +106,23 @@ def test_hybrid_search_uses_reference_case_for_lower_budget_intent():
     assert "查询理解：预算低于参照案例 城市水循环沙盘" in payload["items"][0]["reasons"]
 
 
+def test_hybrid_search_treats_overlapping_cheaper_budget_ranges_as_lower_than_reference():
+    response = client.post(
+        "/api/search/hybrid",
+        json={
+            "query": "类似杠杆乐园但预算更低的力学展项",
+            "limit": 3,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] >= 1
+    assert payload["items"][0]["exhibit"]["id"] == "pulley-wall"
+    assert "lever-play" not in [item["exhibit"]["id"] for item in payload["items"]]
+    assert "查询理解：预算低于参照案例 杠杆乐园" in payload["items"][0]["reasons"]
+
+
 def test_hybrid_search_uses_query_understanding_for_chinese_business_intent():
     response = client.post(
         "/api/search/hybrid",
