@@ -727,6 +727,22 @@ textarea:focus {
   font-size: 12px;
 }
 
+.graphrag-hit-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.graphrag-hit-reasons em {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.13);
+  color: #eef7f4;
+  padding: 3px 7px;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+}
+
 .graphrag-citation-card {
   max-width: none;
   border: 1px solid #d9e1dc;

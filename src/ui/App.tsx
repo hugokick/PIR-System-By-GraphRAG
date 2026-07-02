@@ -58,6 +58,7 @@ import type {
   ExhibitFilters,
   ExhibitStatus,
   GraphEdge,
+  GraphRagHit,
   GraphNode,
   GraphRagAnswer,
   GraphRagCitation,
@@ -151,6 +152,12 @@ const systemStatusLabels: Record<string, string> = {
   s3: '对象存储',
   ok: '正常'
 };
+function graphRagHitReasonLabels(hit: GraphRagHit) {
+  const reasons = hit.reasons.map((reason) => reason.trim()).filter(Boolean);
+  if (reasons.length > 0) return reasons;
+  return [`匹配分数：${Number.isInteger(hit.score) ? hit.score : Number(hit.score.toFixed(2))}`];
+}
+
 const importErrorFieldLabels: Record<string, string> = {
   id: '展项编号',
   name: '展项名称',
@@ -1760,12 +1767,20 @@ export function App() {
               )}
               {graphRagAnswer.items.length > 0 && (
                 <div className="graphrag-hits">
-                  {graphRagAnswer.items.map((hit) => (
-                    <button type="button" key={hit.exhibit.id} onClick={() => setSelectedId(hit.exhibit.id)}>
-                      <strong>{hit.exhibit.name}</strong>
-                      <span>{hit.reasons.join(' / ') || `score ${hit.score}`}</span>
-                    </button>
-                  ))}
+                  {graphRagAnswer.items.map((hit) => {
+                    const reasonLabels = graphRagHitReasonLabels(hit);
+                    return (
+                      <button type="button" key={hit.exhibit.id} onClick={() => setSelectedId(hit.exhibit.id)}>
+                        <strong>{hit.exhibit.name}</strong>
+                        <span>匹配原因</span>
+                        <span className="graphrag-hit-reasons">
+                          {reasonLabels.map((reason) => (
+                            <em key={reason}>{reason}</em>
+                          ))}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
               {graphRagAnswer.citations.length > 0 && (

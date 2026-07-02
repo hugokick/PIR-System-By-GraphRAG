@@ -1539,7 +1539,7 @@ describe('App exhibit management', () => {
             {
               exhibit: apiExhibit(),
               score: 8,
-              reasons: ['匹配展项：magnet-maze'],
+              reasons: ['匹配展项：magnet-maze', '低预算'],
               citations: [],
               graph: {
                 nodes: [{ id: 'exhibit:magnet-maze', label: '磁力迷宫', type: 'exhibit' }],
@@ -1569,11 +1569,53 @@ describe('App exhibit management', () => {
     expect(within(citationCard).getByText('来源类型：展项档案')).toBeTruthy();
     expect(within(citationCard).queryByText('source_type: exhibit')).toBeNull();
     expect(within(citationCard).getByText('对应展项：磁力迷宫')).toBeTruthy();
-    expect(screen.getByText(/匹配展项：magnet-maze/)).toBeTruthy();
+    const hits = document.querySelector('.graphrag-hits') as HTMLElement;
+    const hitButton = within(hits).getByRole('button', { name: /磁力迷宫/ });
+    expect(within(hitButton).getByText('匹配原因')).toBeTruthy();
+    expect(within(hitButton).getByText('匹配展项：magnet-maze')).toBeTruthy();
+    expect(within(hitButton).getByText('低预算')).toBeTruthy();
+    expect(within(hitButton).queryByText(/匹配展项：magnet-maze \/ 低预算/)).toBeNull();
     expect(fetchMock).toHaveBeenCalledWith(
       'http://127.0.0.1:8000/api/graphrag/answer',
       expect.objectContaining({ method: 'POST' })
     );
+  });
+
+  it('shows a localized GraphRAG score fallback when a hit has no reasons', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/api/graphrag/answer')) {
+        expect(init?.method).toBe('POST');
+        return okJson({
+          query: 'force',
+          answer: '可参考该展项。',
+          citations: [],
+          items: [
+            {
+              exhibit: apiExhibit(),
+              score: 7.25,
+              reasons: [],
+              citations: [],
+              graph: { nodes: [], edges: [] }
+            }
+          ]
+        });
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: frontendExhibit.name });
+    fireEvent.change(screen.getByLabelText(/GraphRAG/), { target: { value: 'force' } });
+    fireEvent.click(screen.getByRole('button', { name: '生成答案' }));
+
+    await screen.findByText('可参考该展项。');
+    const hits = document.querySelector('.graphrag-hits') as HTMLElement;
+    const hitButton = within(hits).getByRole('button', { name: /磁力迷宫/ });
+    expect(within(hitButton).getByText('匹配原因')).toBeTruthy();
+    expect(within(hitButton).getByText('匹配分数：7.25')).toBeTruthy();
+    expect(within(hitButton).queryByText(/score 7.25/)).toBeNull();
   });
 
   it('opens the exhibit that owns a GraphRAG document citation only after the citation is clicked', async () => {
