@@ -69,6 +69,7 @@ import type {
 import { AssetPreviewModal, type PreviewAsset } from './AssetPreviewModal';
 import { CitationList } from './CitationList';
 import { MediaThumbGrid } from './MediaThumbGrid';
+import { nodeKindCaption } from './nvlGraphData';
 
 const statuses: ExhibitStatus[] = ['概念方案', '深化设计', '制作中', '已落地', '维护中'];
 const reviewStatuses: ReviewStatus[] = ['草稿', '待审核', '已审核', '已退回'];
@@ -457,6 +458,7 @@ export function App() {
   const [selectedGraphNodeIds, setSelectedGraphNodeIds] = useState<string[]>([]);
   const [graphHighlightDepth, setGraphHighlightDepth] = useState<1 | 2>(1);
   const [graphLayoutVersion, setGraphLayoutVersion] = useState(0);
+  const [activeGraphNodeKind, setActiveGraphNodeKind] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -539,13 +541,25 @@ export function App() {
   const formValue = (name: string, fallback: string | number) => activeFormDraft[name] ?? fallback;
   const fallbackGraph = useMemo(() => (selected ? buildGraph(selected, items) : { nodes: [], edges: [] }), [selected, items]);
   const isRemoteGraph = Boolean(remoteGraph && remoteGraph.exhibitId === selected?.id);
-  const graph =
+  const rawGraph =
     graphMode === 'demo'
       ? demoGraph ?? { nodes: [], edges: [] }
       : remoteGraph && remoteGraph.exhibitId === selected?.id
         ? remoteGraph
         : fallbackGraph;
+  const graphKindOptions = useMemo(() => [...new Set(rawGraph.nodes.map((node) => node.kind))], [rawGraph]);
+  const graphKindKey = graphKindOptions.join('\u0000');
+  const graph = useMemo(() => {
+    if (!activeGraphNodeKind) return rawGraph;
+    const visibleNodes = rawGraph.nodes.filter((node) => node.kind === activeGraphNodeKind);
+    const visibleNodeIds = new Set(visibleNodes.map((node) => node.id));
+    return {
+      nodes: visibleNodes,
+      edges: rawGraph.edges.filter((edge) => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target))
+    };
+  }, [rawGraph, activeGraphNodeKind]);
   const graphSourceLabel = graphMode === 'demo' || isRemoteGraph ? 'Neo4j 图数据库' : '本地轻量图谱';
+  const graphFilterLabel = activeGraphNodeKind ? nodeKindCaption(activeGraphNodeKind) : null;
   const graphNodeKey = graph.nodes.map((node) => node.id).join('\u0000');
   const selectedGraphNode =
     graph.nodes.find((node) => node.id === selectedGraphNodeIds[selectedGraphNodeIds.length - 1]) ?? null;
@@ -807,6 +821,12 @@ export function App() {
       cancelled = true;
     };
   }, [graphMode, demoGraph]);
+
+  useEffect(() => {
+    if (activeGraphNodeKind && !graphKindOptions.includes(activeGraphNodeKind)) {
+      setActiveGraphNodeKind(null);
+    }
+  }, [activeGraphNodeKind, graphKindKey]);
 
   useEffect(() => {
     if (graph.nodes.length === 0) {
@@ -1683,155 +1703,164 @@ export function App() {
                 <Fact label="审核状态" value={selected.reviewStatus} />
               </div>
 
-              <div className="chips">
+              <div
+                className="chips"
+                aria-label="结构化关键词"
+                title="这些关键词来自材料、交互方式和标签字段，会参与结构化筛选、语义检索、GraphRAG 匹配和看板统计。"
+              >
                 {[...selected.materials, ...selected.interactions, ...selected.tags].map((tag) => (
-                  <span key={tag}>{tag}</span>
+                  <span key={tag} title="结构化关键词">
+                    {tag}
+                  </span>
                 ))}
               </div>
 
-              <section className="similar-relations" aria-label="相似展项关系">
-                <div className="panel-title">
-                  <GitBranch size={18} />
-                  <span>相似展项关系</span>
-                </div>
-                <div className="similar-relations-body">
-                  <div className="similar-relations-main">
-                    <div className="similar-relation-list">
-                      {relatedExhibits.length > 0 ? (
-                        relatedExhibits.map((item) => (
-                          <div key={item.id} className="similar-relation-item">
-                            <span>{item.name}</span>
-                            <small>{item.category} / {item.theme}</small>
-                            <button
-                              type="button"
-                              onClick={() => removeRelatedExhibit(item.id)}
-                              disabled={!canWrite || isUpdatingRelations}
-                              aria-label={`移除${item.name}`}
-                            >
-                              移除
-                            </button>
-                          </div>
-                        ))
-                      ) : (
-                        <span className="empty-relations">暂无相似展项</span>
-                      )}
-                    </div>
-                    <div className="similar-relation-editor">
-                      <label>
-                        添加相似展项
-                        <select
-                          value={selectedRelatedId}
-                          onChange={(event) => setSelectedRelatedId(event.target.value)}
-                          disabled={!canWrite || isUpdatingRelations || relationCandidates.length === 0}
-                        >
-                          <option value="">选择展项</option>
-                          {relationCandidates.map((item) => (
-                            <option key={item.id} value={item.id}>
-                              {item.name}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+              <section className="detail-actions" aria-label="档案维护操作">
+                <div className="media-row">
+                  <button type="button" className="secondary-action" onClick={() => startEdit(selected)} disabled={!canWrite}>
+                    <Pencil size={18} />
+                    编辑档案
+                  </button>
+                  <div className="delete-action-wrap">
+                    <button
+                      type="button"
+                      className="danger-action"
+                      onClick={deleteSelected}
+                      disabled={isDeleting || !canDelete || isDeleteProtected}
+                    >
+                      <Trash2 size={18} />
+                      {isDeleting ? '删除中' : '删除档案'}
+                    </button>
+                    {isDeleteProtected && <span className="delete-protection-note">{deleteProtectionMessage}</span>}
+                  </div>
+                  {canReview && (
+                    <div className="review-actions" aria-label="审核操作">
                       <button
                         type="button"
-                        onClick={addRelatedExhibit}
-                        disabled={!canWrite || isUpdatingRelations || !selectedRelatedId}
+                        className="review-approve"
+                        onClick={() => changeReviewStatus('已审核')}
+                        disabled={isReviewing || selected.reviewStatus === '已审核'}
                       >
-                        添加关系
+                        <Check size={18} />
+                        通过审核
+                      </button>
+                      <button
+                        type="button"
+                        className="review-reject"
+                        onClick={() => changeReviewStatus('已退回')}
+                        disabled={isReviewing || selected.reviewStatus === '已退回'}
+                      >
+                        <RotateCcw size={18} />
+                        退回
                       </button>
                     </div>
-                  </div>
-                  {canWrite && (
-                    <div className="relation-recommendations" aria-label="KG 关系推荐">
-                      <div className="relation-recommendations-title">
-                        <Sparkles size={16} />
-                        <span>KG 关系推荐</span>
-                        {isLoadingRelationRecommendations && <small>加载中</small>}
-                      </div>
-                      {relationRecommendationError ? (
-                        <span className="empty-relations">{relationRecommendationError}</span>
-                      ) : recommendedSimilarRelations.length > 0 ? (
-                        <div className="relation-recommendation-list">
-                          {recommendedSimilarRelations.map((item) => (
-                            <div key={`${item.relationType}:${item.targetId}`} className="relation-recommendation-item">
-                              <div>
-                                <strong>{item.targetLabel}</strong>
-                                <small>置信度 {Math.round(item.confidence * 100)}%</small>
-                              </div>
-                              {item.reasons.length > 0 && <p>{item.reasons.slice(0, 2).join('；')}</p>}
-                              <button
-                                type="button"
-                                onClick={() => acceptRecommendedRelation(item.targetId)}
-                                disabled={isUpdatingRelations}
-                                aria-label={`采纳${item.targetLabel}为相似展项`}
-                              >
-                                采纳
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="empty-relations">
-                          {isLoadingRelationRecommendations ? '正在分析可采纳关系' : '暂无可采纳推荐'}
-                        </span>
-                      )}
-                    </div>
                   )}
+                  <label className="upload">
+                    <ImageIcon size={18} />
+                    上传媒体
+                    <input type="file" accept={uploadAcceptTypes} onChange={attachMedia} disabled={!canWrite} />
+                  </label>
                 </div>
               </section>
 
-              <div className="media-row">
-                <button type="button" className="secondary-action" onClick={() => startEdit(selected)} disabled={!canWrite}>
-                  <Pencil size={18} />
-                  编辑档案
-                </button>
-                <div className="delete-action-wrap">
-                  <button
-                    type="button"
-                    className="danger-action"
-                    onClick={deleteSelected}
-                    disabled={isDeleting || !canDelete || isDeleteProtected}
-                  >
-                    <Trash2 size={18} />
-                    {isDeleting ? '删除中' : '删除档案'}
-                  </button>
-                  {isDeleteProtected && <span className="delete-protection-note">{deleteProtectionMessage}</span>}
-                </div>
-                {canReview && (
-                  <div className="review-actions" aria-label="审核操作">
-                    <button
-                      type="button"
-                      className="review-approve"
-                      onClick={() => changeReviewStatus('已审核')}
-                      disabled={isReviewing || selected.reviewStatus === '已审核'}
-                    >
-                      <Check size={18} />
-                      通过审核
-                    </button>
-                    <button
-                      type="button"
-                      className="review-reject"
-                      onClick={() => changeReviewStatus('已退回')}
-                      disabled={isReviewing || selected.reviewStatus === '已退回'}
-                    >
-                      <RotateCcw size={18} />
-                      退回
-                    </button>
+              <section className="detail-relation-assets" aria-label="资料与关系">
+                <section className="similar-relations" aria-label="相似展项关系">
+                  <div className="panel-title">
+                    <GitBranch size={18} />
+                    <span>相似展项关系</span>
                   </div>
-                )}
-                <label className="upload">
-                  <ImageIcon size={18} />
-                  上传媒体
-                  <input type="file" accept={uploadAcceptTypes} onChange={attachMedia} disabled={!canWrite} />
-                </label>
-              </div>
-
-              {selected.media.length === 0 && selected.documents.length === 0 && (
-                <section className="asset-empty-panel" aria-label="资料状态">
-                  <FileText size={18} />
-                  <span>暂无媒体或资料</span>
+                  <div className="similar-relations-body">
+                    <div className="similar-relations-main">
+                      <div className="similar-relation-list">
+                        {relatedExhibits.length > 0 ? (
+                          relatedExhibits.map((item) => (
+                            <div key={item.id} className="similar-relation-item">
+                              <span>{item.name}</span>
+                              <small>{item.category} / {item.theme}</small>
+                              <button
+                                type="button"
+                                onClick={() => removeRelatedExhibit(item.id)}
+                                disabled={!canWrite || isUpdatingRelations}
+                                aria-label={`移除${item.name}`}
+                              >
+                                移除
+                              </button>
+                            </div>
+                          ))
+                        ) : (
+                          <span className="empty-relations">暂无相似展项</span>
+                        )}
+                      </div>
+                      <div className="similar-relation-editor">
+                        <label>
+                          添加相似展项
+                          <select
+                            value={selectedRelatedId}
+                            onChange={(event) => setSelectedRelatedId(event.target.value)}
+                            disabled={!canWrite || isUpdatingRelations || relationCandidates.length === 0}
+                          >
+                            <option value="">选择展项</option>
+                            {relationCandidates.map((item) => (
+                              <option key={item.id} value={item.id}>
+                                {item.name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={addRelatedExhibit}
+                          disabled={!canWrite || isUpdatingRelations || !selectedRelatedId}
+                        >
+                          添加关系
+                        </button>
+                      </div>
+                    </div>
+                    {canWrite && (
+                      <div className="relation-recommendations" aria-label="KG 关系推荐">
+                        <div className="relation-recommendations-title">
+                          <Sparkles size={16} />
+                          <span>KG 关系推荐</span>
+                          {isLoadingRelationRecommendations && <small>加载中</small>}
+                        </div>
+                        {relationRecommendationError ? (
+                          <span className="empty-relations">{relationRecommendationError}</span>
+                        ) : recommendedSimilarRelations.length > 0 ? (
+                          <div className="relation-recommendation-list">
+                            {recommendedSimilarRelations.map((item) => (
+                              <div key={`${item.relationType}:${item.targetId}`} className="relation-recommendation-item">
+                                <div>
+                                  <strong>{item.targetLabel}</strong>
+                                  <small>置信度 {Math.round(item.confidence * 100)}%</small>
+                                </div>
+                                {item.reasons.length > 0 && <p>{item.reasons.slice(0, 2).join('；')}</p>}
+                                <button
+                                  type="button"
+                                  onClick={() => acceptRecommendedRelation(item.targetId)}
+                                  disabled={isUpdatingRelations}
+                                  aria-label={`采纳${item.targetLabel}为相似展项`}
+                                >
+                                  采纳
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="empty-relations">
+                            {isLoadingRelationRecommendations ? '正在分析可采纳关系' : '暂无可采纳推荐'}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </section>
-              )}
+
+                {selected.media.length === 0 && selected.documents.length === 0 && (
+                  <section className="asset-empty-panel" aria-label="资料状态">
+                    <FileText size={18} />
+                    <span>暂无媒体或资料</span>
+                  </section>
+                )}
 
               {previewAsset && (
                 <AssetPreviewModal
@@ -1842,92 +1871,93 @@ export function App() {
                 />
               )}
 
-              {(selected.media.length > 0 || selected.documents.length > 0) && (
-                <section className="media-gallery" aria-label="媒体档案">
-                  <div className="panel-title">
-                    <ImageIcon size={18} />
-                    <span>媒体档案</span>
-                  </div>
-                  {isDeleteProtected && <span className="asset-protection-note">已审核/已落地档案资料受保护，请先退回审核或变更状态后再删除</span>}
-                  <MediaThumbGrid
-                    assets={selected.media}
-                    documents={selected.documents}
-                    canDelete={canDelete}
-                    canWrite={canWrite}
-                    deletingAssetId={deletingAssetId}
-                    isDeleteProtected={isDeleteProtected}
-                    onPreview={(asset) => setPreviewAsset({ ...asset, kind: 'media' })}
-                    onPreviewDocument={(document) => setPreviewAsset({ ...document, kind: 'document' })}
-                    onRemove={removeAsset}
-                    onRequestDocumentExtraction={requestDocumentExtractionSuggestion}
-                    downloadUrl={downloadUrl}
-                    imageFallback={imageFallback}
-                    loadingDocumentExtractionId={loadingDocumentExtractionId}
-                    renderDocumentDetails={(document) => (
-                      <>
-                        {document.chunks && document.chunks.length > 0 && (
-                          <div className="document-chunks">
-                            <strong>引用片段</strong>
-                            {document.chunks.slice(0, 3).map((chunk) => (
-                              <blockquote key={chunk.id}>
-                                <span>#{chunk.sequence}</span>
-                                {chunk.text}
-                              </blockquote>
-                            ))}
-                          </div>
-                        )}
-                        {documentExtractionError?.documentId === document.id && (
-                          <span className="document-extraction-error">{documentExtractionError.message}</span>
-                        )}
-                        {documentExtractionSuggestion?.documentId === document.id && (
-                          <div
-                            className="document-extraction-panel"
-                            aria-label={`字段抽取建议 ${document.name}`}
-                          >
-                            <div className="document-extraction-title">
-                              <Sparkles size={16} />
-                              <strong>字段抽取建议</strong>
-                              <span>置信度 {Math.round(documentExtractionSuggestion.result.confidence * 100)}%</span>
-                            </div>
-                            <div className="document-extraction-fields">
-                              {documentSuggestionFields(documentExtractionSuggestion.result).map(([label, value]) => (
-                                <div key={label}>
-                                  <span>{label}</span>
-                                  <strong>{value}</strong>
-                                </div>
+                {(selected.media.length > 0 || selected.documents.length > 0) && (
+                  <section className="media-gallery" aria-label="媒体档案">
+                    <div className="panel-title">
+                      <ImageIcon size={18} />
+                      <span>媒体档案</span>
+                    </div>
+                    {isDeleteProtected && <span className="asset-protection-note">已审核/已落地档案资料受保护，请先退回审核或变更状态后再删除</span>}
+                    <MediaThumbGrid
+                      assets={selected.media}
+                      documents={selected.documents}
+                      canDelete={canDelete}
+                      canWrite={canWrite}
+                      deletingAssetId={deletingAssetId}
+                      isDeleteProtected={isDeleteProtected}
+                      onPreview={(asset) => setPreviewAsset({ ...asset, kind: 'media' })}
+                      onPreviewDocument={(document) => setPreviewAsset({ ...document, kind: 'document' })}
+                      onRemove={removeAsset}
+                      onRequestDocumentExtraction={requestDocumentExtractionSuggestion}
+                      downloadUrl={downloadUrl}
+                      imageFallback={imageFallback}
+                      loadingDocumentExtractionId={loadingDocumentExtractionId}
+                      renderDocumentDetails={(document) => (
+                        <>
+                          {document.chunks && document.chunks.length > 0 && (
+                            <div className="document-chunks">
+                              <strong>引用片段</strong>
+                              {document.chunks.slice(0, 3).map((chunk) => (
+                                <blockquote key={chunk.id}>
+                                  <span>#{chunk.sequence}</span>
+                                  {chunk.text}
+                                </blockquote>
                               ))}
                             </div>
-                            {documentExtractionSuggestion.result.summary && (
-                              <p>{documentExtractionSuggestion.result.summary}</p>
-                            )}
-                            {canWrite && (
-                              <button
-                                type="button"
-                                className="document-extraction-apply"
-                                onClick={() => applyDocumentExtractionSuggestion(documentExtractionSuggestion.result)}
-                              >
-                                <Check size={14} />
-                                套用建议到编辑表单
-                              </button>
-                            )}
-                            {flattenSuggestionSources(documentExtractionSuggestion.result).length > 0 && (
-                              <div className="document-extraction-sources">
-                                <strong>来源片段</strong>
-                                {flattenSuggestionSources(documentExtractionSuggestion.result).map((source) => (
-                                  <blockquote key={`${source.fieldName}:${source.chunkId ?? source.snippet}`}>
-                                    <span>{source.fieldName}</span>
-                                    {source.snippet}
-                                  </blockquote>
+                          )}
+                          {documentExtractionError?.documentId === document.id && (
+                            <span className="document-extraction-error">{documentExtractionError.message}</span>
+                          )}
+                          {documentExtractionSuggestion?.documentId === document.id && (
+                            <div
+                              className="document-extraction-panel"
+                              aria-label={`字段抽取建议 ${document.name}`}
+                            >
+                              <div className="document-extraction-title">
+                                <Sparkles size={16} />
+                                <strong>字段抽取建议</strong>
+                                <span>置信度 {Math.round(documentExtractionSuggestion.result.confidence * 100)}%</span>
+                              </div>
+                              <div className="document-extraction-fields">
+                                {documentSuggestionFields(documentExtractionSuggestion.result).map(([label, value]) => (
+                                  <div key={label}>
+                                    <span>{label}</span>
+                                    <strong>{value}</strong>
+                                  </div>
                                 ))}
                               </div>
-                            )}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  />
-                </section>
-              )}
+                              {documentExtractionSuggestion.result.summary && (
+                                <p>{documentExtractionSuggestion.result.summary}</p>
+                              )}
+                              {canWrite && (
+                                <button
+                                  type="button"
+                                  className="document-extraction-apply"
+                                  onClick={() => applyDocumentExtractionSuggestion(documentExtractionSuggestion.result)}
+                                >
+                                  <Check size={14} />
+                                  套用建议到编辑表单
+                                </button>
+                              )}
+                              {flattenSuggestionSources(documentExtractionSuggestion.result).length > 0 && (
+                                <div className="document-extraction-sources">
+                                  <strong>来源片段</strong>
+                                  {flattenSuggestionSources(documentExtractionSuggestion.result).map((source) => (
+                                    <blockquote key={`${source.fieldName}:${source.chunkId ?? source.snippet}`}>
+                                      <span>{source.fieldName}</span>
+                                      {source.snippet}
+                                    </blockquote>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    />
+                  </section>
+                )}
+              </section>
 
             </section>
           )}
@@ -1956,8 +1986,9 @@ export function App() {
                 </div>
                 <div className="graph-meta" aria-label="Neo4j graph metadata">
                   <span>数据源：{graphSourceLabel}</span>
-                  <span>节点 {graph.nodes.length}</span>
-                  <span>关系 {graph.edges.length}</span>
+                  <span>节点 {graph.nodes.length}{graphFilterLabel ? ` / ${rawGraph.nodes.length}` : ''}</span>
+                  <span>关系 {graph.edges.length}{graphFilterLabel ? ` / ${rawGraph.edges.length}` : ''}</span>
+                  {graphFilterLabel && <span>已筛选：{graphFilterLabel}</span>}
                   <div className="graph-highlight-depth" aria-label="graph highlight depth">
                     <span>高亮范围</span>
                     <button
@@ -2008,17 +2039,29 @@ export function App() {
                           </div>
                           <div>
                             <dt>type</dt>
-                            <dd>{selectedGraphNode.kind}</dd>
+                            <dd>{nodeKindCaption(selectedGraphNode.kind)}</dd>
                           </div>
                         </dl>
                       </div>
                     )}
                     <div className="graph-legend" aria-label="graph node type legend">
-                      {[...new Set(graph.nodes.map((node) => node.kind))].map((kind) => (
-                        <span key={kind}>
+                      <button
+                        type="button"
+                        className={!activeGraphNodeKind ? 'active' : ''}
+                        onClick={() => setActiveGraphNodeKind(null)}
+                      >
+                        全部
+                      </button>
+                      {graphKindOptions.map((kind) => (
+                        <button
+                          type="button"
+                          key={kind}
+                          className={activeGraphNodeKind === kind ? 'active' : ''}
+                          onClick={() => setActiveGraphNodeKind((current) => (current === kind ? null : kind))}
+                        >
                           <i style={{ background: graphNodeColors[kind] ?? '#607d75' }} />
-                          {kind}
-                        </span>
+                          {nodeKindCaption(kind)}
+                        </button>
                       ))}
                     </div>
                     <div className="graph-node-list" aria-label="graph nodes">
@@ -2030,7 +2073,7 @@ export function App() {
                           onClick={() => toggleGraphNodeSelection(node.id)}
                         >
                           <span>{node.label}</span>
-                          <small>{node.kind}</small>
+                          <small>{nodeKindCaption(node.kind)}</small>
                         </button>
                       ))}
                     </div>

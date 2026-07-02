@@ -83,7 +83,7 @@ function relationshipCaption(value: string) {
   return relationshipCaptions[key] ?? value;
 }
 
-function nodeKindCaption(kind: string) {
+export function nodeKindCaption(kind: string) {
   return nodeKindCaptions[kind] ?? kind;
 }
 

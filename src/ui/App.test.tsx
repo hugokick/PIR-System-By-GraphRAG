@@ -172,8 +172,48 @@ describe('App exhibit management', () => {
 
     expect(screen.getByText('material:backend-only')).toBeTruthy();
     expect(screen.getAllByText('Backend Material').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('material').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('材料').length).toBeGreaterThan(0);
+    expect(screen.queryByText('material')).toBeNull();
     expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8000/api/exhibits/magnet-maze/graph');
+  });
+
+  it('renders graph node types in Chinese and filters the graph by clicked type', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.endsWith('/api/exhibits/magnet-maze/graph')) {
+        return okJson({
+          nodes: [
+            { id: 'exhibit:magnet-maze', label: '磁力迷宫', type: 'exhibit' },
+            { id: 'material:acrylic', label: '亚克力', type: 'material' },
+            { id: 'material:metal', label: '金属', type: 'material' },
+            { id: 'supplier:qisi', label: '启思互动工坊', type: 'supplier' }
+          ],
+          edges: [
+            { source: 'exhibit:magnet-maze', target: 'material:acrylic', label: '使用材料', type: 'uses_material' },
+            { source: 'exhibit:magnet-maze', target: 'material:metal', label: '使用材料', type: 'uses_material' },
+            { source: 'exhibit:magnet-maze', target: 'supplier:qisi', label: '供应商', type: 'supplied_by' }
+          ]
+        });
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    const legend = await screen.findByLabelText('graph node type legend');
+    expect(within(legend).getByRole('button', { name: '展项' })).toBeTruthy();
+    expect(within(legend).getByRole('button', { name: '材料' })).toBeTruthy();
+    expect(within(legend).getByRole('button', { name: '供应商' })).toBeTruthy();
+    expect(within(legend).queryByText('material')).toBeNull();
+
+    fireEvent.click(within(legend).getByRole('button', { name: '材料' }));
+
+    expect(await screen.findByText('节点 2 / 4')).toBeTruthy();
+    expect(screen.getByText('关系 0 / 3')).toBeTruthy();
+    expect(screen.getByText('已筛选：材料')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /亚克力/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /金属/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /启思互动工坊/ })).toBeNull();
   });
 
   it('marks the Neo4j graph panel as a full-width detail section', async () => {
@@ -734,6 +774,25 @@ describe('App exhibit management', () => {
       );
     });
     expect(within(screen.getByLabelText('相似展项关系')).getByText('杠杆乐园')).toBeTruthy();
+  });
+
+  it('groups detail maintenance controls separately from relation and asset panels', async () => {
+    const exhibitWithMedia = {
+      ...frontendExhibit,
+      media: [{ id: 'layout-media', type: 'image' as const, name: '布局缩略图', url: 'http://assets.test/layout.png' }]
+    };
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [apiExhibit(exhibitWithMedia)] }));
+
+    render(<App />);
+
+    await screen.findByRole('heading', { name: '磁力迷宫' });
+    const maintenancePanel = screen.getByLabelText('档案维护操作');
+    const relationAssetPanel = screen.getByLabelText('资料与关系');
+
+    expect(within(maintenancePanel).getByRole('button', { name: /编辑档案/ })).toBeTruthy();
+    expect(within(maintenancePanel).getByText('上传媒体')).toBeTruthy();
+    expect(within(relationAssetPanel).getByLabelText('相似展项关系')).toBeTruthy();
+    expect(within(relationAssetPanel).getByLabelText('媒体档案')).toBeTruthy();
   });
 
   it('shows budget bands and hot themes in the dashboard', async () => {

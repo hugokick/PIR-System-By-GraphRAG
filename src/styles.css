@@ -935,6 +935,29 @@ textarea:focus {
   color: #35514b;
 }
 
+.detail-actions {
+  border-block: 1px solid #e0e8e4;
+  background: #f8fbf9;
+  margin-inline: -14px;
+  padding: 10px 14px;
+}
+
+.detail-actions .media-row {
+  margin: 0;
+}
+
+.detail-relation-assets {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.detail-relation-assets .asset-empty-panel,
+.detail-relation-assets .media-gallery {
+  min-width: 0;
+}
+
 .similar-relations {
   border: 1px solid #dce6e1;
   border-radius: 8px;
@@ -1102,6 +1125,7 @@ textarea:focus {
 .media-row {
   gap: 10px;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .upload,
@@ -1233,7 +1257,7 @@ textarea:focus {
 .media-gallery {
   border: 1px solid #dce6e1;
   border-radius: 8px;
-  padding: 10px;
+  padding: 10px 10px 12px;
   background: #fbfcfa;
 }
 
@@ -1282,7 +1306,7 @@ textarea:focus {
 }
 
 .media-gallery-grid.thumbnail-grid {
-  grid-template-columns: repeat(auto-fill, minmax(118px, 150px));
+  grid-template-columns: repeat(auto-fill, minmax(112px, 140px));
   gap: 8px;
   align-items: start;
 }
@@ -2050,7 +2074,7 @@ textarea:focus {
   grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
 }
 
-.graph-legend span {
+.graph-legend button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -2058,9 +2082,22 @@ textarea:focus {
   border-radius: 999px;
   background: #fbfcfa;
   color: #435650;
+  cursor: pointer;
   font-size: 12px;
   font-weight: 700;
   padding: 5px 8px;
+}
+
+.graph-legend button.active {
+  border-color: #68bdf6;
+  background: #eef8ff;
+  color: #174d44;
+  box-shadow: 0 0 0 2px rgba(104, 189, 246, 0.16);
+}
+
+.graph-legend button:focus-visible {
+  outline: 2px solid #68bdf6;
+  outline-offset: 2px;
 }
 
 .graph-legend i {
@@ -2106,6 +2143,7 @@ textarea:focus {
   .app-shell,
   .workspace,
   .detail-hero,
+  .detail-relation-assets,
   .similar-relations-body,
   .graph-enhanced {
     grid-template-columns: 1fr;
