@@ -46,6 +46,7 @@ services:
       NEO4J_USER: neo4j
       NEO4J_PASSWORD: demo-graph123
       ALLOW_ROLE_HEADER_AUTH: "false"
+      AUTH_TOKEN_TTL_SECONDS: "28800"
     volumes:
       - file_storage:/app/backend/storage
     depends_on:

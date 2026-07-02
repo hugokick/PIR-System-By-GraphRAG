@@ -11,7 +11,7 @@ FastAPI 后端为展项数字档案、结构化检索、轻量图谱、Neo4j 演
 - CSV / XLSX 导入支持预览、错误行提示、提交写入和相似展项引用校验
 - 当前展项图谱 API 优先读取 PostgreSQL 标准实体/关系表；关系表未命中时回退到 `kg_nodes` / `kg_edges` 投影表，Neo4j 演示图谱继续支持回退查询和全库演示图谱
 - GraphRAG 检索 / 问答接口已复用 PostgreSQL KG 投影快照，并返回编号引用来源；上传文本和 PDF 资料可进入引用链路
-- 管理员、编辑、访客角色权限和 Bearer token 演示登录已接入
+- 管理员、编辑、访客角色权限和带过期时间的 Bearer token 演示登录已接入
 
 ## 建议使用虚拟环境
 
@@ -96,6 +96,18 @@ GET /api/admin/audit-logs
 - 继续让标准实体/关系表从当前重建投影逐步演进为增量同步，并评估列表/筛选查询读取实体表的时机
 - 继续接入生产级 embedding / LLM 服务与检索评测；当前已支持可选 OpenAI-compatible embedding 和 LLM provider，同时保持现有 GraphRAG API 契约
 - 为生产环境配置 MinIO / 云对象存储、备份和生命周期策略
+
+## 认证环境变量
+
+演示登录会签发带 `exp` 的 Bearer token。默认有效期为 8 小时，可通过环境变量调整：
+
+```text
+AUTH_TOKEN_TTL_SECONDS=28800
+AUTH_TOKEN_SECRET=replace-with-a-long-random-secret
+ALLOW_ROLE_HEADER_AUTH=false
+```
+
+`AUTH_TOKEN_SECRET` 用于 HMAC 签名，正式环境必须替换；`ALLOW_ROLE_HEADER_AUTH=false` 用于公网测试或生产化环境，避免继续接受 `X-User-Role` 演示请求头。
 
 ## 可选对象存储
 

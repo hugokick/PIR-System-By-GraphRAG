@@ -35,7 +35,7 @@ http://106.52.200.183/pir-system/
 - CSV / XLSX 导入预览、中文/历史表头映射、GB18030 编码兼容、错误行提示、提交写入和同批相似展项引用校验
 - 混合检索：结构化过滤 + 关键词 + pgvector 语义分数 + 规则查询理解
 - GraphRAG 问答：基于展项档案和上传资料回答，返回编号引用、来源卡片、置信度和 warning
-- 管理员、编辑、访客角色权限；公网测试环境要求登录，后端关闭演示角色请求头认证
+- 管理员、编辑、访客角色权限；公网测试环境要求登录，Bearer token 带过期时间，后端关闭演示角色请求头认证
 - 删除保护：已审核或已落地档案及其资料不能被直接删除
 
 ## 核心字段
@@ -146,6 +146,18 @@ npm run build
 - 继续接入生产级 embedding / LLM 服务与检索评测；当前已预留 OpenAI-compatible embedding 和 LLM provider，保留现有 GraphRAG API 契约
 - 为生产环境配置 MinIO / 云对象存储、备份和生命周期策略
 - 完善生产级认证、备份、监控和审计策略
+
+## 认证配置
+
+公网测试环境使用演示账号和签名 Bearer token。token 默认有效期为 8 小时，可通过后端环境变量调整：
+
+```text
+AUTH_TOKEN_TTL_SECONDS=28800
+AUTH_TOKEN_SECRET=replace-with-a-long-random-secret
+ALLOW_ROLE_HEADER_AUTH=false
+```
+
+`AUTH_TOKEN_SECRET` 在正式环境必须替换为随机密钥；`ALLOW_ROLE_HEADER_AUTH=false` 用于关闭本地开发阶段的 `X-User-Role` 演示头认证。
 
 ## 可选对象存储
 
