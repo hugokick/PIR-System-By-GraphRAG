@@ -668,11 +668,17 @@ textarea:focus {
   color: #7a4b16;
 }
 
-.graphrag-hits,
-.graphrag-citations {
+.graphrag-hits {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.graphrag-citations {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 10px;
+  width: 100%;
 }
 
 .graphrag-hits button {
@@ -688,12 +694,12 @@ textarea:focus {
 }
 
 .graphrag-citation-card {
-  max-width: 420px;
+  max-width: none;
   border: 1px solid #d9e1dc;
   border-radius: 6px;
   background: #f8fbf9;
   color: #52645f;
-  padding: 9px 10px;
+  padding: 10px;
   line-height: 1.5;
   font-size: 13px;
   text-align: left;
@@ -708,7 +714,8 @@ textarea:focus {
 
 .graphrag-citation-main {
   appearance: none;
-  display: block;
+  display: grid;
+  gap: 4px;
   width: 100%;
   border: 0;
   background: transparent;
@@ -727,11 +734,12 @@ textarea:focus {
 .graphrag-citation-card small {
   display: inline-flex;
   align-items: center;
+  width: fit-content;
   border-radius: 999px;
   font-size: 11px;
   font-style: normal;
   font-weight: 800;
-  margin: 0 6px 6px 0;
+  margin: 0;
   padding: 2px 7px;
 }
 
@@ -753,13 +761,18 @@ textarea:focus {
 
 .graphrag-citation-card strong {
   color: #203b39;
-  margin-bottom: 3px;
+  font-size: 14px;
+  margin-top: 2px;
 }
 
 .graphrag-citation-card b {
   color: #436158;
   font-size: 12px;
-  margin-bottom: 6px;
+  margin-bottom: 2px;
+}
+
+.graphrag-citation-card span {
+  color: #4c625b;
 }
 
 .graphrag-citation-empty {
@@ -1458,6 +1471,11 @@ textarea:focus {
   margin-top: 10px;
 }
 
+.document-thumb-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  gap: 10px;
+}
+
 .document-item {
   display: grid;
   gap: 10px;
@@ -1467,12 +1485,24 @@ textarea:focus {
   background: #fff;
 }
 
+.document-thumb-card {
+  align-content: start;
+  padding: 8px;
+}
+
 .document-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.document-thumb-card .document-heading {
+  display: grid;
+  align-items: stretch;
+  justify-content: stretch;
+  gap: 6px;
 }
 
 .document-heading a {
@@ -1485,13 +1515,42 @@ textarea:focus {
   text-decoration: none;
 }
 
+.document-thumb-card .document-heading > a {
+  display: grid;
+  min-height: 82px;
+  place-items: center;
+  gap: 6px;
+  border: 1px solid #dce6e1;
+  border-radius: 6px;
+  background: #f4f7f5;
+  padding: 8px;
+  text-align: center;
+}
+
+.document-thumb-card .document-heading > a:hover,
+.document-thumb-card .document-heading > a:focus-visible {
+  border-color: #3b7c72;
+  box-shadow: 0 0 0 3px rgba(59, 124, 114, 0.16);
+  outline: none;
+}
+
 .document-heading a span {
   overflow-wrap: anywhere;
+}
+
+.document-thumb-card .document-heading a span {
+  font-size: 0.88rem;
+  line-height: 1.35;
 }
 
 .document-heading small {
   flex: 0 0 auto;
   color: #60736d;
+}
+
+.document-thumb-card .document-heading small {
+  justify-self: start;
+  line-height: 1.35;
 }
 
 .document-rag-status {

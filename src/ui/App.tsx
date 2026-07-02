@@ -1863,15 +1863,15 @@ export function App() {
               )}
 
               {selected.documents.length > 0 && (
-                <div className="document-list">
+                <div className="document-list document-thumb-list">
                   <div className="panel-title">
                     <FileText size={18} />
                     <span>资料文档</span>
                   </div>
                   {isDeleteProtected && <span className="asset-protection-note">已审核/已落地档案资料受保护，请先退回审核或变更状态后再删除</span>}
-                  <div className="document-items">
+                  <div className="document-items document-thumb-grid">
                     {selected.documents.map((document) => (
-                      <div className="document-item" key={document.id}>
+                      <div className="document-item document-thumb-card" key={document.id}>
                         <div className="document-heading">
                           <a
                             href={downloadUrl(document.url)}
