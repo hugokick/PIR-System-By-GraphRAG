@@ -260,6 +260,11 @@ def test_import_commit_upserts_valid_rows_and_graph_relationships():
 
 def test_import_update_moves_approved_exhibit_back_to_pending_for_editors():
     original = client.get("/api/exhibits/lever-play").json()
+    approved = {**original, "status": "制作中", "review_status": "已审核"}
+    prepare_response = client.put("/api/exhibits/lever-play", json=approved, headers=ADMIN_HEADERS)
+    assert prepare_response.status_code == 200
+    assert prepare_response.json()["review_status"] == "已审核"
+
     row = valid_import_row("lever-play")
     row[-1] = "pulley-wall"
 

@@ -1,14 +1,28 @@
 from fastapi.testclient import TestClient
+import pytest
 from zipfile import ZIP_DEFLATED, ZipFile
 from io import BytesIO
 
-from app.main import app
+from app.main import app, repository
 
 
 client = TestClient(app)
 
 ADMIN_HEADERS = {"X-User-Role": "admin"}
 EDITOR_HEADERS = {"X-User-Role": "editor"}
+
+
+@pytest.fixture(autouse=True)
+def restore_seed_exhibits_after_asset_test():
+    originals = {
+        exhibit_id: (exhibit.model_copy(deep=True) if exhibit else None)
+        for exhibit_id in ("lever-play", "pulley-wall")
+        if (exhibit := repository.get_exhibit(exhibit_id)) is not None
+    }
+    yield
+    for exhibit in originals.values():
+        if exhibit is not None:
+            repository.update_exhibit(exhibit.id, exhibit)
 
 
 def minimal_pdf_bytes(text: str) -> bytes:
@@ -233,6 +247,48 @@ def test_upload_document_asset_attaches_document_source(monkeypatch, tmp_path):
     assert download_response.status_code == 200
     assert download_response.headers["content-disposition"].startswith("attachment;")
     assert "quote.pdf" in download_response.headers["content-disposition"]
+
+
+def test_editor_upload_to_approved_exhibit_moves_it_back_to_pending_review(monkeypatch, tmp_path):
+    monkeypatch.setenv("FILE_STORAGE_ROOT", str(tmp_path))
+    exhibit_id = "upload-review-reset-demo"
+    payload = client.get("/api/exhibits/pulley-wall").json()
+    payload["id"] = exhibit_id
+    payload["name"] = "资料上传回审示例"
+    payload["status"] = "制作中"
+    payload["review_status"] = "已审核"
+    create_response = client.post("/api/exhibits", json=payload, headers=ADMIN_HEADERS)
+    assert create_response.status_code == 201
+    assert create_response.json()["review_status"] == "已审核"
+
+    try:
+        upload_response = client.post(
+            f"/api/exhibits/{exhibit_id}/assets",
+            data={"asset_kind": "document", "note": "编辑补充资料"},
+            files={"file": ("review-reset-note.txt", b"review reset evidence", "text/plain")},
+            headers=EDITOR_HEADERS,
+        )
+
+        assert upload_response.status_code == 201
+        assert upload_response.json()["review_status"] == "待审核"
+        detail_response = client.get(f"/api/exhibits/{exhibit_id}")
+        assert detail_response.json()["review_status"] == "待审核"
+
+        audit_response = client.get("/api/admin/audit-logs", headers=ADMIN_HEADERS)
+        assert any(
+            entry["actor_role"] == "editor"
+            and entry["action"] == "upload_document"
+            and entry["resource_id"] == exhibit_id
+            and "上传资料 review-reset-note.txt" in entry["summary"]
+            and "审核状态已回到待审核" in entry["summary"]
+            for entry in audit_response.json()["items"]
+        )
+    finally:
+        cleanup_payload = client.get(f"/api/exhibits/{exhibit_id}").json()
+        cleanup_payload["status"] = "制作中"
+        cleanup_payload["review_status"] = "待审核"
+        client.put(f"/api/exhibits/{exhibit_id}", json=cleanup_payload, headers=ADMIN_HEADERS)
+        client.delete(f"/api/exhibits/{exhibit_id}", headers=ADMIN_HEADERS)
 
 
 def test_uploaded_text_document_is_chunked_and_available_to_graphrag(monkeypatch, tmp_path):

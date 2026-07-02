@@ -627,9 +627,13 @@ def upload_exhibit_asset(
         updated = exhibit.model_copy(update={"media_assets": [*exhibit.media_assets, asset]})
         audit_action = "upload_media"
 
+    updated = normalize_write_review_status(updated, role, exhibit)
     saved = repository.update_exhibit(exhibit_id, updated) or updated
     upload_label = "上传资料" if audit_action == "upload_document" else "上传媒体"
-    write_audit(role, audit_action, exhibit_id, f"{upload_label} {filename} 到档案 {exhibit_id}")
+    summary = f"{upload_label} {filename} 到档案 {exhibit_id}"
+    if role != "admin" and exhibit.review_status in {"已审核", "已退回"}:
+        summary += "，审核状态已回到待审核"
+    write_audit(role, audit_action, exhibit_id, summary)
     return saved
 
 
