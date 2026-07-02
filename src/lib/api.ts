@@ -333,6 +333,7 @@ export function mapApiExhibit(item: ApiExhibit): Exhibit {
     dimensions: item.dimensions,
     interactions: item.interactions.map((interaction) => interaction.name),
     supplier: item.supplier.name,
+    projectName: item.project.name,
     projectYear: item.project_year,
     owner: item.owner.name,
     status: item.status,
@@ -371,6 +372,7 @@ function mapApiDocument(document: ApiDocumentAsset) {
 
 export function mapExhibitToApiPayload(item: Exhibit): ApiExhibit {
   const projectId = item.relatedProjectIds[0] || `${item.id}-project`;
+  const projectName = item.projectName.trim() || projectId;
 
   return {
     id: item.id,
@@ -386,7 +388,7 @@ export function mapExhibitToApiPayload(item: Exhibit): ApiExhibit {
     supplier: entityRef(item.supplier),
     project: {
       id: projectId,
-      name: projectId
+      name: projectName
     },
     owner: entityRef(item.owner),
     project_year: item.projectYear,

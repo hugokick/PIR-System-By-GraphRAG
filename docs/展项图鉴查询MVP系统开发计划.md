@@ -270,6 +270,7 @@ GET /api/exhibits/{id}/graph
 当前进展：
 
 - PostgreSQL 运行时 schema 已补齐 `owners` / `projects` / `suppliers` / `themes` / `materials` / `interactions` / `exhibits` / 关系表等标准实体模型，并在展项新增、编辑、删除、导入后从当前有效档案重建实体关系投影
+- 前端展项模型与录入表单已补齐项目案例名称，提交时保留 `project.id` 与 `project.name`，避免业务项目名称被项目编号覆盖
 - 前端知识图谱窗口已接入 NVL，并保留当前展项子图 / 全库 Neo4j 演示图谱模式切换
 - 图谱面板已显示数据源、节点数、关系数、关系 type、节点详情，并支持 force-directed 布局、缩放、平移、拖拽和重新布局
 - 图谱画布已缩小节点、拉开初始关系距离，并增加节点 label / 关系 type 的只读可视标签，避免画布下方出现大块无效占位

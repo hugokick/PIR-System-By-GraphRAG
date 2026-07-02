@@ -15,6 +15,7 @@ const exhibit: Exhibit = {
   dimensions: '3000x1600x1800mm',
   interactions: ['动手实验'],
   supplier: '启思互动工坊',
+  projectName: '青禾儿童科技馆更新项目',
   projectYear: 2025,
   owner: '青禾儿童科技馆',
   status: '制作中',

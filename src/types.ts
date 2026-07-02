@@ -34,6 +34,7 @@ export type Exhibit = {
   dimensions: string;
   interactions: string[];
   supplier: string;
+  projectName: string;
   projectYear: number;
   owner: string;
   status: ExhibitStatus;

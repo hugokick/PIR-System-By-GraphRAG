@@ -329,6 +329,7 @@ function makeExhibitFromForm(form: HTMLFormElement, existingItem?: Exhibit): Exh
     dimensions: String(data.get('dimensions') ?? '').trim(),
     interactions: list('interactions'),
     supplier: String(data.get('supplier') ?? '').trim(),
+    projectName: String(data.get('projectName') ?? '').trim(),
     projectYear: Number(data.get('projectYear') ?? new Date().getFullYear()),
     owner: String(data.get('owner') ?? '').trim(),
     status: String(data.get('status') ?? '概念方案') as ExhibitStatus,
@@ -1527,6 +1528,7 @@ export function App() {
             <input name="interactions" placeholder="交互方式，用逗号分隔" defaultValue={formValue('interactions', editingItem?.interactions.join(',') ?? '')} />
             <input name="dimensions" placeholder="尺寸" defaultValue={formValue('dimensions', editingItem?.dimensions ?? '')} />
             <input name="supplier" placeholder="供应商" defaultValue={formValue('supplier', editingItem?.supplier ?? '')} />
+            <input name="projectName" placeholder="项目名称" defaultValue={formValue('projectName', editingItem?.projectName ?? '')} />
             <input name="owner" placeholder="业主" defaultValue={formValue('owner', editingItem?.owner ?? '')} />
             <input name="projectYear" type="number" defaultValue={formValue('projectYear', editingItem?.projectYear ?? new Date().getFullYear())} />
             <select name="status" defaultValue={editingItem?.status ?? statuses[0]}>
@@ -1664,6 +1666,7 @@ export function App() {
               <div className="facts">
                 <Fact label="造价区间" value={formatBudget(selected)} />
                 <Fact label="项目年份" value={selected.projectYear} />
+                <Fact label="项目案例" value={selected.projectName} />
                 <Fact label="业主" value={selected.owner} />
                 <Fact label="供应商" value={selected.supplier} />
                 <Fact label="尺寸" value={selected.dimensions} />

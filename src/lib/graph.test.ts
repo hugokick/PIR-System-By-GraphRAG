@@ -19,6 +19,7 @@ function exhibit(
     dimensions: '1000x1000x1000mm',
     interactions: ['机械互动'],
     supplier: '启思互动工坊',
+    projectName: '青禾儿童科技馆更新项目',
     projectYear: 2024,
     owner: '青禾儿童科技馆',
     status: id === 'lever-play' ? '已落地' : '制作中',

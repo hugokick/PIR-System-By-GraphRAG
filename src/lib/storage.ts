@@ -4,8 +4,10 @@ import type { Exhibit } from '../types';
 const storageKey = 'exhibit-atlas.records.v1';
 
 function normalizeExhibit(item: Exhibit): Exhibit {
+  const projectId = item.relatedProjectIds?.[0] ?? '';
   return {
     ...item,
+    projectName: item.projectName ?? projectId,
     media: item.media ?? [],
     documents: item.documents ?? []
   };

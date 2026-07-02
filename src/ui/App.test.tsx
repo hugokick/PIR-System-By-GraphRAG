@@ -35,6 +35,7 @@ const frontendExhibit: Exhibit = {
   dimensions: '3600x1800x1800mm',
   interactions: ['动手实验'],
   supplier: '启思互动工坊',
+  projectName: '青禾儿童科技馆更新项目',
   projectYear: 2024,
   owner: '青禾儿童科技馆',
   status: '概念方案',
@@ -269,6 +270,7 @@ describe('App exhibit management', () => {
     await screen.findByRole('heading', { name: '磁力迷宫' });
     fireEvent.click(screen.getByRole('button', { name: /编辑档案/ }));
     fireEvent.change(screen.getByPlaceholderText('展项名称'), { target: { value: '磁力迷宫 Pro' } });
+    fireEvent.change(screen.getByPlaceholderText('项目名称'), { target: { value: '青禾儿童科技馆二期更新' } });
     fireEvent.change(screen.getByLabelText('档案审核状态'), { target: { value: '已审核' } });
     fireEvent.change(screen.getByPlaceholderText('相似展项 ID，用逗号分隔'), { target: { value: 'lever-play,water-cycle' } });
     fireEvent.click(screen.getByRole('button', { name: '保存修改' }));
@@ -284,6 +286,10 @@ describe('App exhibit management', () => {
     });
     expect(updatedPayload?.related_exhibit_ids).toEqual(['lever-play', 'water-cycle']);
     expect(updatedPayload?.review_status).toBe('已审核');
+    expect(updatedPayload?.project).toEqual({
+      id: 'qinghe-2024',
+      name: '青禾儿童科技馆二期更新'
+    });
   });
 
   it('hides review status from editor edit forms and preserves the existing workflow state', async () => {
