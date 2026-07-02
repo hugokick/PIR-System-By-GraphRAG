@@ -12,6 +12,7 @@ FastAPI 后端为展项数字档案、结构化检索、轻量图谱、Neo4j 演
 - 当前展项图谱 API 优先读取 PostgreSQL 标准实体/关系表；关系表未命中时回退到 `kg_nodes` / `kg_edges` 投影表，Neo4j 演示图谱继续支持回退查询和全库演示图谱
 - GraphRAG 检索 / 问答接口已复用 PostgreSQL KG 投影快照，并返回编号引用来源；上传文本和 PDF 资料可进入引用链路
 - 管理员、编辑、访客角色权限和带过期时间的 Bearer token 演示登录已接入
+- 管理员系统状态接口可返回仓储、存储、认证、Neo4j 演示配置和关键数据计数，便于公网演示前检查运行环境
 
 ## 建议使用虚拟环境
 
@@ -89,6 +90,7 @@ POST /api/search/hybrid
 POST /api/graphrag/search
 POST /api/graphrag/answer
 GET /api/admin/audit-logs
+GET /api/admin/system-status
 ```
 
 ## 下一步

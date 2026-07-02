@@ -269,3 +269,41 @@ class AuthLoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: AuthUser
+
+
+class SystemRepositoryStatus(BaseModel):
+    kind: str
+    database_url_configured: bool
+
+
+class SystemStorageStatus(BaseModel):
+    backend: str
+    configured_backend: str
+    s3_bucket_configured: bool
+
+
+class SystemAuthStatus(BaseModel):
+    role_header_auth_enabled: bool
+    token_ttl_seconds: int
+
+
+class SystemNeo4jDemoStatus(BaseModel):
+    enabled: bool
+    configured: bool
+    uri_configured: bool
+    credentials_configured: bool
+
+
+class SystemStatusCounts(BaseModel):
+    exhibits: int
+    audit_logs: int
+
+
+class SystemStatusResponse(BaseModel):
+    status: str
+    service: str
+    repository: SystemRepositoryStatus
+    storage: SystemStorageStatus
+    auth: SystemAuthStatus
+    neo4j_demo: SystemNeo4jDemoStatus
+    counts: SystemStatusCounts

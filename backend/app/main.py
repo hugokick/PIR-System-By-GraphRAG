@@ -42,6 +42,12 @@ from .schemas import (
     MediaAsset,
     RelatedExhibitsUpdateRequest,
     ReviewStatusUpdateRequest,
+    SystemAuthStatus,
+    SystemNeo4jDemoStatus,
+    SystemRepositoryStatus,
+    SystemStatusCounts,
+    SystemStatusResponse,
+    SystemStorageStatus,
 )
 from .services.assets import (
     delete_stored_file,
@@ -51,7 +57,7 @@ from .services.assets import (
     media_type_from_upload,
     save_upload_file,
 )
-from .services.auth import authenticate_demo_user, issue_access_token, verify_access_token
+from .services.auth import authenticate_demo_user, issue_access_token, token_ttl_seconds, verify_access_token
 from .services.dashboard import summarize_dashboard
 from .services.documents import extract_document_chunks
 from .services.graphrag import answer_from_graphrag_context, search_graphrag_context
@@ -186,6 +192,10 @@ def invalid_token() -> HTTPException:
 def role_header_auth_enabled() -> bool:
     value = os.environ.get("ALLOW_ROLE_HEADER_AUTH", "true").strip().lower()
     return value not in {"0", "false", "no", "off"}
+
+
+def env_flag(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def invalid_related_exhibits(exhibit_id: str, invalid_ids: list[str]) -> HTTPException:
@@ -332,6 +342,55 @@ def current_auth_user(
 @app.get("/health")
 def health_check() -> dict[str, str]:
     return {"status": "ok", "service": "exhibit-atlas-api"}
+
+
+@app.get("/api/admin/system-status", response_model=SystemStatusResponse)
+def system_status(
+    role: str = Depends(require_roles("admin")),
+) -> SystemStatusResponse:
+    return SystemStatusResponse(
+        status="ok",
+        service="exhibit-atlas-api",
+        repository=SystemRepositoryStatus(
+            kind=repository_kind(),
+            database_url_configured=bool(os.environ.get("DATABASE_URL")),
+        ),
+        storage=storage_status(),
+        auth=SystemAuthStatus(
+            role_header_auth_enabled=role_header_auth_enabled(),
+            token_ttl_seconds=token_ttl_seconds(),
+        ),
+        neo4j_demo=SystemNeo4jDemoStatus(
+            enabled=env_flag("NEO4J_DEMO_ENABLED"),
+            configured=bool(os.environ.get("NEO4J_URI")),
+            uri_configured=bool(os.environ.get("NEO4J_URI")),
+            credentials_configured=bool(os.environ.get("NEO4J_USER"))
+            and bool(os.environ.get("NEO4J_PASSWORD")),
+        ),
+        counts=SystemStatusCounts(
+            exhibits=len(repository.list_exhibits()),
+            audit_logs=len(repository.list_audit_logs(limit=500)),
+        ),
+    )
+
+
+def repository_kind() -> str:
+    name = repository.__class__.__name__.lower()
+    if "postgres" in name:
+        return "postgres"
+    return "memory"
+
+
+def storage_status() -> SystemStorageStatus:
+    configured_backend = os.environ.get("FILE_STORAGE_BACKEND", "local").strip().lower() or "local"
+    s3_requested = configured_backend in {"s3", "minio", "object-storage", "object_storage"}
+    s3_bucket_configured = bool(os.environ.get("S3_BUCKET"))
+    backend = "s3" if s3_requested and s3_bucket_configured else "local"
+    return SystemStorageStatus(
+        backend=backend,
+        configured_backend=configured_backend,
+        s3_bucket_configured=s3_bucket_configured,
+    )
 
 
 @app.get("/api/exhibits", response_model=ExhibitListResponse)
