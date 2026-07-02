@@ -344,6 +344,7 @@ function makeExhibitFromForm(form: HTMLFormElement, existingItem?: Exhibit): Exh
 }
 
 type ExhibitFormDraft = Partial<Record<string, string | number>>;
+type SelectOption = string | { value: string; label: string };
 
 function documentSuggestionFormDraft(suggestion: DocumentExtractionSuggestion): ExhibitFormDraft {
   const draft: ExhibitFormDraft = {};
@@ -361,6 +362,18 @@ function documentSuggestionFormDraft(suggestion: DocumentExtractionSuggestion): 
   if (suggestion.tags.length > 0) draft.tags = suggestion.tags.join(',');
   if (suggestion.summary) draft.description = suggestion.summary;
   return draft;
+}
+
+function projectOptions(items: Exhibit[]): SelectOption[] {
+  const options = new Map<string, string>();
+  for (const item of items) {
+    const projectId = item.relatedProjectIds[0];
+    if (!projectId || options.has(projectId)) continue;
+    options.set(projectId, item.projectName || projectId);
+  }
+  return [...options.entries()]
+    .map(([value, label]) => ({ value, label }))
+    .sort((left, right) => left.label.localeCompare(right.label, 'zh-Hans'));
 }
 
 export function App() {
@@ -503,7 +516,7 @@ export function App() {
       categories: uniqueValues(items, (item) => item.category),
       themes: uniqueValues(items, (item) => item.theme),
       tags: uniqueValues(items, (item) => item.tags),
-      projects: uniqueValues(items, (item) => item.relatedProjectIds),
+      projects: projectOptions(items),
       owners: uniqueValues(items, (item) => item.owner),
       suppliers: uniqueValues(items, (item) => item.supplier),
       venueTypes: uniqueValues(items, (item) => item.venueType),
@@ -2099,7 +2112,7 @@ function Select({
 }: {
   label: string;
   value?: string;
-  values: string[];
+  values: SelectOption[];
   onChange: (value: string) => void;
 }) {
   return (
@@ -2108,8 +2121,8 @@ function Select({
       <select value={value ?? ''} onChange={(event) => onChange(event.target.value)}>
         <option value="">全部</option>
         {values.map((item) => (
-          <option key={item} value={item}>
-            {item}
+          <option key={typeof item === 'string' ? item : item.value} value={typeof item === 'string' ? item : item.value}>
+            {typeof item === 'string' ? item : item.label}
           </option>
         ))}
       </select>

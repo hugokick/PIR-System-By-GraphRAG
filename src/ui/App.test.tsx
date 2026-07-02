@@ -474,6 +474,8 @@ describe('App exhibit management', () => {
     render(<App />);
 
     await screen.findByRole('heading', { name: '磁力迷宫' });
+    const projectSelect = screen.getByLabelText('项目案例');
+    expect(within(projectSelect).getByRole('option', { name: '青禾儿童科技馆更新项目' })).toBeTruthy();
     fireEvent.change(screen.getByLabelText('项目案例'), { target: { value: 'qinghe-2024' } });
 
     await waitFor(() => {
