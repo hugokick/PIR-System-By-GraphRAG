@@ -22,12 +22,32 @@ def test_graphrag_search_returns_ranked_hits_with_graph_context_and_citations():
     assert first["exhibit"]["id"] == "lever-play"
     assert first["score"] > 0
     assert first["reasons"]
+    assert any(reason.startswith("匹配展项") for reason in first["reasons"])
+    assert all(not reason.startswith("matched ") for reason in first["reasons"])
     assert any(citation["source_type"] == "exhibit" for citation in first["citations"])
 
     node_ids = {node["id"] for node in first["graph"]["nodes"]}
     edge_types = {edge["type"] for edge in first["graph"]["edges"]}
     assert "exhibit:lever-play" in node_ids
     assert "has_theme" in edge_types
+
+
+def test_graphrag_answer_does_not_expose_internal_english_reason_labels():
+    response = client.post(
+        "/api/graphrag/answer",
+        json={"query": "lever-play", "top_k": 1},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert "matched identity" not in payload["answer"]
+    assert "匹配展项" in payload["answer"]
+    assert all(
+        not reason.startswith("matched ")
+        for item in payload["items"]
+        for reason in item["reasons"]
+    )
 
 
 def test_graphrag_search_applies_structured_filters():

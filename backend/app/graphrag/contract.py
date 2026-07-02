@@ -245,7 +245,14 @@ def _reasoning_signal_type(reason: str) -> str:
         return "document_chunk_match"
     if reason.startswith("查询理解：") or reason.startswith("��ѯ���⣺"):
         return "query_understanding"
-    if "project" in reason or "materials" in reason or "interactions" in reason:
+    if (
+        "project" in reason
+        or "materials" in reason
+        or "interactions" in reason
+        or reason.startswith("匹配项目")
+        or reason.startswith("匹配材料")
+        or reason.startswith("匹配交互方式")
+    ):
         return "graph_neighbor_match"
     return "rule_match"
 

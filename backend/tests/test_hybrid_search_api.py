@@ -148,8 +148,8 @@ def test_hybrid_search_uses_query_understanding_for_chinese_business_intent():
     assert payload["items"][0]["exhibit"]["id"] == "pulley-wall"
     joined_reasons = "；".join(payload["items"][0]["reasons"])
     assert "查询理解：主题 力学" in joined_reasons
-    assert "查询理解：预算倾向 low" in joined_reasons
-    assert "查询理解：人群 low_age_children" in joined_reasons
+    assert "查询理解：预算倾向 低预算" in joined_reasons
+    assert "查询理解：人群 低龄儿童" in joined_reasons
 
 
 def test_hybrid_search_excludes_query_understanding_exclusions():

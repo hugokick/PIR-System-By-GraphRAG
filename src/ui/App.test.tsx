@@ -1539,7 +1539,7 @@ describe('App exhibit management', () => {
             {
               exhibit: apiExhibit(),
               score: 8,
-              reasons: ['matched identity'],
+              reasons: ['匹配展项：magnet-maze'],
               citations: [],
               graph: {
                 nodes: [{ id: 'exhibit:magnet-maze', label: '磁力迷宫', type: 'exhibit' }],
@@ -1569,7 +1569,7 @@ describe('App exhibit management', () => {
     expect(within(citationCard).getByText('来源类型：展项档案')).toBeTruthy();
     expect(within(citationCard).queryByText('source_type: exhibit')).toBeNull();
     expect(within(citationCard).getByText('对应展项：磁力迷宫')).toBeTruthy();
-    expect(screen.getByText(/matched identity/)).toBeTruthy();
+    expect(screen.getByText(/匹配展项：magnet-maze/)).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledWith(
       'http://127.0.0.1:8000/api/graphrag/answer',
       expect.objectContaining({ method: 'POST' })
@@ -1612,7 +1612,7 @@ describe('App exhibit management', () => {
             {
               exhibit: apiExhibit(citedExhibit),
               score: 9,
-              reasons: ['document citation'],
+              reasons: ['匹配资料：thermal-plan.pdf'],
               citations: [
                 {
                   source_id: 'doc-thermal-plan',
@@ -1679,7 +1679,7 @@ describe('App exhibit management', () => {
             {
               exhibit: apiExhibit(citedExhibit),
               score: 9,
-              reasons: ['document citation'],
+              reasons: ['匹配资料：thermal-plan.pdf'],
               citations: [
                 {
                   source_id: 'doc-thermal-plan',
@@ -1753,7 +1753,7 @@ describe('App exhibit management', () => {
             {
               exhibit: apiExhibit(),
               score: 7,
-              reasons: ['candidate match'],
+              reasons: ['候选展项与查询语义匹配'],
               citations: [],
               graph: { nodes: [], edges: [] }
             }
@@ -1771,7 +1771,7 @@ describe('App exhibit management', () => {
 
     const notice = await screen.findByRole('alert');
     expect(notice.textContent).toContain('未找到可引用来源');
-    expect(screen.getByText('candidate match')).toBeTruthy();
+    expect(screen.getByText('候选展项与查询语义匹配')).toBeTruthy();
     expect(screen.queryByLabelText('引用来源 [1]')).toBeNull();
   });
 

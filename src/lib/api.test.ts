@@ -723,7 +723,7 @@ describe('askGraphRag', () => {
           {
             exhibit: apiExhibit,
             score: 9,
-            reasons: ['matched identity'],
+            reasons: ['匹配展项：lever-play'],
             citations: [],
             graph: {
               nodes: [{ id: 'exhibit:lever-play', label: '杠杆乐园', type: 'exhibit' }],

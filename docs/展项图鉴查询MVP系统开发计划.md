@@ -427,7 +427,7 @@ GET /api/exhibits/{id}/graph
 - GraphRAG 回答接口的顶层 `citations` 已按答案正文实际使用的引用来源再次收窄，避免检索命中但未进入答案的资料被误认为正式依据；命中结果列表仍保留原始候选 citation 供人工核验
 - GraphRAG 检索评测样例已补充典型业务查询，覆盖“低龄儿童 + 预算不高 + 高互动 + 力学”“类似参照案例但预算更低”“明确预算区间 + 场馆 + 互动形式”等场景，作为后续检索增强的回归基线
 - GraphRAG contract 的 reasoning signals 已细分 `semantic_recall`、`document_chunk_match`、`graph_neighbor_match`、`query_understanding` 与 `rule_match`，便于后续评测和答案组织区分向量召回、资料证据、图谱邻域与查询理解信号
-- 前端 GraphRAG citations 已改为来源卡片列表，集中展示来源标题、`source_type`、snippet 和对应展项名称，并继续保留点击引用定位展项、打开资料和下载资料能力
+- 前端 GraphRAG citations 已改为来源卡片列表，集中展示来源标题、中文来源类型、snippet 和对应展项名称，并继续保留点击引用定位展项、打开资料和下载资料能力
 - GraphRAG 回答响应已透出 `confidence` 与 `warnings`，前端答案区会显示置信度和需人工核验的提示，让“不确定性处理”从后端内核变成业务人员可见的判断信号
 - GraphRAG 答案组织已新增可选 OpenAI-compatible LLM provider 运行时装配，可通过环境变量启用；未配置、调用失败或返回空结果时自动回退到 deterministic fallback，并保持 `/api/graphrag/answer` 请求 / 响应结构不变
 

@@ -73,6 +73,11 @@ def test_query_graphrag_contract_returns_candidates_citations_and_signals():
     assert result.citations
     assert result.reasoning_signals
     assert any(signal.exhibit_id == result.matched_exhibits[0].exhibit.id for signal in result.reasoning_signals)
+    assert any(
+        signal.signal_type == "graph_neighbor_match"
+        and signal.detail.startswith("匹配项目/业主/供应商")
+        for signal in result.reasoning_signals
+    )
 
 
 def test_query_graphrag_contract_can_use_vector_semantic_scores_as_recall_signal():

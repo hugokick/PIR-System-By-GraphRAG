@@ -260,16 +260,16 @@ def _query_understanding_score(
         reasons.append(f"查询理解：互动 {'、'.join(matched_interactions)}")
     if AUDIENCE_LOW_AGE_CHILDREN in understanding.audience and _exhibit_has_child_signal(exhibit):
         score += 2.0
-        reasons.append("查询理解：人群 low_age_children")
+        reasons.append("查询理解：人群 低龄儿童")
     if understanding.budget_intent == BUDGET_LOW and _exhibit_has_low_budget(exhibit):
         score += 2.5
-        reasons.append("查询理解：预算倾向 low")
+        reasons.append("查询理解：预算倾向 低预算")
     elif _exhibit_has_lower_budget_than_reference(understanding, exhibit, reference_exhibit):
         score += 2.5
         reasons.append(f"查询理解：预算低于参照案例 {reference_exhibit.name}")
     elif understanding.budget_intent == BUDGET_LOWER_THAN_REFERENCE and _exhibit_has_low_budget(exhibit):
         score += 1.5
-        reasons.append("查询理解：预算倾向 lower_than_reference")
+        reasons.append("查询理解：预算倾向 低于参照案例")
     if _should_score_budget_range(understanding, exhibit):
         score += 2.0 + _budget_range_fit_bonus(understanding, exhibit)
         reasons.append(f"查询理解：预算区间 {_format_query_budget_range(understanding)}")

@@ -73,10 +73,10 @@ def _rule_based_understand(query: str) -> QueryUnderstandingResult:
     audience: list[str] = []
     if "低龄儿童" in normalized_query or "低龄" in normalized_query:
         audience.append(AUDIENCE_LOW_AGE_CHILDREN)
-        reasoning.append("识别到人群：low_age_children")
+        reasoning.append("识别到人群：低龄儿童")
     elif "亲子" in normalized_query or "家庭" in normalized_query:
         audience.append(AUDIENCE_FAMILY)
-        reasoning.append("识别到人群：family")
+        reasoning.append("识别到人群：家庭/亲子")
 
     budget_intent = BUDGET_UNKNOWN
     budget_min, budget_max = _extract_budget_bounds(normalized_query, reasoning)
@@ -84,15 +84,15 @@ def _rule_based_understand(query: str) -> QueryUnderstandingResult:
         budget_intent = BUDGET_MEDIUM
     elif "预算更低" in normalized_query or ("更低" in normalized_query and "类似" in normalized_query):
         budget_intent = BUDGET_LOWER_THAN_REFERENCE
-        reasoning.append("识别到预算倾向：lower_than_reference")
+        reasoning.append("识别到预算倾向：低于参照案例")
     elif any(signal in normalized_query for signal in ("预算不高", "预算有限", "低预算", "预算低")):
         budget_intent = BUDGET_LOW
         budget_max = 300000
-        reasoning.append("识别到预算倾向：low")
+        reasoning.append("识别到预算倾向：低预算")
     elif any(signal in normalized_query for signal in ("高预算", "预算充足")):
         budget_intent = BUDGET_HIGH
         budget_min = 500000
-        reasoning.append("识别到预算倾向：high")
+        reasoning.append("识别到预算倾向：高预算")
 
     project_case = None
     case_match = re.search(r"类似(.+?)(?:但|，|,|。|的方案|方案|$)", normalized_query)

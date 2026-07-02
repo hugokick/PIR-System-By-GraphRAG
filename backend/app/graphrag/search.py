@@ -120,7 +120,7 @@ def _score_exhibit(
         matched = [token for token in tokens if token in joined]
         if matched:
             score += len(set(matched)) * weights[label]
-            reasons.append(f"matched {label}")
+            reasons.append(_field_match_reason(label, matched))
 
     document_score, document_reasons, matched_document_ids = _document_match_score(tokens, exhibit)
     if document_score:
@@ -204,6 +204,20 @@ def _query_tokens(query: str, understanding: QueryUnderstandingResult | None = N
     return _dedupe_tokens(tokens)
 
 
+def _field_match_reason(label: str, matched_tokens: list[str]) -> str:
+    captions = {
+        "identity": "展项",
+        "classification": "分类",
+        "materials": "材料",
+        "interactions": "交互方式",
+        "project": "项目/业主/供应商",
+        "documents": "资料",
+        "description": "说明",
+    }
+    matched = "、".join(_dedupe_tokens(matched_tokens))
+    return f"匹配{captions.get(label, label)}：{matched}"
+
+
 def _query_understanding_score(
     understanding: QueryUnderstandingResult,
     exhibit: ExhibitResponse,
@@ -236,16 +250,16 @@ def _query_understanding_score(
         reasons.append(f"查询理解：互动 {'、'.join(matched_interactions)}")
     if AUDIENCE_LOW_AGE_CHILDREN in understanding.audience and _exhibit_has_low_age_signal(exhibit):
         score += 2.0
-        reasons.append("查询理解：人群 low_age_children")
+        reasons.append("查询理解：人群 低龄儿童")
     if understanding.budget_intent == BUDGET_LOW and exhibit.budget_max <= 300000:
         score += 2.5
-        reasons.append("查询理解：预算倾向 low")
+        reasons.append("查询理解：预算倾向 低预算")
     elif _exhibit_has_lower_budget_than_reference(understanding, exhibit, reference_exhibit):
         score += 2.5
         reasons.append(f"查询理解：预算低于参照案例 {reference_exhibit.name}")
     elif understanding.budget_intent == BUDGET_LOWER_THAN_REFERENCE and exhibit.budget_max <= 300000:
         score += 1.5
-        reasons.append("查询理解：预算倾向 lower_than_reference")
+        reasons.append("查询理解：预算倾向 低于参照案例")
     if _should_score_budget_range(understanding, exhibit):
         score += 2.0 + _budget_range_fit_bonus(understanding, exhibit)
         reasons.append(f"查询理解：预算区间 {_format_query_budget_range(understanding)}")
