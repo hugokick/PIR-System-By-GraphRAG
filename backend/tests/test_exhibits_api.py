@@ -1,4 +1,4 @@
-from fastapi.testclient import TestClient
+﻿from fastapi.testclient import TestClient
 
 from app.main import app
 
@@ -30,8 +30,11 @@ def test_list_exhibits_supports_structured_filters():
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["total"] == 2
-    assert [item["id"] for item in payload["items"]] == ["lever-play", "pulley-wall"]
+    ids = {item["id"] for item in payload["items"]}
+    assert {"lever-play", "pulley-wall"} <= ids
+    assert all(item["venue_type"] == "儿童科技馆" for item in payload["items"])
+    assert all(any(material["name"] == "金属" for material in item["materials"]) for item in payload["items"])
+    assert all(any(interaction["name"] == "机械互动" for interaction in item["interactions"]) for item in payload["items"])
 
 
 def test_list_exhibits_supports_project_case_filter():
@@ -40,13 +43,15 @@ def test_list_exhibits_supports_project_case_filter():
 
     assert qinghe_response.status_code == 200
     qinghe_payload = qinghe_response.json()
-    assert qinghe_payload["total"] == 2
-    assert [item["id"] for item in qinghe_payload["items"]] == ["lever-play", "pulley-wall"]
+    assert qinghe_payload["total"] >= 2
+    assert {"lever-play", "pulley-wall"} <= {item["id"] for item in qinghe_payload["items"]}
+    assert all(item["project"]["id"] == "qinghe-2024" for item in qinghe_payload["items"])
 
     assert jiangbei_response.status_code == 200
     jiangbei_payload = jiangbei_response.json()
-    assert jiangbei_payload["total"] == 1
-    assert jiangbei_payload["items"][0]["id"] == "water-cycle"
+    assert jiangbei_payload["total"] >= 1
+    assert "water-cycle" in {item["id"] for item in jiangbei_payload["items"]}
+    assert all(item["project"]["id"] == "jiangbei-2022" for item in jiangbei_payload["items"])
 
 
 def test_list_exhibits_supports_review_status_filter():
@@ -55,25 +60,24 @@ def test_list_exhibits_supports_review_status_filter():
 
     assert pending_response.status_code == 200
     pending_payload = pending_response.json()
-    assert pending_payload["total"] == 1
-    assert pending_payload["items"][0]["id"] == "pulley-wall"
-    assert pending_payload["items"][0]["review_status"] == "待审核"
+    assert pending_payload["total"] >= 1
+    assert "pulley-wall" in {item["id"] for item in pending_payload["items"]}
+    assert all(item["review_status"] == "待审核" for item in pending_payload["items"])
 
     assert approved_response.status_code == 200
     approved_payload = approved_response.json()
-    assert approved_payload["total"] == 1
-    assert approved_payload["items"][0]["id"] == "lever-play"
-
+    assert approved_payload["total"] >= 1
+    assert "lever-play" in {item["id"] for item in approved_payload["items"]}
+    assert all(item["review_status"] == "已审核" for item in approved_payload["items"])
 
 def test_list_exhibits_supports_tag_filter():
     response = client.get("/api/exhibits", params={"tag": "低预算"})
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["total"] == 1
-    assert payload["items"][0]["id"] == "pulley-wall"
-    assert "低预算" in payload["items"][0]["tags"]
-
+    assert payload["total"] >= 1
+    assert "pulley-wall" in {item["id"] for item in payload["items"]}
+    assert all("低预算" in item["tags"] for item in payload["items"])
 
 def test_list_exhibits_supports_owner_and_supplier_filters():
     owner_response = client.get("/api/exhibits", params={"owner": "青禾儿童科技馆"})
@@ -81,14 +85,15 @@ def test_list_exhibits_supports_owner_and_supplier_filters():
 
     assert owner_response.status_code == 200
     owner_payload = owner_response.json()
-    assert owner_payload["total"] == 2
-    assert [item["id"] for item in owner_payload["items"]] == ["lever-play", "pulley-wall"]
+    assert owner_payload["total"] >= 2
+    assert {"lever-play", "pulley-wall"} <= {item["id"] for item in owner_payload["items"]}
+    assert all(item["owner"]["name"] == "青禾儿童科技馆" for item in owner_payload["items"])
 
     assert supplier_response.status_code == 200
     supplier_payload = supplier_response.json()
-    assert supplier_payload["total"] == 1
-    assert supplier_payload["items"][0]["id"] == "water-cycle"
-
+    assert supplier_payload["total"] >= 1
+    assert "water-cycle" in {item["id"] for item in supplier_payload["items"]}
+    assert all(item["supplier"]["name"] == "澄境模型" for item in supplier_payload["items"])
 
 def test_get_exhibit_detail_includes_documents_and_media():
     response = client.get("/api/exhibits/lever-play")
@@ -276,7 +281,7 @@ def test_get_neo4j_demo_graph_returns_full_demo_graph(monkeypatch):
 
 def test_create_exhibit_persists_record_and_relationships():
     payload = {
-        "id": "magnet-maze",
+        "id": "magnet-maze-api-demo",
         "name": "磁力迷宫",
         "category": "基础科学",
         "theme": {"id": "electromagnetism", "name": "电磁学"},
@@ -300,13 +305,13 @@ def test_create_exhibit_persists_record_and_relationships():
 
     create_response = client.post("/api/exhibits", json=payload, headers=EDITOR_HEADERS)
     assert create_response.status_code == 201
-    assert create_response.json()["id"] == "magnet-maze"
+    assert create_response.json()["id"] == "magnet-maze-api-demo"
 
-    detail_response = client.get("/api/exhibits/magnet-maze")
+    detail_response = client.get("/api/exhibits/magnet-maze-api-demo")
     assert detail_response.status_code == 200
     assert detail_response.json()["name"] == "磁力迷宫"
 
-    graph_response = client.get("/api/exhibits/magnet-maze/graph")
+    graph_response = client.get("/api/exhibits/magnet-maze-api-demo/graph")
     edge_types = {edge["type"] for edge in graph_response.json()["edges"]}
     assert "has_theme" in edge_types
     assert "similar_to" in edge_types

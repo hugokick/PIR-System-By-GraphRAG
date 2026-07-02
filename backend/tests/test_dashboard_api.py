@@ -6,63 +6,65 @@ from app.main import app
 client = TestClient(app)
 
 
+def _list_items(params=None):
+    response = client.get("/api/exhibits", params=params or {})
+    assert response.status_code == 200
+    return response.json()["items"]
+
+
 def test_dashboard_summary_returns_collection_metrics() -> None:
     response = client.get("/api/dashboard/summary")
 
     assert response.status_code == 200
     payload = response.json()
+    items = _list_items()
 
-    assert payload["total"] == 3
-    assert payload["landed"] == 1
-    assert payload["avg_budget"] == 35
-    assert payload["pending_review"] == 1
-    assert payload["rejected_review"] == 1
-    assert payload["budget_bands"] == [
-        {"label": "20万以下", "count": 0},
-        {"label": "20-50万", "count": 2},
-        {"label": "50万以上", "count": 1},
-    ]
-    assert payload["themes"][0]["count"] == 2
-    assert {item["count"] for item in payload["categories"]} == {1, 2}
-    assert len(payload["review_statuses"]) == 3
+    assert payload["total"] == len(items)
+    assert payload["landed"] == sum(1 for item in items if item["status"] == "已落地")
+    assert payload["pending_review"] == sum(1 for item in items if item["review_status"] == "待审核")
+    assert payload["rejected_review"] == sum(1 for item in items if item["review_status"] == "已退回")
+    assert sum(item["count"] for item in payload["budget_bands"]) == payload["total"]
+    assert sum(item["count"] for item in payload["categories"]) == payload["total"]
+    assert sum(item["count"] for item in payload["themes"]) == payload["total"]
+    assert sum(item["count"] for item in payload["review_statuses"]) == payload["total"]
 
 
 def test_dashboard_summary_respects_exhibit_filters() -> None:
-    response = client.get(
-        "/api/dashboard/summary",
-        params={
-            "review_status": "待审核",
-        },
-    )
+    params = {"review_status": "待审核"}
+    response = client.get("/api/dashboard/summary", params=params)
 
     assert response.status_code == 200
     payload = response.json()
+    items = _list_items(params)
 
-    assert payload["total"] == 1
-    assert payload["landed"] == 0
-    assert payload["pending_review"] == 1
+    assert payload["total"] == len(items)
+    assert payload["pending_review"] == len(items)
     assert payload["rejected_review"] == 0
+    assert all(item["review_status"] == "待审核" for item in items)
 
 
 def test_dashboard_summary_respects_tag_filter() -> None:
-    response = client.get("/api/dashboard/summary", params={"tag": "低预算"})
+    params = {"tag": "低预算"}
+    response = client.get("/api/dashboard/summary", params=params)
 
     assert response.status_code == 200
     payload = response.json()
+    items = _list_items(params)
 
-    assert payload["total"] == 1
-    assert payload["budget_bands"] == [
-        {"label": "20万以下", "count": 0},
-        {"label": "20-50万", "count": 1},
-        {"label": "50万以上", "count": 0},
-    ]
+    assert payload["total"] == len(items)
+    assert payload["total"] >= 1
+    assert all("低预算" in item["tags"] for item in items)
+    assert sum(item["count"] for item in payload["budget_bands"]) == payload["total"]
 
 
 def test_dashboard_summary_respects_owner_filter() -> None:
-    response = client.get("/api/dashboard/summary", params={"owner": "青禾儿童科技馆"})
+    params = {"owner": "青禾儿童科技馆"}
+    response = client.get("/api/dashboard/summary", params=params)
 
     assert response.status_code == 200
     payload = response.json()
+    items = _list_items(params)
 
-    assert payload["total"] == 2
-    assert payload["themes"] == [{"label": "力学", "count": 2}]
+    assert payload["total"] == len(items)
+    assert payload["total"] >= 2
+    assert all(item["owner"]["name"] == "青禾儿童科技馆" for item in items)

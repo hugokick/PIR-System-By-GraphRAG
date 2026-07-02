@@ -15,6 +15,16 @@ def test_repository_factory_uses_memory_repository_without_database_url():
     assert isinstance(repository, ExhibitRepository)
 
 
+def test_seed_exhibits_include_rich_demo_case_library():
+    assert len(seed_exhibits) >= 15
+    assert len({item.id for item in seed_exhibits}) == len(seed_exhibits)
+    assert "space-dome" in {item.id for item in seed_exhibits}
+    assert len({item.theme.name for item in seed_exhibits}) >= 8
+    assert len({item.venue_type for item in seed_exhibits}) >= 4
+    assert any(item.budget_max <= 300000 for item in seed_exhibits)
+    assert any(item.budget_min >= 800000 for item in seed_exhibits)
+
+
 def test_repository_factory_uses_postgres_repository_when_database_url_is_configured():
     from app.repository import create_repository_from_env
 

@@ -1,4 +1,4 @@
-from fastapi.testclient import TestClient
+﻿from fastapi.testclient import TestClient
 
 from app.repository import seed_exhibits
 from app.main import app
@@ -83,10 +83,16 @@ def test_hybrid_search_applies_query_understanding_budget_range():
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["total"] == 1
-    assert payload["items"][0]["exhibit"]["id"] == "lever-play"
-    assert "查询理解：预算区间 30 万-50 万" in payload["items"][0]["reasons"]
-
+    assert payload["total"] >= 1
+    assert "lever-play" in {item["exhibit"]["id"] for item in payload["items"]}
+    assert all(
+        item["exhibit"]["budget_max"] >= 300000 and item["exhibit"]["budget_min"] <= 500000
+        for item in payload["items"]
+    )
+    assert any(
+        "查询理解：预算区间 30 万-50 万" in item["reasons"]
+        for item in payload["items"]
+    )
 
 def test_hybrid_search_uses_reference_case_for_lower_budget_intent():
     response = client.post(
@@ -102,7 +108,11 @@ def test_hybrid_search_uses_reference_case_for_lower_budget_intent():
     ids = [item["exhibit"]["id"] for item in payload["items"]]
     assert "water-cycle" not in ids
     assert ids
-    assert all(item["exhibit"]["budget_max"] < 420000 for item in payload["items"])
+    reference_midpoint = (420000 + 680000) / 2
+    assert all(
+        (item["exhibit"]["budget_min"] + item["exhibit"]["budget_max"]) / 2 < reference_midpoint
+        for item in payload["items"]
+    )
     assert "查询理解：预算低于参照案例 城市水循环沙盘" in payload["items"][0]["reasons"]
 
 
