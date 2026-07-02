@@ -112,6 +112,17 @@ CREATE TABLE IF NOT EXISTS exhibit_documents (
   PRIMARY KEY (exhibit_id, document_id)
 );
 
+CREATE TABLE IF NOT EXISTS document_chunks (
+  id TEXT PRIMARY KEY,
+  exhibit_id TEXT NOT NULL REFERENCES exhibits(id) ON DELETE CASCADE,
+  document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  sequence INTEGER NOT NULL,
+  text TEXT NOT NULL,
+  embedding vector(1536) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS exhibit_relations (
   id TEXT PRIMARY KEY,
   source_exhibit_id TEXT NOT NULL REFERENCES exhibits(id) ON DELETE CASCADE,
@@ -138,6 +149,8 @@ CREATE INDEX IF NOT EXISTS idx_exhibits_theme_id ON exhibits(theme_id);
 CREATE INDEX IF NOT EXISTS idx_exhibits_supplier_id ON exhibits(supplier_id);
 CREATE INDEX IF NOT EXISTS idx_exhibit_relations_source ON exhibit_relations(source_exhibit_id);
 CREATE INDEX IF NOT EXISTS idx_exhibit_relations_target ON exhibit_relations(target_exhibit_id);
+CREATE INDEX IF NOT EXISTS idx_document_chunks_document_id ON document_chunks(document_id);
+CREATE INDEX IF NOT EXISTS idx_document_chunks_exhibit_id ON document_chunks(exhibit_id);
 CREATE INDEX IF NOT EXISTS idx_search_embeddings_owner ON search_embeddings(owner_type, owner_id);
 CREATE INDEX IF NOT EXISTS idx_search_embeddings_embedding
   ON search_embeddings USING ivfflat (embedding vector_cosine_ops)

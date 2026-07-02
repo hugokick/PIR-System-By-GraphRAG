@@ -40,3 +40,15 @@ def test_postgres_schema_defines_search_embedding_table_for_runtime_vector_recal
     assert "chunk_id TEXT" in sql
     assert "embedding vector(1536) NOT NULL" in sql
     assert "idx_search_embeddings_embedding" in sql
+
+
+def test_postgres_schema_defines_document_chunk_table_for_rag_citations():
+    sql = schema_sql.read_text(encoding="utf-8")
+
+    assert "CREATE TABLE IF NOT EXISTS document_chunks" in sql
+    assert "document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE" in sql
+    assert "exhibit_id TEXT NOT NULL REFERENCES exhibits(id) ON DELETE CASCADE" in sql
+    assert "sequence INTEGER NOT NULL" in sql
+    assert "text TEXT NOT NULL" in sql
+    assert "embedding vector(1536) NOT NULL" in sql
+    assert "idx_document_chunks_document_id" in sql

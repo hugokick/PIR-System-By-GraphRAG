@@ -49,6 +49,20 @@ def test_postgres_repository_schema_initializes_pgvector_search_embeddings():
     assert "idx_search_embeddings_embedding" in schema_sql
 
 
+def test_postgres_repository_schema_initializes_document_chunk_table():
+    from app.repository import PostgresExhibitRepository
+
+    schema_sql = PostgresExhibitRepository.schema_sql()
+
+    assert "CREATE TABLE IF NOT EXISTS document_chunks" in schema_sql
+    assert "document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE" in schema_sql
+    assert "exhibit_id TEXT NOT NULL REFERENCES exhibits(id) ON DELETE CASCADE" in schema_sql
+    assert "sequence INTEGER NOT NULL" in schema_sql
+    assert "text TEXT NOT NULL" in schema_sql
+    assert "embedding vector(1536) NOT NULL" in schema_sql
+    assert "idx_document_chunks_document_id" in schema_sql
+
+
 def test_postgres_repository_schema_initializes_kg_projection_tables():
     from app.repository import PostgresExhibitRepository
 
@@ -224,6 +238,51 @@ def test_postgres_repository_upsert_refreshes_domain_entity_projection_tables():
     assert any(params[0] == "lever-play" and params[3] == "mechanics" for _, params in exhibit_inserts)
     assert any(params == ("lever-play", "metal") for _, params in material_link_inserts)
     assert any(params[1:] == ("lever-play", "pulley-wall", "similar_to") for _, params in relation_inserts)
+
+
+def test_postgres_repository_upsert_refreshes_document_chunk_projection_table():
+    from app.repository import PostgresExhibitRepository
+
+    class RecordingCursor:
+        def __init__(self):
+            self.calls = []
+
+        def execute(self, query, params=None):
+            self.calls.append((" ".join(query.split()), params))
+
+        def fetchall(self):
+            return [{"payload": exhibit.model_dump(mode="json")}]
+
+    document = seed_exhibits[0].documents[0].model_copy(
+        update={
+            "chunks": [
+                DocumentChunk(
+                    id="lever-brief:chunk-1",
+                    text="低龄儿童通过配重理解杠杆原理。",
+                    sequence=1,
+                )
+            ]
+        }
+    )
+    exhibit = seed_exhibits[0].model_copy(update={"documents": [document]})
+    cursor = RecordingCursor()
+    repository = PostgresExhibitRepository("postgresql://example", initialize=False)
+
+    repository._insert_or_restore(cursor, exhibit)
+
+    chunk_inserts = [call for call in cursor.calls if "INSERT INTO document_chunks" in call[0]]
+
+    assert any("DELETE FROM document_chunks" in query for query, _ in cursor.calls)
+    assert chunk_inserts
+    params = chunk_inserts[0][1]
+    assert params[:5] == (
+        "lever-brief:chunk-1",
+        "lever-play",
+        "lever-brief",
+        1,
+        "低龄儿童通过配重理解杠杆原理。",
+    )
+    assert str(params[5]).startswith("[")
 
 
 def test_postgres_repository_reads_exhibit_graph_from_domain_relation_tables_first():

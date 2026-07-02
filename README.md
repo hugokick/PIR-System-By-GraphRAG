@@ -30,7 +30,7 @@ http://106.52.200.183/pir-system/
 - 当前展项子图与全库 Neo4j 演示图谱展示，支持缩放、拖拽、重布局、节点选择和一跳高亮
 - 相似展项关系人工维护，以及只读 KG 推荐候选的人工采纳
 - 图片、视频、PDF、Office、Excel/CSV、文本资料上传、缩略图预览、PDF/图片/视频弹窗预览和原文件下载
-- 文本、PDF、DOCX、XLSX、PPTX 等资料的文本抽取、文档切片和 GraphRAG 引用来源链路
+- 文本、PDF、DOCX、XLSX、PPTX 等资料的文本抽取、文档切片独立持久化表、chunk embedding 和 GraphRAG 引用来源链路
 - 上传资料字段抽取建议，可将建议字段套用到编辑表单，由人工确认后保存
 - CSV / XLSX 导入预览、中文/历史表头映射、GB18030 编码兼容、错误行提示、提交写入和同批相似展项引用校验
 - 混合检索：结构化过滤 + 关键词 + pgvector 语义分数 + 规则查询理解
@@ -145,7 +145,6 @@ npm run build
 
 - 接入真实 embedding 模型；GraphRAG 答案已预留 OpenAI-compatible LLM provider，保留现有 GraphRAG API 契约
 - 将本地文件存储平滑替换为 MinIO 或云对象存储
-- 将文档切片从当前内嵌字段升级为独立持久化资源
 - 完善生产级认证、备份、监控和审计策略
 
 ## 可选 LLM Provider

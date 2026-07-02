@@ -463,6 +463,17 @@ class PostgresExhibitRepository:
           PRIMARY KEY (exhibit_id, document_id)
         );
 
+        CREATE TABLE IF NOT EXISTS document_chunks (
+          id TEXT PRIMARY KEY,
+          exhibit_id TEXT NOT NULL REFERENCES exhibits(id) ON DELETE CASCADE,
+          document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+          sequence INTEGER NOT NULL,
+          text TEXT NOT NULL,
+          embedding vector(1536) NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
         CREATE TABLE IF NOT EXISTS exhibit_relations (
           id TEXT PRIMARY KEY,
           source_exhibit_id TEXT NOT NULL REFERENCES exhibits(id) ON DELETE CASCADE,
@@ -479,6 +490,8 @@ class PostgresExhibitRepository:
         CREATE INDEX IF NOT EXISTS idx_exhibits_supplier_id ON exhibits(supplier_id);
         CREATE INDEX IF NOT EXISTS idx_exhibit_relations_source ON exhibit_relations(source_exhibit_id);
         CREATE INDEX IF NOT EXISTS idx_exhibit_relations_target ON exhibit_relations(target_exhibit_id);
+        CREATE INDEX IF NOT EXISTS idx_document_chunks_document_id ON document_chunks(document_id);
+        CREATE INDEX IF NOT EXISTS idx_document_chunks_exhibit_id ON document_chunks(exhibit_id);
 
         CREATE TABLE IF NOT EXISTS search_embeddings (
           id TEXT PRIMARY KEY,
@@ -722,6 +735,7 @@ class PostgresExhibitRepository:
     def _sync_domain_projection(self, cursor: Any, exhibits: list[ExhibitResponse]) -> None:
         for table_name in [
             "exhibit_relations",
+            "document_chunks",
             "exhibit_documents",
             "exhibit_interactions",
             "exhibit_materials",
@@ -912,6 +926,30 @@ class PostgresExhibitRepository:
                     """,
                     (exhibit.id, document.id),
                 )
+                for chunk in document.chunks:
+                    chunk_text = embedding_text_for_document_chunk(exhibit, document, chunk)
+                    cursor.execute(
+                        """
+                        INSERT INTO document_chunks
+                          (id, exhibit_id, document_id, sequence, text, embedding, updated_at)
+                        VALUES (%s, %s, %s, %s, %s, %s::vector, now())
+                        ON CONFLICT (id) DO UPDATE
+                        SET exhibit_id = EXCLUDED.exhibit_id,
+                            document_id = EXCLUDED.document_id,
+                            sequence = EXCLUDED.sequence,
+                            text = EXCLUDED.text,
+                            embedding = EXCLUDED.embedding,
+                            updated_at = now()
+                        """,
+                        (
+                            chunk.id,
+                            exhibit.id,
+                            document.id,
+                            chunk.sequence,
+                            chunk.text,
+                            vector_literal(stable_embedding(chunk_text)),
+                        ),
+                    )
 
         active_ids = {exhibit.id for exhibit in exhibits}
         for exhibit in exhibits:

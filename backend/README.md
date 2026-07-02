@@ -6,7 +6,7 @@ FastAPI 后端为展项数字档案、结构化检索、轻量图谱、Neo4j 演
 
 - 展项列表、详情、新增、编辑、删除、审核状态和相似展项关系 API 已具备测试
 - 未配置 `DATABASE_URL` 时使用内存种子仓储，配置后使用 PostgreSQL 持久化读写
-- PostgreSQL 仓储已支持 JSONB 主档案、标准实体/关系表投影、软删除、操作日志、pgvector 检索向量、文档 chunk embedding，以及 `kg_nodes` / `kg_edges` 运行时图谱投影表
+- PostgreSQL 仓储已支持 JSONB 主档案、标准实体/关系表投影、软删除、操作日志、pgvector 检索向量、`document_chunks` 独立持久化表、文档 chunk embedding，以及 `kg_nodes` / `kg_edges` 运行时图谱投影表
 - 文件上传支持图片、视频、PDF、Office、Excel/CSV、文本资料，本地对象存储路径可通过 `FILE_STORAGE_ROOT` 配置
 - CSV / XLSX 导入支持预览、错误行提示、提交写入和相似展项引用校验
 - 当前展项图谱 API 优先读取 PostgreSQL 标准实体/关系表；关系表未命中时回退到 `kg_nodes` / `kg_edges` 投影表，Neo4j 演示图谱继续支持回退查询和全库演示图谱
