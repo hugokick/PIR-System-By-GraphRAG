@@ -5,6 +5,7 @@ import {
   createExhibit,
   deleteExhibit,
   deleteExhibitAsset,
+  exportAuditLogsCsv,
   fetchAuditLogs,
   fetchDashboardSummary,
   fetchDemoGraph,
@@ -580,6 +581,29 @@ describe('fetchAuditLogs', () => {
         createdAt: '2026-07-01T00:00:00+00:00'
       }
     ]);
+  });
+});
+
+describe('exportAuditLogsCsv', () => {
+  it('downloads admin audit logs with active filters and the role header', async () => {
+    const blob = new Blob(['日志编号,摘要\n1,删除档案'], { type: 'text/csv;charset=utf-8' });
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      blob: async () => blob
+    } as Response);
+
+    const result = await exportAuditLogsCsv(500, {
+      action: 'delete_exhibit',
+      resourceId: 'magnet-maze'
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/admin/audit-logs/export?limit=500&action=delete_exhibit&resource_id=magnet-maze',
+      {
+        headers: { 'X-User-Role': 'admin' }
+      }
+    );
+    expect(result).toBe(blob);
   });
 });
 

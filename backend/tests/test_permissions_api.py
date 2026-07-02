@@ -278,3 +278,37 @@ def test_only_admin_can_read_audit_logs():
     response = client.get("/api/admin/audit-logs", headers=EDITOR_HEADERS)
 
     assert response.status_code == 403
+
+
+def test_admin_can_export_filtered_audit_logs_as_csv():
+    audit_id = "admin-audit-export-demo"
+    create_response = client.post(
+        "/api/exhibits",
+        json=exhibit_payload(audit_id),
+        headers=ADMIN_HEADERS,
+    )
+    assert create_response.status_code == 201
+    delete_response = client.delete(f"/api/exhibits/{audit_id}", headers=ADMIN_HEADERS)
+    assert delete_response.status_code == 204
+
+    response = client.get(
+        "/api/admin/audit-logs/export",
+        params={"action": "delete_exhibit", "resource_id": audit_id},
+        headers=ADMIN_HEADERS,
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/csv")
+    assert "audit-logs.csv" in response.headers["content-disposition"]
+    assert response.content.startswith(b"\xef\xbb\xbf")
+    csv_text = response.content.decode("utf-8-sig")
+    assert "日志编号,操作者角色,动作,资源类型,资源编号,摘要,时间" in csv_text
+    assert "删除档案" in csv_text
+    assert f"删除档案 {audit_id}" in csv_text
+    assert f"新增档案 {audit_id}" not in csv_text
+
+
+def test_only_admin_can_export_audit_logs():
+    response = client.get("/api/admin/audit-logs/export", headers=EDITOR_HEADERS)
+
+    assert response.status_code == 403

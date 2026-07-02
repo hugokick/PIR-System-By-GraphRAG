@@ -24,6 +24,7 @@ import {
   createExhibit,
   deleteExhibit,
   deleteExhibitAsset,
+  exportAuditLogsCsv,
   fetchAuditLogs,
   fetchDashboardSummary,
   fetchDemoGraph,
@@ -446,6 +447,7 @@ export function App() {
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [auditError, setAuditError] = useState<string | null>(null);
   const [isAuditLoading, setIsAuditLoading] = useState(false);
+  const [isAuditExporting, setIsAuditExporting] = useState(false);
   const [auditActionFilter, setAuditActionFilter] = useState('');
   const [auditResourceIdFilter, setAuditResourceIdFilter] = useState('');
   const [dashboardSummary, setDashboardSummary] = useState<DashboardStats | null>(null);
@@ -695,6 +697,31 @@ export function App() {
       .finally(() => {
         setIsAuditLoading(false);
       });
+  };
+
+  const handleExportAuditLogs = async () => {
+    if (role !== 'admin') return;
+
+    setIsAuditExporting(true);
+    try {
+      const blob = await exportAuditLogsCsv(500, {
+        action: auditActionFilter,
+        resourceId: auditResourceIdFilter.trim()
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'audit-logs.csv';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setAuditError(null);
+    } catch {
+      setAuditError('操作日志导出暂不可用');
+    } finally {
+      setIsAuditExporting(false);
+    }
   };
 
   const refreshDashboardSummary = async () => {
@@ -1334,16 +1361,28 @@ export function App() {
             <div className="panel-title">
               <FileText size={18} />
               <span>操作日志</span>
-              <button
-                type="button"
-                className="audit-refresh-action"
-                onClick={() => void refreshAuditLogs()}
-                disabled={isAuditLoading}
-                aria-label="刷新操作日志"
-              >
-                <RotateCcw size={13} />
-                {isAuditLoading ? '刷新中' : '刷新'}
-              </button>
+              <div className="audit-actions">
+                <button
+                  type="button"
+                  className="audit-refresh-action"
+                  onClick={() => void handleExportAuditLogs()}
+                  disabled={isAuditExporting}
+                  aria-label="导出操作日志"
+                >
+                  <Download size={13} />
+                  {isAuditExporting ? '导出中' : '导出'}
+                </button>
+                <button
+                  type="button"
+                  className="audit-refresh-action"
+                  onClick={() => void refreshAuditLogs()}
+                  disabled={isAuditLoading}
+                  aria-label="刷新操作日志"
+                >
+                  <RotateCcw size={13} />
+                  {isAuditLoading ? '刷新中' : '刷新'}
+                </button>
+              </div>
             </div>
             <div className="audit-filters">
               <label>

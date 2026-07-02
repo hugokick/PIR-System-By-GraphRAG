@@ -777,6 +777,19 @@ export async function fetchAuditLogs(limit = 8, filters: AuditLogFilters = {}): 
   return payload.items.map(mapApiAuditLogEntry);
 }
 
+export async function exportAuditLogsCsv(limit = 500, filters: AuditLogFilters = {}): Promise<Blob> {
+  const query = new URLSearchParams({ limit: String(limit) });
+  if (filters.action) query.set('action', filters.action);
+  if (filters.resourceId) query.set('resource_id', filters.resourceId);
+  const response = await fetch(`${apiBaseUrl}/api/admin/audit-logs/export?${query.toString()}`, {
+    headers: authHeaders()
+  });
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+  }
+  return response.blob();
+}
+
 export async function fetchExhibitGraph(exhibitId: string) {
   const payload = await requestJson<ApiGraphResponse>(`/api/exhibits/${encodeURIComponent(exhibitId)}/graph`);
   return mapApiGraph(payload);

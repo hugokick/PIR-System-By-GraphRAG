@@ -1160,6 +1160,58 @@ describe('App exhibit management', () => {
     ).toBe(true);
   });
 
+  it('lets admins export filtered audit logs as CSV', async () => {
+    const blob = new Blob(['日志编号,摘要\n1,删除档案'], { type: 'text/csv;charset=utf-8' });
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/api/admin/audit-logs/export?')) {
+        return {
+          ok: true,
+          blob: async () => blob
+        } as Response;
+      }
+      if (url.endsWith('/api/admin/audit-logs?limit=8')) {
+        return okJson({ total: 0, items: [] });
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+    const createObjectUrl = vi.fn(() => 'blob:audit-logs');
+    const revokeObjectUrl = vi.fn();
+    Object.defineProperty(globalThis.URL, 'createObjectURL', {
+      configurable: true,
+      value: createObjectUrl
+    });
+    Object.defineProperty(globalThis.URL, 'revokeObjectURL', {
+      configurable: true,
+      value: revokeObjectUrl
+    });
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+
+    render(<App />);
+
+    const auditPanel = (await screen.findByText('操作日志')).closest('section') as HTMLElement;
+    fireEvent.change(within(auditPanel).getByLabelText('日志动作'), { target: { value: 'delete_exhibit' } });
+    fireEvent.change(within(auditPanel).getByLabelText('资源编号'), { target: { value: 'magnet-maze' } });
+    fireEvent.click(within(auditPanel).getByRole('button', { name: '导出操作日志' }));
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([input]) => {
+          const url = String(input);
+          return (
+            url.includes('/api/admin/audit-logs/export?')
+            && url.includes('limit=500')
+            && url.includes('action=delete_exhibit')
+            && url.includes('resource_id=magnet-maze')
+          );
+        })
+      ).toBe(true);
+    });
+    expect(createObjectUrl).toHaveBeenCalledWith(blob);
+    expect(clickSpy).toHaveBeenCalled();
+    expect(revokeObjectUrl).toHaveBeenCalledWith('blob:audit-logs');
+  });
+
   it('refreshes audit log entries after admin mutations', async () => {
     let auditCalls = 0;
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {

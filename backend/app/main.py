@@ -1,4 +1,6 @@
 import os
+import csv
+from io import StringIO
 from collections.abc import Callable
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, Response, UploadFile, status
@@ -86,6 +88,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+AUDIT_ACTION_LABELS = {
+    "create_exhibit": "新增档案",
+    "update_exhibit": "编辑档案",
+    "delete_exhibit": "删除档案",
+    "update_review_status": "更新审核",
+    "upload_document": "上传资料",
+    "upload_media": "上传媒体",
+    "delete_document": "删除资料",
+    "delete_media": "删除媒体",
+    "update_exhibit_relations": "更新相似关系",
+    "import_create_exhibit": "导入新增",
+    "import_update_exhibit": "导入更新",
+    "import_exhibits": "批量导入",
+    "import_batch": "批量导入",
+}
 
 repository = create_repository()
 
@@ -744,6 +762,34 @@ def list_audit_logs(
 ) -> AuditLogListResponse:
     logs = repository.list_audit_logs(limit=limit, action=action, resource_id=resource_id)
     return AuditLogListResponse(total=len(logs), items=logs)
+
+
+@app.get("/api/admin/audit-logs/export")
+def export_audit_logs(
+    limit: int = Query(default=500, ge=1, le=5000),
+    action: str | None = None,
+    resource_id: str | None = None,
+    role: str = Depends(require_roles("admin")),
+) -> Response:
+    logs = repository.list_audit_logs(limit=limit, action=action, resource_id=resource_id)
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["日志编号", "操作者角色", "动作", "资源类型", "资源编号", "摘要", "时间"])
+    for entry in logs:
+        writer.writerow(
+            [
+                entry.id,
+                entry.actor_role,
+                AUDIT_ACTION_LABELS.get(entry.action, entry.action),
+                entry.resource_type,
+                entry.resource_id,
+                entry.summary,
+                entry.created_at,
+            ]
+        )
+    content = "\ufeff" + output.getvalue()
+    headers = {"Content-Disposition": 'attachment; filename="audit-logs.csv"'}
+    return Response(content=content, media_type="text/csv; charset=utf-8", headers=headers)
 
 
 @app.get("/api/files/{file_id}")

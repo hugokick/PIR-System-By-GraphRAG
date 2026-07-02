@@ -364,6 +364,18 @@ textarea:focus {
   padding: 4px 8px;
 }
 
+.audit-actions {
+  margin-left: auto;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.audit-actions .audit-refresh-action {
+  margin-left: 0;
+}
+
 .audit-refresh-action:disabled,
 .panel-refresh-action:disabled {
   cursor: not-allowed;
