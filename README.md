@@ -2,7 +2,7 @@
 
 面向科技馆、博物馆等展陈场景的“展项图鉴查询 MVP 系统”。系统用于对展项进行数字化建档、分类检索、可视化展示和动态管理，帮助科展人员快速查找公司负责过的展项展品，并向业主提供造价、材质、造型、互动形式、项目案例和资料依据等参考信息。
 
-当前版本是可演示、可试用的全栈 MVP，使用 React/Vite + FastAPI + PostgreSQL/pgvector + Neo4j 演示图谱 + 本地文件存储。
+当前版本是可演示、可试用的全栈 MVP，使用 React/Vite + FastAPI + PostgreSQL/pgvector + Neo4j 演示图谱 + 可配置文件存储。
 
 ## 公网测试
 
@@ -144,8 +144,25 @@ npm run build
 ## 后续建议
 
 - 继续接入生产级 embedding / LLM 服务与检索评测；当前已预留 OpenAI-compatible embedding 和 LLM provider，保留现有 GraphRAG API 契约
-- 将本地文件存储平滑替换为 MinIO 或云对象存储
+- 为生产环境配置 MinIO / 云对象存储、备份和生命周期策略
 - 完善生产级认证、备份、监控和审计策略
+
+## 可选对象存储
+
+默认使用本地文件存储，可通过 `FILE_STORAGE_ROOT` 指定路径。需要切换到 MinIO 或 S3-compatible 对象存储时，在后端环境中配置：
+
+```text
+FILE_STORAGE_BACKEND=s3
+S3_BUCKET=your-bucket
+S3_ENDPOINT_URL=http://minio:9000
+S3_ACCESS_KEY_ID=your-access-key
+S3_SECRET_ACCESS_KEY=your-secret-key
+S3_REGION=us-east-1
+S3_PREFIX=pir-system
+S3_CACHE_ROOT=/app/backend/storage-cache
+```
+
+上传、预览、下载、删除的 API URL 保持 `/api/files/{file_id}` 不变；文档解析会通过本地缓存读取对象存储文件。
 
 ## 可选 Embedding Provider
 

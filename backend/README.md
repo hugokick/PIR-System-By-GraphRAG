@@ -7,7 +7,7 @@ FastAPI 后端为展项数字档案、结构化检索、轻量图谱、Neo4j 演
 - 展项列表、详情、新增、编辑、删除、审核状态和相似展项关系 API 已具备测试
 - 未配置 `DATABASE_URL` 时使用内存种子仓储，配置后使用 PostgreSQL 持久化读写
 - PostgreSQL 仓储已支持 JSONB 主档案、标准实体/关系表投影、软删除、操作日志、pgvector 检索向量、`document_chunks` 独立持久化表、文档 chunk embedding，以及 `kg_nodes` / `kg_edges` 运行时图谱投影表
-- 文件上传支持图片、视频、PDF、Office、Excel/CSV、文本资料，本地对象存储路径可通过 `FILE_STORAGE_ROOT` 配置
+- 文件上传支持图片、视频、PDF、Office、Excel/CSV、文本资料，默认本地文件存储，也可配置 S3/MinIO-compatible 对象存储
 - CSV / XLSX 导入支持预览、错误行提示、提交写入和相似展项引用校验
 - 当前展项图谱 API 优先读取 PostgreSQL 标准实体/关系表；关系表未命中时回退到 `kg_nodes` / `kg_edges` 投影表，Neo4j 演示图谱继续支持回退查询和全库演示图谱
 - GraphRAG 检索 / 问答接口已复用 PostgreSQL KG 投影快照，并返回编号引用来源；上传文本和 PDF 资料可进入引用链路
@@ -95,7 +95,24 @@ GET /api/admin/audit-logs
 
 - 继续让标准实体/关系表从当前重建投影逐步演进为增量同步，并评估列表/筛选查询读取实体表的时机
 - 继续接入生产级 embedding / LLM 服务与检索评测；当前已支持可选 OpenAI-compatible embedding 和 LLM provider，同时保持现有 GraphRAG API 契约
-- 将本地文件存储替换或扩展为 MinIO / 云对象存储
+- 为生产环境配置 MinIO / 云对象存储、备份和生命周期策略
+
+## 可选对象存储
+
+默认使用本地文件存储，可通过 `FILE_STORAGE_ROOT` 指定路径。若需要接入 MinIO 或 S3-compatible 对象存储，可配置：
+
+```text
+FILE_STORAGE_BACKEND=s3
+S3_BUCKET=your-bucket
+S3_ENDPOINT_URL=http://minio:9000
+S3_ACCESS_KEY_ID=your-access-key
+S3_SECRET_ACCESS_KEY=your-secret-key
+S3_REGION=us-east-1
+S3_PREFIX=pir-system
+S3_CACHE_ROOT=/app/backend/storage-cache
+```
+
+上传后仍返回 `/api/files/{file_id}`，下载 / 预览 / 删除接口不变。文档解析和预览会在后端本地缓存对象文件，缓存目录由 `S3_CACHE_ROOT` 控制。
 
 ## 可选 Embedding Provider
 
