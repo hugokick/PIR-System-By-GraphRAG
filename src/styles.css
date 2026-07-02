@@ -343,6 +343,40 @@ textarea:focus {
   background: #0f8b78;
 }
 
+.system-status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.system-status-grid div {
+  min-width: 0;
+  border: 1px solid #e1e9e5;
+  border-radius: 6px;
+  background: #f8fbf9;
+  padding: 8px 9px;
+}
+
+.system-status-grid span,
+.system-status-grid strong,
+.system-status-grid small {
+  display: block;
+}
+
+.system-status-grid span,
+.system-status-grid small {
+  color: #60736d;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.system-status-grid strong {
+  overflow-wrap: anywhere;
+  color: #203b39;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
 .audit-list {
   display: grid;
   gap: 9px;

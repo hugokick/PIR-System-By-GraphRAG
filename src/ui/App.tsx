@@ -31,6 +31,7 @@ import {
   fetchExhibitGraph,
   fetchExhibitRelationRecommendations,
   fetchExhibits,
+  fetchSystemStatus,
   hybridSearchExhibits,
   importTemplateUrl,
   importExhibits,
@@ -64,6 +65,7 @@ import type {
   SuggestedFieldSource,
   ReviewStatus,
   SearchResults,
+  SystemStatus,
   UserSession
 } from '../types';
 import { AssetPreviewModal, type PreviewAsset } from './AssetPreviewModal';
@@ -141,6 +143,13 @@ const auditActionLabels: Record<string, string> = {
   import_batch: '批量导入'
 };
 const auditActionOptions = Object.entries(auditActionLabels);
+const systemStatusLabels: Record<string, string> = {
+  postgres: 'PostgreSQL',
+  memory: '内存演示库',
+  local: '本地文件',
+  s3: '对象存储',
+  ok: '正常'
+};
 const importErrorFieldLabels: Record<string, string> = {
   id: '展项编号',
   name: '展项名称',
@@ -188,6 +197,17 @@ function importErrorMessage(message: string) {
 
 function auditActionLabel(action: string) {
   return auditActionLabels[action] ?? action;
+}
+
+function systemStatusLabel(value: string) {
+  return systemStatusLabels[value] ?? value;
+}
+
+function formatTokenTtl(seconds: number) {
+  if (seconds < 60) return `${seconds} 秒`;
+  const hours = seconds / 3600;
+  if (Number.isInteger(hours)) return `${hours} 小时`;
+  return `${Math.round(seconds / 60)} 分钟`;
 }
 
 function formatAuditTime(value?: string) {
@@ -440,6 +460,9 @@ export function App() {
   const [isAuditExporting, setIsAuditExporting] = useState(false);
   const [auditActionFilter, setAuditActionFilter] = useState('');
   const [auditResourceIdFilter, setAuditResourceIdFilter] = useState('');
+  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
+  const [systemStatusError, setSystemStatusError] = useState<string | null>(null);
+  const [isSystemStatusLoading, setIsSystemStatusLoading] = useState(false);
   const [dashboardSummary, setDashboardSummary] = useState<DashboardStats | null>(null);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [isDashboardLoading, setIsDashboardLoading] = useState(false);
@@ -743,8 +766,35 @@ export function App() {
       });
   };
 
+  const refreshSystemStatus = async () => {
+    if (role !== 'admin') {
+      setSystemStatus(null);
+      setSystemStatusError(null);
+      setIsSystemStatusLoading(false);
+      return;
+    }
+
+    setIsSystemStatusLoading(true);
+    await fetchSystemStatus()
+      .then((status) => {
+        setSystemStatus(status);
+        setSystemStatusError(null);
+      })
+      .catch(() => {
+        setSystemStatus(null);
+        setSystemStatusError('系统状态暂不可用');
+      })
+      .finally(() => {
+        setIsSystemStatusLoading(false);
+      });
+  };
+
   useEffect(() => {
     void refreshAuditLogs();
+  }, [role]);
+
+  useEffect(() => {
+    void refreshSystemStatus();
   }, [role]);
 
   useEffect(() => {
@@ -1364,6 +1414,30 @@ export function App() {
             ))}
           </div>
         </section>
+
+        {role === 'admin' && (
+          <section className="panel system-status-panel">
+            <div className="panel-title">
+              <Database size={18} />
+              <span>系统状态</span>
+              <button
+                type="button"
+                className="panel-refresh-action"
+                onClick={() => void refreshSystemStatus()}
+                disabled={isSystemStatusLoading}
+                aria-label="刷新系统状态"
+              >
+                <RotateCcw size={13} />
+                {isSystemStatusLoading ? '刷新中' : '刷新'}
+              </button>
+            </div>
+            {systemStatusError && <p className="audit-error">{systemStatusError}</p>}
+            {!systemStatusError && isSystemStatusLoading && !systemStatus && (
+              <p className="audit-empty">正在检查运行环境...</p>
+            )}
+            {!systemStatusError && systemStatus && <SystemStatusCard status={systemStatus} />}
+          </section>
+        )}
 
         {role === 'admin' && (
           <section className="panel audit-panel">
@@ -2118,6 +2192,49 @@ function Metric({ label, value }: { label: string; value: string | number }) {
     <div>
       <strong>{value}</strong>
       <span>{label}</span>
+    </div>
+  );
+}
+
+function SystemStatusCard({ status }: { status: SystemStatus }) {
+  const authLabel = status.auth.roleHeaderAuthEnabled ? '演示角色头可用' : '仅登录令牌';
+  const neo4jLabel = status.neo4jDemo.enabled
+    ? status.neo4jDemo.configured
+      ? '已配置'
+      : '回退演示数据'
+    : '未启用';
+
+  return (
+    <div className="system-status-grid" aria-label="系统状态详情">
+      <div>
+        <span>服务</span>
+        <strong>{systemStatusLabel(status.status)}</strong>
+      </div>
+      <div>
+        <span>仓储</span>
+        <strong>{systemStatusLabel(status.repository.kind)}</strong>
+        <small>{status.repository.databaseUrlConfigured ? '已配置数据库' : '未配置数据库'}</small>
+      </div>
+      <div>
+        <span>文件存储</span>
+        <strong>{systemStatusLabel(status.storage.backend)}</strong>
+        <small>{status.storage.configuredBackend}</small>
+      </div>
+      <div>
+        <span>认证</span>
+        <strong>{authLabel}</strong>
+        <small>令牌 {formatTokenTtl(status.auth.tokenTtlSeconds)}</small>
+      </div>
+      <div>
+        <span>Neo4j 演示</span>
+        <strong>{neo4jLabel}</strong>
+        <small>{status.neo4jDemo.uriConfigured ? 'URI 已配置' : '使用内置回退'}</small>
+      </div>
+      <div>
+        <span>数据量</span>
+        <strong>{status.counts.exhibits} 展项</strong>
+        <small>{status.counts.auditLogs} 条日志</small>
+      </div>
     </div>
   );
 }

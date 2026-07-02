@@ -11,6 +11,7 @@ import type {
   RelationRecommendationResult,
   ReviewStatus,
   SearchResults,
+  SystemStatus,
   UserSession
 } from '../types';
 
@@ -251,6 +252,34 @@ type ApiDashboardSummaryResponse = {
   budget_bands: ApiDashboardMetric[];
   themes: ApiDashboardMetric[];
   review_statuses: ApiDashboardMetric[];
+};
+
+type ApiSystemStatusResponse = {
+  status: string;
+  service: string;
+  repository: {
+    kind: string;
+    database_url_configured: boolean;
+  };
+  storage: {
+    backend: string;
+    configured_backend: string;
+    s3_bucket_configured: boolean;
+  };
+  auth: {
+    role_header_auth_enabled: boolean;
+    token_ttl_seconds: number;
+  };
+  neo4j_demo: {
+    enabled: boolean;
+    configured: boolean;
+    uri_configured: boolean;
+    credentials_configured: boolean;
+  };
+  counts: {
+    exhibits: number;
+    audit_logs: number;
+  };
 };
 
 export type ExhibitImportResult = {
@@ -585,6 +614,36 @@ function mapApiDashboardSummary(payload: ApiDashboardSummaryResponse): Dashboard
   };
 }
 
+function mapApiSystemStatus(payload: ApiSystemStatusResponse): SystemStatus {
+  return {
+    status: payload.status,
+    service: payload.service,
+    repository: {
+      kind: payload.repository.kind,
+      databaseUrlConfigured: payload.repository.database_url_configured
+    },
+    storage: {
+      backend: payload.storage.backend,
+      configuredBackend: payload.storage.configured_backend,
+      s3BucketConfigured: payload.storage.s3_bucket_configured
+    },
+    auth: {
+      roleHeaderAuthEnabled: payload.auth.role_header_auth_enabled,
+      tokenTtlSeconds: payload.auth.token_ttl_seconds
+    },
+    neo4jDemo: {
+      enabled: payload.neo4j_demo.enabled,
+      configured: payload.neo4j_demo.configured,
+      uriConfigured: payload.neo4j_demo.uri_configured,
+      credentialsConfigured: payload.neo4j_demo.credentials_configured
+    },
+    counts: {
+      exhibits: payload.counts.exhibits,
+      auditLogs: payload.counts.audit_logs
+    }
+  };
+}
+
 function authHeaders(): Record<string, string> {
   if (activeSession) {
     return {
@@ -794,6 +853,16 @@ export async function exportAuditLogsCsv(limit = 500, filters: AuditLogFilters =
     throw new Error(`API request failed: ${response.status} ${response.statusText}`);
   }
   return response.blob();
+}
+
+export async function fetchSystemStatus(): Promise<SystemStatus> {
+  const response = await fetch(`${apiBaseUrl}/api/admin/system-status`, {
+    headers: authHeaders()
+  });
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+  }
+  return mapApiSystemStatus((await response.json()) as ApiSystemStatusResponse);
 }
 
 export async function fetchExhibitGraph(exhibitId: string) {

@@ -1140,6 +1140,60 @@ describe('App exhibit management', () => {
     );
   });
 
+  it('shows compact runtime system status to admins', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.endsWith('/api/admin/system-status')) {
+        return okJson({
+          status: 'ok',
+          service: 'exhibit-atlas-api',
+          repository: {
+            kind: 'postgres',
+            database_url_configured: true
+          },
+          storage: {
+            backend: 'local',
+            configured_backend: 'local',
+            s3_bucket_configured: false
+          },
+          auth: {
+            role_header_auth_enabled: false,
+            token_ttl_seconds: 28800
+          },
+          neo4j_demo: {
+            enabled: true,
+            configured: true,
+            uri_configured: true,
+            credentials_configured: true
+          },
+          counts: {
+            exhibits: 16,
+            audit_logs: 12
+          }
+        });
+      }
+      if (url.endsWith('/api/admin/audit-logs?limit=8')) {
+        return okJson({ total: 0, items: [] });
+      }
+      return okJson({ total: 1, items: [apiExhibit()] });
+    });
+
+    render(<App />);
+
+    const systemPanel = (await screen.findByText('系统状态')).closest('section') as HTMLElement;
+    expect(systemPanel).toBeTruthy();
+    expect(within(systemPanel).getByText('PostgreSQL')).toBeTruthy();
+    expect(within(systemPanel).getByText('本地文件')).toBeTruthy();
+    expect(within(systemPanel).getByText('仅登录令牌')).toBeTruthy();
+    expect(within(systemPanel).getByText('令牌 8 小时')).toBeTruthy();
+    expect(within(systemPanel).getByText('16 展项')).toBeTruthy();
+    expect(within(systemPanel).getByText('12 条日志')).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/admin/system-status',
+      expect.objectContaining({ headers: { 'X-User-Role': 'admin' } })
+    );
+  });
+
   it('lets admins manually refresh audit log entries', async () => {
     let auditCalls = 0;
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
@@ -1350,8 +1404,12 @@ describe('App exhibit management', () => {
     expect(await screen.findByText(/只读访客/)).toBeTruthy();
 
     expect(screen.queryByText('操作日志')).toBeNull();
+    expect(screen.queryByText('系统状态')).toBeNull();
     expect(
       fetchMock.mock.calls.some(([input]) => String(input).includes('/api/admin/audit-logs'))
+    ).toBe(false);
+    expect(
+      fetchMock.mock.calls.some(([input]) => String(input).includes('/api/admin/system-status'))
     ).toBe(false);
   });
 

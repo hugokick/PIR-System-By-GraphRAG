@@ -9,6 +9,7 @@ import {
   fetchAuditLogs,
   fetchDashboardSummary,
   fetchDemoGraph,
+  fetchSystemStatus,
   hybridSearchExhibits,
   importExhibits,
   login,
@@ -606,6 +607,74 @@ describe('exportAuditLogsCsv', () => {
       }
     );
     expect(result).toBe(blob);
+  });
+});
+
+describe('fetchSystemStatus', () => {
+  it('loads admin runtime status with the active role header', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        status: 'ok',
+        service: 'exhibit-atlas-api',
+        repository: {
+          kind: 'postgres',
+          database_url_configured: true
+        },
+        storage: {
+          backend: 'local',
+          configured_backend: 'local',
+          s3_bucket_configured: false
+        },
+        auth: {
+          role_header_auth_enabled: false,
+          token_ttl_seconds: 28800
+        },
+        neo4j_demo: {
+          enabled: true,
+          configured: true,
+          uri_configured: true,
+          credentials_configured: true
+        },
+        counts: {
+          exhibits: 16,
+          audit_logs: 12
+        }
+      })
+    } as Response);
+
+    const result = await fetchSystemStatus();
+
+    expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8000/api/admin/system-status', {
+      headers: { 'X-User-Role': 'admin' }
+    });
+    expect(result).toEqual({
+      status: 'ok',
+      service: 'exhibit-atlas-api',
+      repository: {
+        kind: 'postgres',
+        databaseUrlConfigured: true
+      },
+      storage: {
+        backend: 'local',
+        configuredBackend: 'local',
+        s3BucketConfigured: false
+      },
+      auth: {
+        roleHeaderAuthEnabled: false,
+        tokenTtlSeconds: 28800
+      },
+      neo4jDemo: {
+        enabled: true,
+        configured: true,
+        uriConfigured: true,
+        credentialsConfigured: true
+      },
+      counts: {
+        exhibits: 16,
+        auditLogs: 12
+      }
+    });
   });
 });
 

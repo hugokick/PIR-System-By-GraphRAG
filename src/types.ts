@@ -75,6 +75,34 @@ export type DashboardStats = {
   reviewStatuses: Array<[string, number]>;
 };
 
+export type SystemStatus = {
+  status: string;
+  service: string;
+  repository: {
+    kind: string;
+    databaseUrlConfigured: boolean;
+  };
+  storage: {
+    backend: string;
+    configuredBackend: string;
+    s3BucketConfigured: boolean;
+  };
+  auth: {
+    roleHeaderAuthEnabled: boolean;
+    tokenTtlSeconds: number;
+  };
+  neo4jDemo: {
+    enabled: boolean;
+    configured: boolean;
+    uriConfigured: boolean;
+    credentialsConfigured: boolean;
+  };
+  counts: {
+    exhibits: number;
+    auditLogs: number;
+  };
+};
+
 export type SearchResult = {
   item: Exhibit;
   score: number;
