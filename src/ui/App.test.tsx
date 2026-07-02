@@ -417,7 +417,7 @@ describe('App exhibit management', () => {
 
     expect((mediaDelete as HTMLButtonElement).disabled).toBe(true);
     expect((documentDelete as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getAllByText('已审核/已落地档案资料受保护，请先退回审核或变更状态后再删除')).toHaveLength(2);
+    expect(screen.getAllByText('已审核/已落地档案资料受保护，请先退回审核或变更状态后再删除')).toHaveLength(1);
     fireEvent.click(mediaDelete);
     fireEvent.click(documentDelete);
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(false);
@@ -1605,7 +1605,7 @@ describe('App exhibit management', () => {
 
     render(<App />);
 
-    expect(await screen.findByRole('link', { name: '报价清单.pdf' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: '预览资料 报价清单.pdf' })).toBeTruthy();
     expect(screen.getByText('报价资料')).toBeTruthy();
   });
 
@@ -1665,7 +1665,7 @@ describe('App exhibit management', () => {
 
     render(<App />);
 
-    fireEvent.click(await screen.findByRole('link', { name: '点击预览说明.pdf' }));
+    fireEvent.click(await screen.findByRole('button', { name: '点击预览说明.pdf' }));
 
     expect(screen.getByRole('dialog', { name: '点击预览说明.pdf' })).toBeTruthy();
     expect(screen.getByTitle('点击预览说明.pdf 预览')).toBeTruthy();
@@ -1700,7 +1700,7 @@ describe('App exhibit management', () => {
     expect(await screen.findByRole('link', { name: 'indexed-plan.docx' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'legacy-plan.doc' })).toBeTruthy();
     expect(screen.getByText('已生成 1 个引用片段')).toBeTruthy();
-    expect(screen.getByText('未生成引用片段，仅可下载/预览')).toBeTruthy();
+    expect(screen.getByText('未生成引用片段')).toBeTruthy();
   });
 
   it('renders read-only document extraction suggestions for uploaded documents', async () => {
@@ -1854,11 +1854,11 @@ describe('App exhibit management', () => {
 
     render(<App />);
 
-    const link = await screen.findByRole('link', { name: 'quote.pdf' });
+    fireEvent.click(await screen.findByRole('button', { name: '预览资料 quote.pdf' }));
+    const link = screen.getByRole('link', { name: '下载原文件' });
 
     expect(link.getAttribute('href')).toBe('http://127.0.0.1:8000/api/files/quote-download-doc?download=1');
     expect(link.getAttribute('download')).toBe('quote.pdf');
-    fireEvent.click(screen.getByRole('button', { name: '预览资料 quote.pdf' }));
     const preview = screen.getByTitle('quote.pdf 预览') as HTMLIFrameElement;
     expect(preview.getAttribute('src')).toBe('http://127.0.0.1:8000/api/files/quote-download-doc');
   });
@@ -2023,6 +2023,35 @@ describe('App exhibit management', () => {
     expect(video.controls).toBe(true);
   });
 
+  it('renders PDF documents inside the compact media archive grid and opens previews from thumbnails', async () => {
+    const withDocument = apiExhibit({
+      ...frontendExhibit,
+      documents: [
+        {
+          id: 'quote-pdf',
+          name: '报价说明.pdf',
+          fileType: 'pdf',
+          url: 'http://assets.test/quote.pdf',
+          sourceNote: '报价文件',
+          chunks: [{ id: 'quote-1', text: '预算 20-30 万', sequence: 1 }]
+        }
+      ]
+    });
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okJson({ total: 1, items: [withDocument] }));
+
+    render(<App />);
+
+    const mediaArchive = await screen.findByLabelText('媒体档案');
+    expect(within(mediaArchive).getByRole('button', { name: '预览资料 报价说明.pdf' })).toBeTruthy();
+    expect(within(mediaArchive).getByText('已生成 1 个引用片段')).toBeTruthy();
+    expect(screen.queryByText('资料文档')).toBeNull();
+
+    fireEvent.click(within(mediaArchive).getByRole('button', { name: '预览资料 报价说明.pdf' }));
+
+    const dialog = screen.getByRole('dialog', { name: '报价说明.pdf' });
+    expect(within(dialog).getByTitle('报价说明.pdf 预览')).toBeTruthy();
+  });
+
   it('uploads PDF files as document assets and renders the returned document link', async () => {
     const updated = {
       ...apiExhibit(),
@@ -2055,7 +2084,7 @@ describe('App exhibit management', () => {
     const file = new File(['fake pdf bytes'], 'quote.pdf', { type: 'application/pdf' });
     fireEvent.change(input, { target: { files: [file] } });
 
-    expect(await screen.findByRole('link', { name: 'quote.pdf' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: '预览资料 quote.pdf' })).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledWith(
       'http://127.0.0.1:8000/api/exhibits/magnet-maze/assets',
       expect.objectContaining({ method: 'POST' })

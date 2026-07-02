@@ -266,10 +266,6 @@ function assetKindForFile(file: File): 'media' | 'document' {
   return documentExtensions.has(fileExtension(file.name)) ? 'document' : 'media';
 }
 
-function isPdfDocument(document: DocumentAsset) {
-  return document.fileType.toLowerCase() === 'pdf';
-}
-
 function downloadUrl(url: string) {
   if (!url.includes('/api/files/')) return url;
   const nextUrl = new URL(url, globalThis.location?.origin ?? 'http://localhost');
@@ -1842,7 +1838,7 @@ export function App() {
                 />
               )}
 
-              {selected.media.length > 0 && (
+              {(selected.media.length > 0 || selected.documents.length > 0) && (
                 <section className="media-gallery" aria-label="媒体档案">
                   <div className="panel-title">
                     <ImageIcon size={18} />
@@ -1851,88 +1847,20 @@ export function App() {
                   {isDeleteProtected && <span className="asset-protection-note">已审核/已落地档案资料受保护，请先退回审核或变更状态后再删除</span>}
                   <MediaThumbGrid
                     assets={selected.media}
+                    documents={selected.documents}
                     canDelete={canDelete}
+                    canWrite={canWrite}
                     deletingAssetId={deletingAssetId}
                     isDeleteProtected={isDeleteProtected}
                     onPreview={(asset) => setPreviewAsset({ ...asset, kind: 'media' })}
+                    onPreviewDocument={(document) => setPreviewAsset({ ...document, kind: 'document' })}
                     onRemove={removeAsset}
+                    onRequestDocumentExtraction={requestDocumentExtractionSuggestion}
                     downloadUrl={downloadUrl}
                     imageFallback={imageFallback}
-                  />
-                </section>
-              )}
-
-              {selected.documents.length > 0 && (
-                <div className="document-list document-thumb-list">
-                  <div className="panel-title">
-                    <FileText size={18} />
-                    <span>资料文档</span>
-                  </div>
-                  {isDeleteProtected && <span className="asset-protection-note">已审核/已落地档案资料受保护，请先退回审核或变更状态后再删除</span>}
-                  <div className="document-items document-thumb-grid">
-                    {selected.documents.map((document) => (
-                      <div className="document-item document-thumb-card" key={document.id}>
-                        <div className="document-heading">
-                          <a
-                            href={downloadUrl(document.url)}
-                            download={document.name}
-                            onClick={(event) => {
-                              if (!isPdfDocument(document)) return;
-                              event.preventDefault();
-                              setPreviewAsset({ ...document, kind: 'document' });
-                            }}
-                          >
-                            <FileText size={16} />
-                            <span>{document.name}</span>
-                          </a>
-                          {isPdfDocument(document) && (
-                            <button
-                              type="button"
-                              className="document-preview-action"
-                              onClick={() => setPreviewAsset({ ...document, kind: 'document' })}
-                              aria-label={`预览资料 ${document.name}`}
-                            >
-                              <FileText size={14} />
-                              预览
-                            </button>
-                          )}
-                          {canDelete && (
-                            <button
-                              type="button"
-                              className="asset-delete-action"
-                              onClick={() => removeAsset(document.id)}
-                              disabled={deletingAssetId === document.id || isDeleteProtected}
-                              aria-label={`删除资料 ${document.name}`}
-                            >
-                              <Trash2 size={14} />
-                              删除
-                            </button>
-                          )}
-                          {canWrite && (
-                            <button
-                              type="button"
-                              className="document-suggestion-action"
-                              onClick={() => requestDocumentExtractionSuggestion(document)}
-                              disabled={loadingDocumentExtractionId !== null}
-                              aria-label={`抽取字段建议 ${document.name}`}
-                            >
-                              <Sparkles size={14} />
-                              {loadingDocumentExtractionId === document.id ? '分析中' : '字段建议'}
-                            </button>
-                          )}
-                          {document.sourceNote && <small>{document.sourceNote}</small>}
-                          <small
-                            className={
-                              document.chunks && document.chunks.length > 0
-                                ? 'document-rag-status indexed'
-                                : 'document-rag-status empty'
-                            }
-                          >
-                            {document.chunks && document.chunks.length > 0
-                              ? `已生成 ${document.chunks.length} 个引用片段`
-                              : '未生成引用片段，仅可下载/预览'}
-                          </small>
-                        </div>
+                    loadingDocumentExtractionId={loadingDocumentExtractionId}
+                    renderDocumentDetails={(document) => (
+                      <>
                         {document.chunks && document.chunks.length > 0 && (
                           <div className="document-chunks">
                             <strong>引用片段</strong>
@@ -1991,10 +1919,10 @@ export function App() {
                             )}
                           </div>
                         )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                      </>
+                    )}
+                  />
+                </section>
               )}
 
             </section>
