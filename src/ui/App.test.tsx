@@ -1566,7 +1566,8 @@ describe('App exhibit management', () => {
     const citationButton = screen.getByRole('button', { name: '引用来源 [1] 磁力迷宫' });
     const citationCard = citationButton.closest('.graphrag-citation-card') as HTMLElement;
     expect(within(citationCard).getByText('[1]')).toBeTruthy();
-    expect(within(citationCard).getByText('source_type: exhibit')).toBeTruthy();
+    expect(within(citationCard).getByText('来源类型：展项档案')).toBeTruthy();
+    expect(within(citationCard).queryByText('source_type: exhibit')).toBeNull();
     expect(within(citationCard).getByText('对应展项：磁力迷宫')).toBeTruthy();
     expect(screen.getByText(/matched identity/)).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledWith(

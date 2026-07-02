@@ -12,6 +12,16 @@ type CitationOwner = {
   document: DocumentAsset | null;
 };
 
+const citationSourceTypeLabels: Record<string, string> = {
+  document: '资料文档',
+  exhibit: '展项档案',
+  media_asset: '媒体资产'
+};
+
+function citationSourceTypeLabel(sourceType: string) {
+  return citationSourceTypeLabels[sourceType] ?? sourceType;
+}
+
 function sameCitation(left: GraphRagCitation, right: GraphRagCitation) {
   return left.sourceType === right.sourceType && left.sourceId === right.sourceId;
 }
@@ -60,7 +70,7 @@ export function CitationList({
               onClick={() => onSelectCitation(citation)}
             >
               <em>[{index + 1}]</em>
-              <small>source_type: {citation.sourceType}</small>
+              <small>来源类型：{citationSourceTypeLabel(citation.sourceType)}</small>
               <strong>{citation.title}</strong>
               {owner && <b>对应展项：{owner.hit.exhibit.name}</b>}
               <span>{citation.snippet}</span>

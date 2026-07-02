@@ -75,11 +75,38 @@ describe('CitationList', () => {
 
     const card = screen.getByText('热学方案.pdf').closest('.graphrag-citation-card') as HTMLElement;
     expect(card).toBeTruthy();
-    expect(within(card).getByText('source_type: document')).toBeTruthy();
+    expect(within(card).getByText('来源类型：资料文档')).toBeTruthy();
+    expect(within(card).queryByText('source_type: document')).toBeNull();
     expect(within(card).getByText('热学互动方案依据')).toBeTruthy();
     expect(within(card).getByText('对应展项：热学互动台')).toBeTruthy();
     expect(within(card).getByRole('link', { name: '打开资料' }).getAttribute('href')).toBe('http://assets.test/thermal-plan.pdf');
     expect(within(card).getByRole('link', { name: '下载资料' }).getAttribute('href')).toBe('http://assets.test/thermal-plan.pdf?download=1');
+  });
+
+  it('renders exhibit citations with a business-facing source type label', () => {
+    const exhibitCitation: GraphRagCitation = {
+      sourceId: exhibit.id,
+      sourceType: 'exhibit',
+      title: exhibit.name,
+      snippet: exhibit.description
+    };
+
+    render(
+      <CitationList
+        answer={{
+          ...answerWithCitation(),
+          citations: [exhibitCitation],
+          items: [{ ...answerWithCitation().items[0], citations: [exhibitCitation] }]
+        }}
+        citations={[exhibitCitation]}
+        onSelectCitation={() => undefined}
+        downloadUrl={(url) => `${url}?download=1`}
+      />
+    );
+
+    const card = screen.getByText('热学互动台').closest('.graphrag-citation-card') as HTMLElement;
+    expect(within(card).getByText('来源类型：展项档案')).toBeTruthy();
+    expect(within(card).queryByText('source_type: exhibit')).toBeNull();
   });
 
   it('selects the citation from its card', () => {
